@@ -1,0 +1,37 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/algovault}
+    username: ${SPRING_DATASOURCE_USERNAME:algovault}
+    password: ${SPRING_DATASOURCE_PASSWORD:algovault_dev}
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: 6379
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: ${GITHUB_CLIENT_ID:dummy}
+            client-secret: ${GITHUB_CLIENT_SECRET:dummy}
+
+jwt:
+  secret: ${JWT_SECRET:algovault_super_secret_key_that_needs_to_be_long_enough_for_hmac_sha256}
+  expiration: 86400000
+
+cors:
+  allowed-origins: chrome-extension://*
+
+logging:
+  level:
+    root: INFO
+    com.algovault: DEBUG

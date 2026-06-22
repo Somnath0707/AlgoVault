@@ -1,0 +1,36 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: algovault
+      POSTGRES_USER: algovault
+      POSTGRES_PASSWORD: algovault_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/algovault
+      SPRING_DATASOURCE_USERNAME: algovault
+      SPRING_DATASOURCE_PASSWORD: algovault_dev
+      SPRING_REDIS_HOST: redis
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-dummy}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-dummy}
+      JWT_SECRET: ${JWT_SECRET:-algovault_super_secret_key_that_needs_to_be_long_enough_for_hmac_sha256}
+    depends_on:
+      - postgres
+      - redis
+
+volumes:
+  pgdata:
