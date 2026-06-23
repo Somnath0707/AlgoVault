@@ -47,6 +47,7 @@ public class HeatmapService {
         for (Map.Entry<Long, List<Submission>> entry : problemAttempts.entrySet()) {
             List<Submission> subs = entry.getValue();
             if (subs.isEmpty() || subs.get(0).getProblem().getActualRating() == null) continue;
+            subs.sort(Comparator.comparing(Submission::getSubmittedAt));
             
             int rating = (int) Math.round(subs.get(0).getProblem().getActualRating());
             int bucketRating = (rating / 100) * 100;
@@ -65,6 +66,27 @@ public class HeatmapService {
             }
             if (isFirstTryAc) {
                 bucket.setFirstAcCount(bucket.getFirstAcCount() + 1);
+            }
+
+            int attemptsUntilAc = 0;
+            for (Submission sub : subs) {
+                attemptsUntilAc++;
+                if ("Accepted".equals(sub.getVerdict())) {
+                    break;
+                }
+            }
+            bucket.setAvgAttempts(bucket.getAvgAttempts() + attemptsUntilAc);
+
+            if (isEventualAc && subs.size() > 1) {
+                long minutes = java.time.Duration.between(subs.get(0).getSubmittedAt(), subs.get(attemptsUntilAc - 1).getSubmittedAt()).toMinutes();
+                bucket.setAvgSolveTime(bucket.getAvgSolveTime() + Math.max(0, minutes));
+            }
+        }
+
+        for (UserRatingBucket bucket : buckets.values()) {
+            if (bucket.getAttempted() != null && bucket.getAttempted() > 0) {
+                bucket.setAvgAttempts(bucket.getAvgAttempts() / bucket.getAttempted());
+                bucket.setAvgSolveTime(bucket.getAvgSolveTime() / bucket.getAttempted());
             }
         }
 

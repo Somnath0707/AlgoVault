@@ -5,14 +5,18 @@ import com.algovault.model.Submission;
 import com.algovault.model.TagMastery;
 import com.algovault.model.User;
 import com.algovault.dto.PredictionResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 
 @Component
+@RequiredArgsConstructor
 public class SolveProbabilityEngine {
 
+    private final SimilarityEngine similarityEngine;
+    
     public PredictionResponse predict(User user, Problem problem, List<Submission> submissions, List<TagMastery> masteries) {
         if (problem.getActualRating() == null) {
             return PredictionResponse.builder()
@@ -53,6 +57,7 @@ public class SolveProbabilityEngine {
         double ratingBucketHistory = 0.5;
         int bucketAcCount = 0;
         int bucketAttemptCount = 0;
+        int totalTimeMs = 0;
         
         for (Submission sub : submissions) {
             if (sub.getProblem() != null && sub.getProblem().getActualRating() != null) {
@@ -61,6 +66,9 @@ public class SolveProbabilityEngine {
                     bucketAttemptCount++;
                     if ("Accepted".equals(sub.getVerdict())) {
                         bucketAcCount++;
+                        if (sub.getRuntimeMs() != null) {
+                            totalTimeMs += sub.getRuntimeMs();
+                        }
                     }
                 }
             }
@@ -89,7 +97,18 @@ public class SolveProbabilityEngine {
         double contestPerformance = ratingBucketHistory; // simplify for now
 
         // 6. Similar Solved Ratio (Weight: 0.15)
-        double similarSolvedRatio = 0.5; // placeholder, would use SimilarityEngine
+        double similarSolvedRatio = 0.5;
+        List<Problem> allProblems = submissions.stream().map(Submission::getProblem).distinct().collect(java.util.stream.Collectors.toList());
+        List<Problem> similarProblems = similarityEngine.findSimilar(problem, allProblems, 20);
+        if (!similarProblems.isEmpty()) {
+            long similarSolved = submissions.stream()
+                .filter(s -> "Accepted".equals(s.getVerdict()))
+                .filter(s -> similarProblems.contains(s.getProblem()))
+                .map(s -> s.getProblem().getId())
+                .distinct()
+                .count();
+            similarSolvedRatio = (double) similarSolved / similarProblems.size();
+        }
 
         // Calculate final score
         double score = 0.25 * difficultyProximity +
@@ -100,7 +119,13 @@ public class SolveProbabilityEngine {
                        0.15 * similarSolvedRatio;
 
         int solveChance = (int) Math.round(score * 100);
-        int expectedTime = 20; // Default minutes, would calculate from bucket
+        int expectedTime = 20;
+        if (bucketAcCount > 0 && totalTimeMs > 0) {
+            // Rough heuristic: runtime isn't solve time, but let's assume solve time follows similar curve to runtime across buckets for now
+            // or just use 20 mins adjusted by difficulty proximity
+            expectedTime = (int) Math.max(5, 20 + ((problemRating - userCeiling) / 100.0) * 10);
+        }
+        
         String confidence = bucketAttemptCount >= 20 ? "HIGH" : (bucketAttemptCount >= 8 ? "MEDIUM" : "LOW");
 
         Map<String, Object> breakdown = new HashMap<>();

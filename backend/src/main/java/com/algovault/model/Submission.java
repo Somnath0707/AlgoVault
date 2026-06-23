@@ -23,6 +23,9 @@ public class Submission {
     @JoinColumn(name = "problem_id")
     private Problem problem;
 
+    @Column(name = "leetcode_submission_id")
+    private String leetcodeSubmissionId;
+
     @Column(nullable = false)
     private String verdict;
 
@@ -30,6 +33,18 @@ public class Submission {
 
     @Column(name = "runtime_ms")
     private Integer runtimeMs;
+
+    @Column(name = "memory_kb")
+    private Integer memoryKb;
+
+    @Column(name = "total_correct")
+    private Integer totalCorrect;
+
+    @Column(name = "total_testcases")
+    private Integer totalTestcases;
+
+    @Column(name = "source")
+    private String source;
 
     @Column(name = "submitted_at", nullable = false)
     private LocalDateTime submittedAt;

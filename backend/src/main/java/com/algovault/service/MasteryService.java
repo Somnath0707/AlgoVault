@@ -56,10 +56,12 @@ public class MasteryService {
             LocalDateTime lastSolvedAt = null;
 
             Map<Long, Boolean> firstAttemptResult = new HashMap<>();
+            Map<Long, Integer> attemptsByProblem = new HashMap<>();
 
             for (Submission sub : subs) {
                 Long probId = sub.getProblem().getId();
                 attemptedProblems.add(probId);
+                attemptsByProblem.put(probId, attemptsByProblem.getOrDefault(probId, 0) + 1);
                 
                 boolean isAc = "Accepted".equals(sub.getVerdict());
                 
@@ -80,18 +82,22 @@ public class MasteryService {
             int totalSolved = solvedProblems.size();
             double successRate = totalAttempted > 0 ? (double) totalSolved / totalAttempted : 0.0;
             
-            double volumeScore = Math.min(totalSolved / 50.0, 1.0);
-            double speedScore = 0.5;
+            double volumeScore = Math.min(Math.log1p(totalSolved) / Math.log1p(50), 1.0);
+            double avgAttempts = attemptsByProblem.values().stream()
+                .mapToInt(Integer::intValue)
+                .average()
+                .orElse(3.0);
+            double speedScore = Math.max(0.0, Math.min(1.0, 1.0 - ((avgAttempts - 1.0) / 6.0)));
             double recencyScore = 0.5;
             if (lastSolvedAt != null) {
                 long daysSince = java.time.Duration.between(lastSolvedAt, LocalDateTime.now()).toDays();
                 recencyScore = Math.max(0, 1.0 - (daysSince / 100.0));
             }
-            double contestScore = 0.5;
+            double firstAcRate = totalAttempted > 0 ? (double) firstAcCount / totalAttempted : 0.0;
 
             double masteryScore = (0.35 * successRate) + (0.20 * volumeScore) + 
                                  (0.15 * speedScore) + (0.15 * recencyScore) + 
-                                 (0.15 * contestScore);
+                                 (0.15 * firstAcRate);
 
             TagMastery tm = tagMasteryRepository.findByUserIdAndTag(userId, tag)
                 .orElse(TagMastery.builder().user(user).tag(tag).build());

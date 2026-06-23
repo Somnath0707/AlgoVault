@@ -1,6 +1,9 @@
 package com.algovault.controller;
 
+import com.algovault.model.User;
 import com.algovault.service.ExportService;
+import com.algovault.service.UserContextService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -15,11 +18,12 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ExportController {
     private final ExportService exportService;
+    private final UserContextService userContextService;
 
     @GetMapping("/json")
-    public ResponseEntity<Map<String, Object>> exportJson() {
-        Long userId = 1L; // Temporary mock extraction
-        Map<String, Object> data = exportService.exportAllUserData(userId);
+    public ResponseEntity<Map<String, Object>> exportJson(HttpServletRequest request) {
+        User user = userContextService.resolveUser(request);
+        Map<String, Object> data = exportService.exportAllUserData(user.getId());
         
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"algovault_export.json\"")

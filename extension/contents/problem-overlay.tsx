@@ -146,7 +146,10 @@ const injectAlgoVaultOverlay = () => {
       predLine.style.fontSize = '13px';
       predLine.style.color = 'var(--text-secondary)';
       
-      const { solveChance, expectedTimeMinutes, confidence } = predictionData;
+      const { solveChance, expectedTimeMinutes, confidence, breakdown = {} } = predictionData;
+      const similarSolved = breakdown.similarSolvedCount ?? breakdown.similarSolved ?? "n/a";
+      const tagStrength = breakdown.tagStrengthPercent ?? breakdown.tagStrength ?? "n/a";
+      const ratingSuccess = breakdown.ratingBucketSuccessPercent ?? breakdown.historicalSuccessRate ?? "n/a";
 
       predLine.innerHTML = `
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
@@ -156,9 +159,9 @@ const injectAlgoVaultOverlay = () => {
         </div>
         <div style="font-size:12px;opacity:0.8;display:flex;gap:12px;">
           <span>Based on:</span>
-          <span>42 similar solved</span>
-          <span>Trees 83%</span>
-          <span>1700-1900 success 68%</span>
+          <span>${similarSolved} similar solved</span>
+          <span>Tag strength ${tagStrength}${typeof tagStrength === "number" ? "%" : ""}</span>
+          <span>Rating success ${ratingSuccess}${typeof ratingSuccess === "number" ? "%" : ""}</span>
         </div>
       `;
 

@@ -84,6 +84,11 @@ const DEFAULT_SETTINGS: UserSettings = {
   hideAcceptanceRate: false,
   darkMode: true,
   dailyPotdEnabled: true,
+  enableSessionTracking: true,
+  enableFocusAnalytics: true,
+  enablePasteDetection: true,
+  reviewNotifications: true,
+  sessionMode: "PRACTICE",
 }
 
 export async function getUserSettings(): Promise<UserSettings> {

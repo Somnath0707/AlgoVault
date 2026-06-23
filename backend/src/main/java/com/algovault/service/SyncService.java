@@ -1,13 +1,14 @@
 package com.algovault.service;
+
 import com.algovault.dto.SyncLeetcodeRequest;
 import com.algovault.model.*;
 import com.algovault.repository.*;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -27,150 +28,37 @@ public class SyncService {
     private final SyncMetadataRepository syncMetadataRepository;
     private final AnalyticsService analyticsService;
     private final AnalyticsMetricRepository analyticsMetricRepository;
+    private final ZerotracService zerotracService;
+    private final RevisionCardRepository revisionCardRepository;
 
     @Transactional
     @CacheEvict(value = {"dashboard", "heatmap", "mastery", "predictions", "potd", "contests", "weakness"}, allEntries = true)
     public void syncLeetcode(Long userId, SyncLeetcodeRequest request) {
         log.info("Starting sync for user ID: {}", userId);
         LocalDateTime startTime = LocalDateTime.now();
-        
-        SyncLog syncLog = SyncLog.builder()
+
+        SyncLog syncLog = syncLogRepository.save(SyncLog.builder()
             .user(User.builder().id(userId).build())
             .startedAt(startTime)
             .status("RUNNING")
             .newProblems(0)
             .newSubmissions(0)
             .newContests(0)
-            .build();
-        syncLog = syncLogRepository.save(syncLog);
-        
+            .build());
+
         try {
             User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
-            
-            if (request.getProfile() != null) {
-                user.setLcUsername(request.getUsername());
-                user.setAvatarUrl(request.getProfile().getUserAvatar());
-            }
-            if (request.getContestRanking() != null && request.getContestRanking().getRating() != null) {
-                user.setLcRating(request.getContestRanking().getRating().intValue());
-                if (user.getVirtualRating() == null) {
-                    user.setVirtualRating(user.getLcRating());
-                }
-            }
-            userRepository.save(user);
+            updateUserProfile(user, request);
 
-            Map<String, Problem> problemCache = new HashMap<>();
-            
-            int newProblems = 0;
-            if (request.getSolvedProblems() != null) {
-                for (SyncLeetcodeRequest.ProblemInfo pInfo : request.getSolvedProblems()) {
-                    Problem problem = problemRepository.findByTitleSlug(pInfo.getTitleSlug()).orElse(null);
-                    if (problem == null) {
-                        problem = new Problem();
-                        problem.setFrontendId(pInfo.getFrontendQuestionId());
-                        problem.setTitle(pInfo.getTitle());
-                        problem.setTitleSlug(pInfo.getTitleSlug());
-                        problem.setDifficulty(pInfo.getDifficulty());
-                        if (pInfo.getTopicTags() != null) {
-                            problem.setTags(pInfo.getTopicTags().stream()
-                                    .map(SyncLeetcodeRequest.TagInfo::getName)
-                                    .collect(Collectors.toList()));
-                        }
-                        problem = problemRepository.save(problem);
-                        newProblems++;
-                    }
-                    problemCache.put(problem.getTitleSlug(), problem);
-                }
-            }
+            Map<String, Double> zerotracRatings = zerotracService.getRatingsBySlug();
+            ProblemUpsertResult problemUpsert = upsertSolvedProblems(request, zerotracRatings);
+            Map<String, Problem> problemCache = problemUpsert.problemCache();
+            int newProblems = problemUpsert.newProblems();
 
-            int newSubmissions = 0;
-            if (request.getSubmissions() != null) {
-                for (SyncLeetcodeRequest.SubmissionInfo sInfo : request.getSubmissions()) {
-                    long timestampSeconds = Long.parseLong(sInfo.getTimestamp());
-                    LocalDateTime submittedAt = LocalDateTime.ofInstant(Instant.ofEpochSecond(timestampSeconds), ZoneId.systemDefault());
-                    
-                    Problem problem = problemCache.get(sInfo.getTitleSlug());
-                    if (problem == null) {
-                        problem = problemRepository.findByTitleSlug(sInfo.getTitleSlug()).orElse(null);
-                        if (problem != null) {
-                            problemCache.put(sInfo.getTitleSlug(), problem);
-                        }
-                    }
-                    
-                    if (problem != null && sInfo.getStatusDisplay() != null && sInfo.getLang() != null) {
-                        // Check if submission already exists by some logic if needed, 
-                        // but since there's no unique constraint, we just insert.
-                        // However, to prevent duplicates, we could check if a submission for this problem at this timestamp exists.
-                        boolean exists = submissionRepository.existsByUserIdAndProblemIdAndSubmittedAt(user.getId(), problem.getId(), submittedAt);
-                        
-                        if (!exists) {
-                            Submission sub = Submission.builder()
-                                .user(user)
-                                .problem(problem)
-                                .verdict(sInfo.getStatusDisplay())
-                                .language(sInfo.getLang())
-                                .submittedAt(submittedAt)
-                                .build();
-                            
-                            submissionRepository.save(sub);
-                            newSubmissions++;
-                        }
-                    }
-                }
-            }
-
-            
-            // Resolve Analytics Metrics
-            List<AnalyticsMetric> unresolvedMetrics = analyticsMetricRepository.findByUserIdAndActualResultIsNull(userId);
-            for (AnalyticsMetric metric : unresolvedMetrics) {
-                // Check if we just synced an AC submission for this problem
-                boolean solvedNow = request.getSubmissions().stream()
-                    .anyMatch(s -> s.getTitleSlug().equals(metric.getProblem().getTitleSlug()) && "Accepted".equals(s.getStatusDisplay()));
-                
-                if (solvedNow) {
-                    metric.setActualResult(true);
-                    metric.setResolvedAt(LocalDateTime.now());
-                    analyticsMetricRepository.save(metric);
-                } else {
-                    // Check if they tried and failed
-                    boolean failedNow = request.getSubmissions().stream()
-                        .anyMatch(s -> s.getTitleSlug().equals(metric.getProblem().getTitleSlug()) && !"Accepted".equals(s.getStatusDisplay()));
-                    if (failedNow) {
-                        metric.setActualResult(false);
-                        metric.setResolvedAt(LocalDateTime.now());
-                        analyticsMetricRepository.save(metric);
-                    }
-                }
-            }
-
-            int newContests = 0;
-            if (request.getContestHistory() != null) {
-                for (SyncLeetcodeRequest.ContestHistoryInfo cInfo : request.getContestHistory()) {
-                    if (cInfo.getAttended() != null && cInfo.getAttended()) {
-                        String title = cInfo.getContest().getTitle();
-                        if (!contestResultRepository.existsByUserIdAndContestTitle(userId, title)) {
-                            LocalDateTime contestDate = LocalDateTime.ofInstant(Instant.ofEpochSecond(cInfo.getContest().getStartTime()), ZoneId.systemDefault());
-                            ContestResult result = ContestResult.builder()
-                                .user(user)
-                                .contestTitle(title)
-                                .contestDate(contestDate)
-                                .rank(cInfo.getRanking())
-                                .newRating(cInfo.getRating())
-                                .build();
-                            contestResultRepository.save(result);
-                            newContests++;
-                        }
-                    }
-                }
-            }
-
-            SyncMetadata metadata = syncMetadataRepository.findByUserId(userId).orElse(
-                SyncMetadata.builder().user(user).build()
-            );
-            metadata.setLastSyncTime(LocalDateTime.now());
-            if (request.getSolvedProblems() != null) metadata.setTotalProblems(request.getSolvedProblems().size());
-            if (request.getContestRanking() != null) metadata.setTotalContests(request.getContestRanking().getAttendedContestsCount());
-            syncMetadataRepository.save(metadata);
+            int newSubmissions = upsertSubmissions(user, request, problemCache);
+            resolvePredictionMetrics(userId, request);
+            int newContests = upsertContestHistory(user, request);
+            updateSyncMetadata(user, request);
 
             syncLog.setStatus("SUCCESS");
             syncLog.setNewProblems(newProblems);
@@ -179,9 +67,8 @@ public class SyncService {
             syncLog.setFinishedAt(LocalDateTime.now());
             syncLog.setDurationMs(java.time.Duration.between(startTime, syncLog.getFinishedAt()).toMillis());
             syncLogRepository.save(syncLog);
-            
-            analyticsService.recomputeAll(userId);
 
+            analyticsService.recomputeAll(userId);
         } catch (Exception e) {
             syncLog.setStatus("FAILED");
             syncLog.setErrorMessage(e.getMessage());
@@ -191,4 +78,205 @@ public class SyncService {
             throw e;
         }
     }
+
+    private void updateUserProfile(User user, SyncLeetcodeRequest request) {
+        if (request.getUsername() != null && !request.getUsername().isBlank()) {
+            user.setLcUsername(request.getUsername());
+            user.setUsername(request.getUsername());
+        }
+        if (request.getProfile() != null) {
+            user.setAvatarUrl(request.getProfile().getUserAvatar());
+        }
+        if (request.getContestRanking() != null && request.getContestRanking().getRating() != null) {
+            user.setLcRating(request.getContestRanking().getRating().intValue());
+            if (user.getVirtualRating() == null) {
+                user.setVirtualRating(user.getLcRating());
+            }
+        }
+        userRepository.save(user);
+    }
+
+    private ProblemUpsertResult upsertSolvedProblems(SyncLeetcodeRequest request, Map<String, Double> zerotracRatings) {
+        Map<String, Problem> problemCache = new HashMap<>();
+        int newProblems = 0;
+        for (SyncLeetcodeRequest.ProblemInfo pInfo : Optional.ofNullable(request.getSolvedProblems()).orElse(List.of())) {
+            if (pInfo.getTitleSlug() == null || pInfo.getTitle() == null) {
+                continue;
+            }
+
+            boolean isNew = false;
+            Problem problem = problemRepository.findByTitleSlug(pInfo.getTitleSlug()).orElse(null);
+            if (problem == null) {
+                problem = new Problem();
+                problem.setTitleSlug(pInfo.getTitleSlug());
+                isNew = true;
+            }
+
+            problem.setFrontendId(pInfo.getFrontendQuestionId());
+            problem.setTitle(pInfo.getTitle());
+            problem.setDifficulty(pInfo.getDifficulty());
+            if (pInfo.getTopicTags() != null) {
+                problem.setTags(pInfo.getTopicTags().stream()
+                    .map(SyncLeetcodeRequest.TagInfo::getName)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList()));
+            }
+            Double rating = zerotracRatings.get(problem.getTitleSlug());
+            if (rating != null) {
+                problem.setActualRating(rating);
+            }
+
+            problem = problemRepository.save(problem);
+            if (isNew) {
+                log.debug("Created problem {}", problem.getTitleSlug());
+                newProblems++;
+            }
+            problemCache.put(problem.getTitleSlug(), problem);
+        }
+        return new ProblemUpsertResult(problemCache, newProblems);
+    }
+
+    private int upsertSubmissions(User user, SyncLeetcodeRequest request, Map<String, Problem> problemCache) {
+        int newSubmissions = 0;
+        for (SyncLeetcodeRequest.SubmissionInfo sInfo : Optional.ofNullable(request.getSubmissions()).orElse(List.of())) {
+            if (sInfo.getTitleSlug() == null || sInfo.getTimestamp() == null || sInfo.getStatusDisplay() == null || sInfo.getLang() == null) {
+                continue;
+            }
+
+            LocalDateTime submittedAt = LocalDateTime.ofInstant(
+                Instant.ofEpochSecond(Long.parseLong(sInfo.getTimestamp())),
+                ZoneId.systemDefault()
+            );
+
+            Problem problem = problemCache.computeIfAbsent(
+                sInfo.getTitleSlug(),
+                slug -> problemRepository.findByTitleSlug(slug).orElse(null)
+            );
+            if (problem == null) {
+                continue;
+            }
+
+            boolean exists = sInfo.getId() != null
+                && submissionRepository.findByUserIdAndLeetcodeSubmissionId(user.getId(), sInfo.getId()).isPresent();
+            if (!exists) {
+                exists = submissionRepository.existsByUserIdAndProblemIdAndSubmittedAt(user.getId(), problem.getId(), submittedAt);
+            }
+            if (exists) {
+                continue;
+            }
+
+            Submission sub = Submission.builder()
+                .user(user)
+                .problem(problem)
+                .leetcodeSubmissionId(sInfo.getId())
+                .verdict(sInfo.getStatusDisplay())
+                .language(sInfo.getLang())
+                .runtimeMs(parseRuntimeMs(sInfo.getRuntime()))
+                .memoryKb(parseMemoryKb(sInfo.getMemory()))
+                .source("HISTORY_SYNC")
+                .submittedAt(submittedAt)
+                .build();
+            submissionRepository.save(sub);
+
+            if ("Accepted".equals(sInfo.getStatusDisplay())) {
+                ensureRevisionCard(user, problem, submittedAt);
+            }
+            newSubmissions++;
+        }
+        return newSubmissions;
+    }
+
+    private void resolvePredictionMetrics(Long userId, SyncLeetcodeRequest request) {
+        List<SyncLeetcodeRequest.SubmissionInfo> submissions = Optional.ofNullable(request.getSubmissions()).orElse(List.of());
+        List<AnalyticsMetric> unresolvedMetrics = analyticsMetricRepository.findByUserIdAndActualResultIsNull(userId);
+        for (AnalyticsMetric metric : unresolvedMetrics) {
+            String slug = metric.getProblem().getTitleSlug();
+            boolean solvedNow = submissions.stream()
+                .anyMatch(s -> slug.equals(s.getTitleSlug()) && "Accepted".equals(s.getStatusDisplay()));
+            boolean failedNow = submissions.stream()
+                .anyMatch(s -> slug.equals(s.getTitleSlug()) && !"Accepted".equals(s.getStatusDisplay()));
+
+            if (solvedNow || failedNow) {
+                metric.setActualResult(solvedNow);
+                metric.setResolvedAt(LocalDateTime.now());
+                analyticsMetricRepository.save(metric);
+            }
+        }
+    }
+
+    private int upsertContestHistory(User user, SyncLeetcodeRequest request) {
+        int newContests = 0;
+        Double previousRating = null;
+        List<SyncLeetcodeRequest.ContestHistoryInfo> history = Optional.ofNullable(request.getContestHistory()).orElse(List.of());
+        history.sort(Comparator.comparing(c -> c.getContest() != null ? c.getContest().getStartTime() : 0L));
+
+        for (SyncLeetcodeRequest.ContestHistoryInfo cInfo : history) {
+            if (!Boolean.TRUE.equals(cInfo.getAttended()) || cInfo.getContest() == null || cInfo.getContest().getTitle() == null) {
+                continue;
+            }
+
+            String title = cInfo.getContest().getTitle();
+            if (contestResultRepository.existsByUserIdAndContestTitle(user.getId(), title)) {
+                previousRating = cInfo.getRating();
+                continue;
+            }
+
+            ContestResult result = ContestResult.builder()
+                .user(user)
+                .contestTitle(title)
+                .contestDate(LocalDateTime.ofInstant(Instant.ofEpochSecond(cInfo.getContest().getStartTime()), ZoneId.systemDefault()))
+                .rank(cInfo.getRanking())
+                .newRating(cInfo.getRating())
+                .ratingDelta(previousRating != null && cInfo.getRating() != null ? cInfo.getRating() - previousRating : null)
+                .build();
+
+            contestResultRepository.save(result);
+            previousRating = cInfo.getRating();
+            newContests++;
+        }
+        return newContests;
+    }
+
+    private void updateSyncMetadata(User user, SyncLeetcodeRequest request) {
+        SyncMetadata metadata = syncMetadataRepository.findByUserId(user.getId())
+            .orElse(SyncMetadata.builder().user(user).build());
+        metadata.setLastSyncTime(LocalDateTime.now());
+        metadata.setTotalProblems((int) submissionRepository.countSolvedProblems(user.getId()));
+        metadata.setTotalSubmissions((int) submissionRepository.countByUserId(user.getId()));
+        if (request.getContestRanking() != null) {
+            metadata.setTotalContests(request.getContestRanking().getAttendedContestsCount());
+        }
+        syncMetadataRepository.save(metadata);
+    }
+
+    private void ensureRevisionCard(User user, Problem problem, LocalDateTime solvedAt) {
+        revisionCardRepository.findByUserIdAndProblemId(user.getId(), problem.getId())
+            .orElseGet(() -> revisionCardRepository.save(RevisionCard.builder()
+                .user(user)
+                .problem(problem)
+                .confidence(3)
+                .intervalDays(1.0)
+                .easeFactor(2.5)
+                .nextReview(solvedAt.plusDays(1))
+                .reviewCount(0)
+                .build()));
+    }
+
+    private Integer parseRuntimeMs(String runtime) {
+        if (runtime == null) return null;
+        String digits = runtime.replaceAll("[^0-9]", "");
+        return digits.isEmpty() ? null : Integer.parseInt(digits);
+    }
+
+    private Integer parseMemoryKb(String memory) {
+        if (memory == null) return null;
+        String normalized = memory.trim().toUpperCase(Locale.ROOT);
+        String number = normalized.replaceAll("[^0-9.]", "");
+        if (number.isEmpty()) return null;
+        double value = Double.parseDouble(number);
+        if (normalized.contains("MB")) return (int) Math.round(value * 1024);
+        return (int) Math.round(value);
+    }
+
+    private record ProblemUpsertResult(Map<String, Problem> problemCache, int newProblems) {}
 }

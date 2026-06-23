@@ -1,5 +1,5 @@
 import "~style.css"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { TabBar, type Tab } from "./components/ui/TabBar"
 import { Dashboard } from "./components/sidepanel/Dashboard"
 import { Heatmap } from "./components/sidepanel/Heatmap"
@@ -8,9 +8,22 @@ import { Weakness } from "./components/sidepanel/Weakness"
 import { Contest } from "./components/sidepanel/Contest"
 import { Vault } from "./components/sidepanel/Vault"
 import { Settings } from "./components/sidepanel/Settings"
+import { getUsername, storage } from "./lib/storage"
 
 export default function SidePanel() {
   const [activeTab, setActiveTab] = useState<Tab>('Dashboard')
+  const [username, setUsername] = useState<string>("")
+  const [session, setSession] = useState<any>(null)
+
+  useEffect(() => {
+    getUsername().then((value) => setUsername(value || "Set username"))
+    const loadSession = () => {
+      storage.get("algovault.currentSession").then((value) => setSession(value || null))
+    }
+    loadSession()
+    const interval = window.setInterval(loadSession, 2000)
+    return () => window.clearInterval(interval)
+  }, [])
 
   return (
     <div className="min-h-screen bg-[#0f111a] text-gray-200 p-4 overflow-y-auto overflow-x-hidden font-sans">
@@ -21,8 +34,12 @@ export default function SidePanel() {
           </div>
           <div>
             <h1 className="text-xl font-bold leading-tight tracking-tight text-white">AlgoVault</h1>
-            <p className="text-xs text-gray-400">Som_07</p>
+            <p className="text-xs text-gray-400">@{username}</p>
           </div>
+        </div>
+        <div className="mr-2 flex flex-col items-end text-[11px] text-gray-400">
+          <span className="text-[#00d4aa]">{session?.mode || "PRACTICE"}</span>
+          <span>Focus {session?.focusScore ?? 100}</span>
         </div>
         <button 
           onClick={() => window.close()} 
