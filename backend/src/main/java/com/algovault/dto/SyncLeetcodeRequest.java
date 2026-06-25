@@ -57,6 +57,9 @@ public class SyncLeetcodeRequest {
         private Boolean attended;
         private Double rating;
         private Integer ranking;
+        private Integer problemsSolved;
+        private Integer totalProblems;
+        private Integer finishTimeInSeconds;
         private ContestInfo contest;
     }
 

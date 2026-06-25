@@ -24,6 +24,8 @@ public class SolveProbabilityService {
     private final ProblemRepository problemRepository;
     private final SubmissionRepository submissionRepository;
     private final TagMasteryRepository tagMasteryRepository;
+    private final com.algovault.repository.ContestResultRepository contestResultRepository;
+    private final com.algovault.repository.ProblemOpenEventRepository problemOpenEventRepository;
 
     @Cacheable(value = "predictions", key = "#userId + '-' + #titleSlug")
     public PredictionResponse predict(Long userId, String titleSlug) {
@@ -32,7 +34,9 @@ public class SolveProbabilityService {
         
         List<Submission> submissions = submissionRepository.findByUserIdOrderBySubmittedAtDesc(userId);
         List<TagMastery> masteries = tagMasteryRepository.findByUserIdOrderByMasteryScoreDesc(userId);
+        List<com.algovault.model.ContestResult> contestResults = contestResultRepository.findByUserIdOrderByContestDateDesc(userId);
+        List<com.algovault.model.ProblemOpenEvent> openEvents = problemOpenEventRepository.findByUserId(userId);
         
-        return engine.predict(user, problem, submissions, masteries);
+        return engine.predict(user, problem, submissions, masteries, contestResults, openEvents);
     }
 }

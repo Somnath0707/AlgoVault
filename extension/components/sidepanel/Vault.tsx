@@ -17,31 +17,31 @@ export const Vault = () => {
   }, [query]);
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-3.5">
       <div className="relative">
         <input 
             type="text" 
             placeholder="Search patterns, notes, mistakes..." 
-            className="w-full bg-black/20 border border-white/10 rounded-md py-2 px-3 text-sm text-white placeholder-av-text-secondary focus:outline-none focus:border-[#00d4aa] transition-colors"
+            className="w-full bg-zinc-900/30 border border-zinc-800/80 rounded-lg py-2 px-3 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/20 transition-all"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
         />
-        <div className="absolute right-3 top-2.5 opacity-50">🔍</div>
+        <div className="absolute right-3 top-2 opacity-40 text-xs">🔍</div>
       </div>
 
-      {loading ? <div className="text-center text-sm py-4">Searching...</div> : (
-        <div className="flex flex-col gap-3">
-          {data.length === 0 && <div className="text-sm text-av-text-secondary text-center py-4">No notes found.</div>}
+      {loading ? <div className="text-center text-xs text-zinc-500 font-mono py-4 animate-pulse">Searching notes...</div> : (
+        <div className="flex flex-col gap-2.5">
+          {data.length === 0 && <div className="text-xs text-zinc-500 font-mono text-center py-4">No vault notes found.</div>}
           {data.map((v, i) => (
-            <Card key={i} className="py-3 px-4">
-              <div className="flex justify-between items-start mb-2">
-                <span className="font-bold text-sm text-[#00d4aa]">{v.title}</span>
-                <span className="text-xs px-2 py-0.5 bg-black/30 rounded border border-white/5">{v.entryType}</span>
+            <Card key={i} className="py-2.5 px-3">
+              <div className="flex justify-between items-start mb-2 border-b border-zinc-800/50 pb-1.5">
+                <span className="font-semibold text-xs text-[#dfa054]">{v.title}</span>
+                <span className="text-[9px] font-mono px-2 py-0.5 bg-zinc-900/30 rounded border border-zinc-850 text-zinc-400">{v.entryType}</span>
               </div>
-              <p className="text-sm text-gray-300 line-clamp-3 mb-2 whitespace-pre-wrap font-mono text-xs opacity-80">{v.content}</p>
-              <div className="flex gap-2 mt-2">
+              <p className="text-[11px] text-zinc-300 line-clamp-3 mb-2 whitespace-pre-wrap font-mono opacity-90 leading-relaxed">{v.content}</p>
+              <div className="flex flex-wrap gap-1.5 mt-2">
                 {v.tags?.split(',').map((t: string, j: number) => (
-                    <span key={j} className="text-xs text-av-text-secondary bg-white/5 px-1.5 py-0.5 rounded">#{t.trim()}</span>
+                    <span key={j} className="text-[9px] font-mono text-zinc-500 bg-zinc-900/40 border border-zinc-850 px-1.5 py-0.5 rounded-md">#{t.trim()}</span>
                 ))}
               </div>
             </Card>

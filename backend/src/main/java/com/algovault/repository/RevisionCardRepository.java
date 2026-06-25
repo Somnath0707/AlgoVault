@@ -11,4 +11,5 @@ public interface RevisionCardRepository extends JpaRepository<RevisionCard, Long
     List<RevisionCard> findByUserIdAndNextReviewBeforeOrderByNextReviewAsc(Long userId, LocalDateTime date);
     Optional<RevisionCard> findByUserIdAndProblemId(Long userId, Long problemId);
     Integer countByUserIdAndNextReviewBefore(Long userId, LocalDateTime date);
+    List<RevisionCard> findByUserIdOrderByNextReviewAsc(Long userId);
 }

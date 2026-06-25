@@ -36,6 +36,7 @@ public class ContestAnalyzerServiceTest {
                 .contestDate(LocalDateTime.now())
                 .rank(1500)
                 .newRating(1800.0)
+                .questionDetails(java.util.Map.of("submissions", java.util.List.of()))
                 .build();
 
         when(repository.findByUserIdOrderByContestDateDesc(1L)).thenReturn(Arrays.asList(r1));

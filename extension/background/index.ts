@@ -1,12 +1,16 @@
-import { fetchUserProfile, fetchSolvedProblems, fetchAllSubmissions, fetchContestHistory } from "../lib/api/leetcode"
-import { BACKEND_URL } from "../lib/constants"
-import { getUserSettings, getUsername, setLastSync, setUsername, storage } from "../lib/storage"
+import { fetchUserProfile, fetchSolvedProblems, fetchAllSubmissions, fetchContestHistory, fetchProblemMetadata, fetchUserStatus } from "../lib/api/leetcode"
+import { getUserSettings, getUsername, setLastSync, setUsername, storage, getGithubPat, getGithubRepo } from "../lib/storage"
+import { commitToGithub, getExtensionForLanguage } from "../lib/api/github"
 import {
+  fetchPrediction,
+  fetchCurrentSession,
   sendSelfReport,
   sendSessionEvent,
   sendSessionHeartbeat,
   sendSubmissionResult,
-  startSession
+  startSession,
+  fetchContests,
+  syncLeetcode
 } from "../lib/api/backend"
 
 export {}
@@ -19,19 +23,52 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "get_prediction") {
-    getUsername()
-      .then((username) => {
-        if (!username) throw new Error("Set your LeetCode username in AlgoVault settings first")
-        return fetch(`${BACKEND_URL}/api/predict/${message.slug}`, {
-          headers: { "X-Leetcode-Username": username }
-        })
-      })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch prediction")
-        return res.json()
-      })
+    fetchPrediction(message.slug)
       .then((data) => sendResponse(data))
       .catch((err) => sendResponse({ error: err.message }))
+    return true
+  }
+
+  if (message.action === "get_contests_backend") {
+    fetchContests()
+      .then((data) => sendResponse(data))
+      .catch((err) => sendResponse({ error: err.message }))
+    return true
+  }
+
+  if (message.action === "get_entranthub_prediction") {
+    const { contestSlug, username } = message.payload;
+    fetch(`https://api.entranthub.com/api/v1/contests/leetcode/contests/${contestSlug}/users/US/${username}/realtime`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res.json();
+      })
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }))
+    return true
+  }
+
+  if (message.action === "get_entranthub_history") {
+    const { username } = message.payload;
+    fetch(`https://api.entranthub.com/api/v1/contests/leetcode/users/US/${username}/history`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res.json();
+      })
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }))
+    return true
+  }
+
+  if (message.action === "get_entranthub_questions") {
+    const { contestSlug } = message.payload;
+    fetch(`https://api.entranthub.com/api/v1/contests/leetcode/contests/${contestSlug}/questions`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res.json();
+      })
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }))
     return true
   }
 
@@ -50,7 +87,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === "session_start") {
     getUserSettings()
-      .then((settings) => startSession(message.mode || settings.sessionMode || "PRACTICE"))
+      .then(async (settings) => {
+        const current = await fetchCurrentSession()
+        return current || startSession(message.mode || settings.sessionMode || "PRACTICE")
+      })
       .then((data) => sendResponse({ ok: true, data }))
       .catch((err) => sendResponse({ ok: false, error: err.message }))
     return true
@@ -74,9 +114,81 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "submission_result") {
-    sendSubmissionResult(message.payload)
-      .then((data) => {
+    const payload = message.payload;
+    sendSubmissionResult(payload)
+      .then(async (data) => {
         storage.set("algovault.currentSession", data)
+
+        // Try syncing code and generating structured docs on GitHub if Accepted and credentials exist
+        if (payload.statusDisplay === "Accepted" && payload.code) {
+          const pat = await getGithubPat();
+          const repo = await getGithubRepo();
+          if (pat && repo) {
+            try {
+              // 1. Fetch LeetCode problem metadata
+              const metaList = await fetchProblemMetadata([payload.titleSlug]);
+              const meta: any = metaList && metaList.length ? metaList[0] : null;
+
+              const ext = getExtensionForLanguage(payload.codeLang || payload.language);
+              
+              // 2. Commit the solution code file
+              const codePath = `problems/${payload.titleSlug}/Solution.${ext}`;
+              const commitMessageCode = `Add solution for ${payload.title || payload.titleSlug} [Accepted]`;
+              await commitToGithub(pat, repo, codePath, commitMessageCode, payload.code);
+
+              // 3. Construct and commit the README.md file
+              const readmePath = `problems/${payload.titleSlug}/README.md`;
+              const qId = meta?.frontendQuestionId ? `${meta.frontendQuestionId}. ` : "";
+              const qTitle = meta?.title || payload.title || payload.titleSlug;
+              const difficulty = meta?.difficulty || "Unknown";
+              const tags = meta?.topicTags ? meta.topicTags.map((t: any) => `\`${t.name}\``).join(", ") : "None";
+
+              // Map difficulty to color for shields.io badges
+              let difficultyColor = "gray";
+              if (difficulty.toLowerCase() === "easy") difficultyColor = "10b981";
+              else if (difficulty.toLowerCase() === "medium") difficultyColor = "dfa054";
+              else if (difficulty.toLowerCase() === "hard") difficultyColor = "ef4444";
+
+              const langRaw = payload.codeLang || payload.language || "Unknown";
+              const langBadge = encodeURIComponent(langRaw);
+              const langMarkdown = langRaw.toLowerCase();
+
+              const readmeContent = [
+                `# ⚡ LeetCode Solution: ${qId}${qTitle}`,
+                "",
+                `[![Difficulty](https://img.shields.io/badge/Difficulty-${difficulty}-${difficultyColor}?style=for-the-badge)](#)`,
+                `[![Language](https://img.shields.io/badge/Language-${langBadge}-2563eb?style=for-the-badge)](#)`,
+                "",
+                `## 📝 Problem Metadata`,
+                `- **Problem Link**: [LeetCode Link](https://leetcode.com/problems/${payload.titleSlug}/)`,
+                `- **Difficulty**: ${difficulty}`,
+                `- **Topics**: ${tags}`,
+                "",
+                `## 📊 Performance Telemetry`,
+                `| Metric | Value | Performance Status |`,
+                `| :--- | :--- | :--- |`,
+                `| **Runtime Speed** | \`${payload.runtimeMs != null ? `${payload.runtimeMs} ms` : "N/A"}\` | Optimized execution |`,
+                `| **Memory Allocation** | \`${payload.memoryKb != null ? `${Math.round(payload.memoryKb / 10.24) / 100} MB` : "N/A"}\` | Braced space allocation |`,
+                `| **Date Solved** | \`${new Date(payload.submittedAt).toLocaleString()}\` | Completed successfully |`,
+                "",
+                `## 💻 Implementation Source Code`,
+                "```" + (langMarkdown.includes("c++") ? "cpp" : langMarkdown),
+                payload.code,
+                "```",
+                "",
+                `---`,
+                `*Generated and synchronized automatically by [AlgoVault](https://github.com/Somnath0707/AlgoVault) - Your competitive programming operating system.*`
+              ].join("\n");
+
+              const commitMessageReadme = `Generate README for ${payload.title || payload.titleSlug}`;
+              await commitToGithub(pat, repo, readmePath, commitMessageReadme, readmeContent);
+              console.log(`Successfully synced solution and README for ${payload.titleSlug} to GitHub.`);
+            } catch (gitErr) {
+              console.error("Error during GitHub sync operation:", gitErr);
+            }
+          }
+        }
+
         sendResponse({ ok: true, data })
       })
       .catch((err) => sendResponse({ ok: false, error: err.message }))
@@ -85,6 +197,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === "post_solve_report") {
     sendSelfReport(message.payload)
+      .then(() => sendResponse({ ok: true }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }))
+    return true
+  }
+
+  if (message.action === "add_to_vault") {
+    import("../lib/api/backend").then(m => m.addToVault(message.payload))
       .then(() => sendResponse({ ok: true }))
       .catch((err) => sendResponse({ ok: false, error: err.message }))
     return true
@@ -103,19 +222,68 @@ async function runSync(username: string) {
   }
 
   try {
+    updateStatus("RUNNING", "Verifying LeetCode session...")
+    const statusRes = await fetchUserStatus()
+    const sessionUser = statusRes.data?.userStatus?.username
+    if (!sessionUser || sessionUser.toLowerCase() !== normalizedUsername.toLowerCase()) {
+      throw new Error(`You can only sync the account currently logged into LeetCode.com (Logged in as: ${sessionUser || 'Guest'})`)
+    }
+
     updateStatus("RUNNING", "Fetching user profile...")
     const profileRes = await fetchUserProfile(normalizedUsername)
     if (!profileRes.data?.matchedUser) throw new Error("User not found on LeetCode")
     const profile = profileRes.data.matchedUser
 
     updateStatus("RUNNING", "Fetching solved problems...", 0, 0)
-    const problemsRes = await fetchSolvedProblems(0, 5000)
-    const problems = problemsRes.data?.problemsetQuestionList?.questions || []
+    const problems: any[] = []
+    let problemOffset = 0
+    const problemPageSize = 100
+    let totalSolved = Number.POSITIVE_INFINITY
+    while (problems.length < totalSolved) {
+      const problemsRes = await fetchSolvedProblems(problemOffset, problemPageSize)
+      const page = problemsRes.data?.problemsetQuestionList
+      if (!page) throw new Error("LeetCode did not return solved-problem data")
+      totalSolved = page.totalNum || 0
+      const questions = page.questions || []
+      if (questions.length === 0) break
+      problems.push(...questions)
+      problemOffset += questions.length
+      updateStatus("RUNNING", "Fetching solved problems...", problems.length, 0)
+      await new Promise((resolve) => setTimeout(resolve, 150))
+    }
 
     updateStatus("RUNNING", "Fetching submissions...", problems.length, 0)
-    const subsRes = await fetchAllSubmissions(0, 3000)
-    const rawSubs = subsRes.submissions_dump || []
-    const submissions = rawSubs.map((s: any) => ({
+
+    const rawSubs: any[] = []
+    let offset = 0
+    const limit = 100
+    let hasNext = true
+
+    while (hasNext) {
+      const subsRes = await fetchAllSubmissions(offset, limit)
+      const pageSubs = subsRes.submissions_dump || []
+      if (pageSubs.length === 0) {
+        if (subsRes.has_next) throw new Error("LeetCode returned an empty submission page before history ended")
+        break
+      }
+      rawSubs.push(...pageSubs)
+      hasNext = Boolean(subsRes.has_next)
+      offset += pageSubs.length
+      
+      updateStatus("RUNNING", "Fetching submissions...", problems.length, rawSubs.length)
+      
+      if (rawSubs.length >= 400) {
+        console.warn("Capping submissions fetch at 400 to prevent rate limiting");
+        break;
+      }
+      
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+    }
+
+    // Deduplicate submissions by ID to handle any list shifting during pagination
+    const uniqueRawSubs = Array.from(new Map(rawSubs.map(s => [s.id, s])).values())
+
+    const submissions = uniqueRawSubs.map((s: any) => ({
       id: String(s.id),
       title: s.title,
       titleSlug: s.title_slug,
@@ -126,6 +294,19 @@ async function runSync(username: string) {
       memory: s.memory
     }))
 
+    const knownSlugs = new Set(problems.map((problem) => problem.titleSlug))
+    const attemptedOnlySlugs = Array.from(new Set(
+      submissions
+        .map((submission) => submission.titleSlug)
+        .filter((slug) => slug && !knownSlugs.has(slug))
+    ))
+    for (let index = 0; index < attemptedOnlySlugs.length; index += 40) {
+      const metadata = await fetchProblemMetadata(attemptedOnlySlugs.slice(index, index + 40))
+      problems.push(...metadata)
+      updateStatus("RUNNING", "Enriching attempted problems...", problems.length, submissions.length)
+      await new Promise((resolve) => setTimeout(resolve, 150))
+    }
+
     updateStatus("RUNNING", "Fetching contest history...", problems.length, submissions.length)
     const contestRes = await fetchContestHistory(normalizedUsername)
     const contestHistory = contestRes.data?.userContestRankingHistory || []
@@ -133,26 +314,14 @@ async function runSync(username: string) {
 
     updateStatus("RUNNING", "Pushing to AlgoVault backend...", problems.length, submissions.length)
 
-    const response = await fetch(`${BACKEND_URL}/api/sync/leetcode`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Leetcode-Username": normalizedUsername
-      },
-      body: JSON.stringify({
-        username: normalizedUsername,
-        profile: profile.profile,
-        solvedProblems: problems,
-        submissions,
-        contestHistory,
-        contestRanking
-      })
+    await syncLeetcode({
+      username: normalizedUsername,
+      profile: profile.profile,
+      solvedProblems: problems,
+      submissions,
+      contestHistory,
+      contestRanking
     })
-
-    if (!response.ok) {
-      const errBody = await response.text()
-      throw new Error(`Backend sync failed: ${errBody}`)
-    }
 
     await setLastSync(Date.now())
     updateStatus("SUCCESS", "Sync completed successfully!", problems.length, submissions.length)

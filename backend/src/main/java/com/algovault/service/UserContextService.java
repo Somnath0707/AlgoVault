@@ -4,6 +4,8 @@ import com.algovault.model.User;
 import com.algovault.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +16,12 @@ public class UserContextService {
 
     @Transactional
     public User resolveUser(HttpServletRequest request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof Long authenticatedUserId) {
+            return userRepository.findById(authenticatedUserId)
+                .orElseThrow(() -> new IllegalArgumentException("Authenticated user no longer exists"));
+        }
+
         String userId = firstNonBlank(request.getHeader("X-User-Id"), request.getParameter("userId"));
         if (userId != null) {
             try {
@@ -35,7 +43,7 @@ public class UserContextService {
         }
 
         String normalized = username.trim();
-        return userRepository.findByLcUsername(normalized)
+        return userRepository.findByLcUsernameIgnoreCase(normalized)
             .orElseGet(() -> userRepository.save(User.builder()
                 .githubId("leetcode:" + normalized.toLowerCase())
                 .username(normalized)

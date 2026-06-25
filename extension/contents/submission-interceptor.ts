@@ -17,6 +17,8 @@ type SubmissionPayload = {
   totalCorrect?: number
   totalTestcases?: number
   submittedAt: string
+  code?: string
+  codeLang?: string
 }
 
 const pageScript = document.createElement("script")
@@ -33,13 +35,32 @@ pageScript.textContent = `
   };
 
   window.fetch = async function(...args) {
-    const response = await originalFetch.apply(this, args);
     const url = normalizeUrl(args[0]);
-    if (/\\/submissions\\/detail\\/\\d+\\/check/.test(url)) {
+
+    // Intercept submission code POST payload
+    if (/\/submit\/?$/.test(url) || /\/problems\/[^\/]+\/submit\/?/.test(url)) {
+      try {
+        const init = args[1];
+        if (init && init.body) {
+          const body = JSON.parse(init.body);
+          if (body && body.typed_code) {
+            window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = {
+              code: body.typed_code,
+              lang: body.lang
+            };
+          }
+        }
+      } catch (e) {
+        console.error("AlgoVault failed to intercept submit body", e);
+      }
+    }
+
+    const response = await originalFetch.apply(this, args);
+    if (/\/submissions\/detail\/\d+\/check/.test(url)) {
       response.clone().json().then((data) => {
         const body = data && data.data ? data.data : data;
         if (!body || body.state !== "SUCCESS") return;
-        const match = url.match(/\\/submissions\\/detail\\/(\\d+)\\/check/);
+        const match = url.match(/\/submissions\/detail\/(\d+)\/check/);
         window.dispatchEvent(new CustomEvent("AV_SUBMISSION_RESULT", {
           detail: {
             submissionId: match ? match[1] : undefined,
@@ -49,7 +70,9 @@ pageScript.textContent = `
             memory: body.status_memory,
             totalCorrect: body.total_correct,
             totalTestcases: body.total_testcases,
-            lang: body.lang
+            lang: body.lang,
+            code: window.__ALGOVAULT_LAST_SUBMITTED_CODE__ ? window.__ALGOVAULT_LAST_SUBMITTED_CODE__.code : undefined,
+            codeLang: window.__ALGOVAULT_LAST_SUBMITTED_CODE__ ? window.__ALGOVAULT_LAST_SUBMITTED_CODE__.lang : undefined
           }
         }));
       }).catch(() => {});
@@ -114,18 +137,24 @@ function showPostSolveDialog(titleSlug: string) {
     "right:24px",
     "bottom:92px",
     "z-index:2147483647",
-    "background:#111827",
+    "background:rgba(17, 24, 39, 0.95)",
+    "backdrop-filter:blur(16px)",
     "color:#f9fafb",
-    "border:1px solid rgba(255,255,255,.16)",
-    "box-shadow:0 18px 50px rgba(0,0,0,.35)",
-    "border-radius:8px",
-    "padding:14px",
-    "font:13px system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif",
-    "width:260px"
+    "border:1px solid rgba(255, 255, 255, 0.08)",
+    "box-shadow:0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255,255,255,0.05)",
+    "border-radius:14px",
+    "padding:16px",
+    "font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif",
+    "width:270px",
+    "transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+    "opacity:0",
+    "transform:scale(0.95)"
   ].join(";")
 
   wrapper.innerHTML = `
-    <div style="font-weight:700;margin-bottom:8px;">Solved. How clean was it?</div>
+    <div style="font-weight:700;font-size:14px;margin-bottom:12px;color:#f3f4f6;display:flex;align-items:center;gap:6px;">
+      <span style="font-size:16px;">🏆</span> Problem Solved! How clean was it?
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
       <button data-help="NONE">Solo</button>
       <button data-help="HINT">Hint</button>
@@ -134,19 +163,66 @@ function showPostSolveDialog(titleSlug: string) {
     </div>
   `
 
+  const buttonColors: Record<string, string> = {
+    NONE: "#10b981",       // emerald green
+    HINT: "#f59e0b",       // amber orange
+    EDITORIAL: "#3b82f6",  // cobalt blue
+    EXTERNAL: "#8b5cf6"    // royal purple
+  }
+
   wrapper.querySelectorAll("button").forEach((button) => {
     const el = button as HTMLButtonElement
-    el.style.cssText = "border:1px solid rgba(255,255,255,.16);border-radius:6px;background:#1f2937;color:#f9fafb;padding:8px;cursor:pointer;"
+    const helpType = el.dataset.help || "NONE"
+    const accentColor = buttonColors[helpType] || "#3b82f6"
+
+    el.style.cssText = [
+      "border:1px solid rgba(255,255,255,0.06)",
+      "border-radius:8px",
+      "background:rgba(31, 41, 55, 0.75)",
+      "color:#e5e7eb",
+      "padding:10px 8px",
+      "font-weight:600",
+      "font-size:12px",
+      "cursor:pointer",
+      "transition:all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+      "outline:none",
+      "box-shadow:0 1px 2px rgba(0,0,0,0.15)"
+    ].join(";")
+
+    el.addEventListener("mouseenter", () => {
+      el.style.background = accentColor
+      el.style.borderColor = accentColor
+      el.style.color = "#ffffff"
+      el.style.transform = "translateY(-1px)"
+      el.style.boxShadow = `0 6px 14px ${accentColor}4d`
+    })
+
+    el.addEventListener("mouseleave", () => {
+      el.style.background = "rgba(31, 41, 55, 0.75)"
+      el.style.borderColor = "rgba(255,255,255,0.06)"
+      el.style.color = "#e5e7eb"
+      el.style.transform = "translateY(0)"
+      el.style.boxShadow = "0 1px 2px rgba(0,0,0,0.15)"
+    })
+
     el.addEventListener("click", () => {
       chrome.runtime.sendMessage({
         action: "post_solve_report",
-        payload: { titleSlug, helpType: el.dataset.help }
+        payload: { titleSlug, helpType }
       })
-      wrapper.remove()
+      wrapper.style.opacity = "0"
+      wrapper.style.transform = "scale(0.95)"
+      setTimeout(() => wrapper.remove(), 300)
     })
   })
 
   document.body.appendChild(wrapper)
+
+  // Trigger entry animation
+  requestAnimationFrame(() => {
+    wrapper.style.opacity = "1"
+    wrapper.style.transform = "scale(1)"
+  })
 }
 
 window.addEventListener("AV_SUBMISSION_RESULT", ((event: CustomEvent) => {
@@ -164,7 +240,9 @@ window.addEventListener("AV_SUBMISSION_RESULT", ((event: CustomEvent) => {
     memoryKb: parseMemoryKb(detail.memory),
     totalCorrect: detail.totalCorrect,
     totalTestcases: detail.totalTestcases,
-    submittedAt: new Date().toISOString()
+    submittedAt: new Date().toISOString(),
+    code: detail.code,
+    codeLang: detail.codeLang
   }
 
   chrome.runtime.sendMessage({ action: "submission_result", payload })

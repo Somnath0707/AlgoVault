@@ -13,14 +13,10 @@ public class AnalyticsService {
 
     public void recomputeAll(Long userId) {
         log.info("Recomputing analytics for user ID: {}", userId);
-        try {
-            recomputeMastery(userId);
-            recomputeTopicRatings(userId);
-            recomputeRatingBuckets(userId);
-            log.info("Analytics recomputation completed for user ID: {}", userId);
-        } catch (Exception e) {
-            log.error("Error during analytics recomputation: ", e);
-        }
+        recomputeMastery(userId);
+        recomputeTopicRatings(userId);
+        recomputeRatingBuckets(userId);
+        log.info("Analytics recomputation completed for user ID: {}", userId);
     }
     
     public void recomputeMastery(Long userId) {

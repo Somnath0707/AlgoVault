@@ -25,6 +25,7 @@ public class SessionService {
     private final RevisionCardRepository revisionCardRepository;
     private final SyncMetadataRepository syncMetadataRepository;
     private final AnalyticsService analyticsService;
+    private final ZerotracService zerotracService;
 
     @Transactional
     public SessionResponse startSession(User user, String mode) {
@@ -67,7 +68,24 @@ public class SessionService {
             .metadata(Optional.ofNullable(request.getMetadata()).orElse(Map.of()))
             .build());
 
-        if ("TAB_SWITCH".equals(eventType) || "BLUR".equals(eventType)) {
+        if ("OPEN".equals(eventType) && request.getTitleSlug() != null) {
+            Problem problem = problemFromRequest(request.getTitleSlug(), request.getTitle());
+            if (problem != null) {
+                openEvent(user, problem, request.getTimestamp());
+            }
+        }
+        if ("CLOSE".equals(eventType) && request.getTitleSlug() != null) {
+            problemRepository.findByTitleSlug(request.getTitleSlug()).ifPresent(problem ->
+                problemOpenEventRepository
+                    .findFirstByUserIdAndProblemIdAndClosedAtIsNullOrderByOpenedAtDesc(user.getId(), problem.getId())
+                    .ifPresent(openEvent -> {
+                        openEvent.setClosedAt(Optional.ofNullable(request.getTimestamp()).orElse(LocalDateTime.now()));
+                        problemOpenEventRepository.save(openEvent);
+                    })
+            );
+        }
+
+        if ("TAB_SWITCH".equals(eventType)) {
             session.setTabSwitches(nonNull(session.getTabSwitches()) + 1);
         }
         if ("PASTE".equals(eventType)) {
@@ -88,10 +106,13 @@ public class SessionService {
         Problem problem = problemFromRequest(request.getTitleSlug(), request.getTitle());
         if (problem != null) {
             ProblemOpenEvent event = openEvent(user, problem, request.getOpenedAt());
-            event.setFocusSeconds(request.getFocusSeconds());
-            event.setTabSwitches(request.getTabSwitches());
-            event.setPasteCount(request.getPasteCount());
-            event.setFocusScore(focusScore(request.getTabSwitches(), request.getPasteCount()));
+            Integer problemFocusSeconds = request.getProblemFocusSeconds() != null ? request.getProblemFocusSeconds() : request.getFocusSeconds();
+            Integer problemTabSwitches = request.getProblemTabSwitches() != null ? request.getProblemTabSwitches() : request.getTabSwitches();
+            Integer problemPasteCount = request.getProblemPasteCount() != null ? request.getProblemPasteCount() : request.getPasteCount();
+            event.setFocusSeconds(problemFocusSeconds);
+            event.setTabSwitches(problemTabSwitches);
+            event.setPasteCount(problemPasteCount);
+            event.setFocusScore(focusScore(problemTabSwitches, problemPasteCount));
             problemOpenEventRepository.save(event);
         }
 
@@ -142,10 +163,12 @@ public class SessionService {
         problemOpenEventRepository.save(event);
 
         session.setProblemsAttempted((int) submissionRepository.findByUserId(user.getId()).stream()
+            .filter(s -> !s.getSubmittedAt().isBefore(session.getStartedAt()))
             .map(s -> s.getProblem().getId())
             .distinct()
             .count());
         session.setProblemsSolved((int) submissionRepository.findByUserId(user.getId()).stream()
+            .filter(s -> !s.getSubmittedAt().isBefore(session.getStartedAt()))
             .filter(s -> "Accepted".equals(s.getVerdict()))
             .map(s -> s.getProblem().getId())
             .distinct()
@@ -165,6 +188,7 @@ public class SessionService {
         ProblemOpenEvent event = openEvent(user, problem, null);
         event.setSelfReportedHelp(Optional.ofNullable(request.getHelpType()).orElse("NONE"));
         problemOpenEventRepository.save(event);
+        analyticsService.recomputeAll(user.getId());
     }
 
     @Transactional(readOnly = true)
@@ -200,11 +224,21 @@ public class SessionService {
 
     private Problem problemFromRequest(String titleSlug, String title) {
         if (titleSlug == null || titleSlug.isBlank()) return null;
-        return problemRepository.findByTitleSlug(titleSlug)
-            .orElseGet(() -> problemRepository.save(Problem.builder()
+        Problem problem = problemRepository.findByTitleSlug(titleSlug).orElse(null);
+        Double rating = null;
+        if (problem == null || problem.getActualRating() == null) {
+            rating = zerotracService.getRatingsBySlug().get(titleSlug);
+        }
+        if (problem == null) {
+            problem = Problem.builder()
                 .titleSlug(titleSlug)
                 .title(title != null && !title.isBlank() ? title : titleSlug)
-                .build()));
+                .actualRating(rating)
+                .build();
+        } else if (problem.getActualRating() == null && rating != null) {
+            problem.setActualRating(rating);
+        }
+        return problemRepository.save(problem);
     }
 
     private ProblemOpenEvent openEvent(User user, Problem problem, LocalDateTime openedAt) {

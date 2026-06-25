@@ -145,6 +145,34 @@ export async function setCachedContests(data: ContestResult[]): Promise<void> {
   await setTyped(STORAGE_KEYS.CACHED_CONTESTS, data)
 }
 
+// ─── Cached Weakness ──────────────────────────────────────────────
+
+export async function getCachedWeakness(): Promise<any | null> {
+  return getTyped<any>(STORAGE_KEYS.CACHED_WEAKNESS)
+}
+
+export async function setCachedWeakness(data: any): Promise<void> {
+  await setTyped(STORAGE_KEYS.CACHED_WEAKNESS, data)
+}
+
+// ─── GitHub Credentials ───────────────────────────────────────────
+
+export async function getGithubPat(): Promise<string | null> {
+  return getTyped<string>(STORAGE_KEYS.GITHUB_PAT)
+}
+
+export async function setGithubPat(pat: string): Promise<void> {
+  await setTyped(STORAGE_KEYS.GITHUB_PAT, pat)
+}
+
+export async function getGithubRepo(): Promise<string | null> {
+  return getTyped<string>(STORAGE_KEYS.GITHUB_REPO)
+}
+
+export async function setGithubRepo(repo: string): Promise<void> {
+  await setTyped(STORAGE_KEYS.GITHUB_REPO, repo)
+}
+
 // ─── Export the raw storage instance ──────────────────────────────
 
 export { storage }

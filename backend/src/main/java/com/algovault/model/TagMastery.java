@@ -40,6 +40,12 @@ public class TagMastery {
     @Column(name = "mastery_score")
     private Double masteryScore;
 
+    @Column(name = "rd")
+    private Double rd;
+
+    @Column(name = "volatility")
+    private Double volatility;
+
     @Column(name = "last_solved_at")
     private LocalDateTime lastSolvedAt;
 

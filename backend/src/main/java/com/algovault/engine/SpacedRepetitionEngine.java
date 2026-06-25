@@ -7,7 +7,8 @@ import java.time.LocalDate;
 @Component
 public class SpacedRepetitionEngine {
 
-    public RevisionCard updateCard(RevisionCard card, int quality, double tagMastery, boolean wasContestFailure) {
+    public RevisionCard updateCard(RevisionCard card, int quality, double weaknessMultiplier, boolean wasContestFailure) {
+        quality = Math.max(0, Math.min(5, quality));
         double ease = card.getEaseFactor() != null ? card.getEaseFactor() : 2.5;
         int interval = card.getIntervalDays() != null ? card.getIntervalDays().intValue() : 1;
 
@@ -15,7 +16,7 @@ public class SpacedRepetitionEngine {
             if (card.getReviewCount() == null || card.getReviewCount() == 0) {
                 interval = 1;
             } else if (card.getReviewCount() == 1) {
-                interval = 3;
+                interval = 6;
             } else {
                 interval = (int) Math.round(interval * ease);
             }
@@ -26,9 +27,7 @@ public class SpacedRepetitionEngine {
         }
 
         // Weak topic acceleration
-        if (tagMastery < 50.0) {
-            interval = (int) Math.floor(interval * 0.7);
-        }
+        interval = (int) Math.floor(interval * Math.max(0.6, Math.min(1.0, weaknessMultiplier)));
         if (wasContestFailure) {
             interval = (int) Math.floor(interval * 0.5);
         }

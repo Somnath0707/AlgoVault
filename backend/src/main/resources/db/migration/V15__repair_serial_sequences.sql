@@ -1,0 +1,16 @@
+SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE((SELECT MAX(id) FROM users), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('problems', 'id'), COALESCE((SELECT MAX(id) FROM problems), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('submissions', 'id'), COALESCE((SELECT MAX(id) FROM submissions), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('contest_results', 'id'), COALESCE((SELECT MAX(id) FROM contest_results), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('tag_mastery', 'id'), COALESCE((SELECT MAX(id) FROM tag_mastery), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('topic_ratings', 'id'), COALESCE((SELECT MAX(id) FROM topic_ratings), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('revision_cards', 'id'), COALESCE((SELECT MAX(id) FROM revision_cards), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('vault_entries', 'id'), COALESCE((SELECT MAX(id) FROM vault_entries), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('sync_metadata', 'id'), COALESCE((SELECT MAX(id) FROM sync_metadata), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('user_rating_buckets', 'id'), COALESCE((SELECT MAX(id) FROM user_rating_buckets), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('problem_open_events', 'id'), COALESCE((SELECT MAX(id) FROM problem_open_events), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('sync_logs', 'id'), COALESCE((SELECT MAX(id) FROM sync_logs), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('analytics_metrics', 'id'), COALESCE((SELECT MAX(id) FROM analytics_metrics), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('sessions', 'id'), COALESCE((SELECT MAX(id) FROM sessions), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('session_events', 'id'), COALESCE((SELECT MAX(id) FROM session_events), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('user_settings', 'id'), COALESCE((SELECT MAX(id) FROM user_settings), 0) + 1, false);

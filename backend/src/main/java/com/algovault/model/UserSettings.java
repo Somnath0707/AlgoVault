@@ -32,6 +32,10 @@ public class UserSettings {
     @Column(name = "review_notifications")
     private Boolean reviewNotifications;
 
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @Column(name = "preferences")
+    private java.util.Map<String, Object> preferences;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

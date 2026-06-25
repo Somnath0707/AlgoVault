@@ -22,35 +22,61 @@ export default function SidePanel() {
     }
     loadSession()
     const interval = window.setInterval(loadSession, 2000)
-    return () => window.clearInterval(interval)
+
+    const handleStorageChange = (changes: any, areaName: string) => {
+      if (areaName === "local" && changes["algovault.username"]) {
+        setUsername(changes["algovault.username"].newValue || "Set username");
+      }
+    };
+    chrome.storage.onChanged.addListener(handleStorageChange);
+
+    return () => {
+      window.clearInterval(interval)
+      chrome.storage.onChanged.removeListener(handleStorageChange)
+    }
   }, [])
 
   return (
-    <div className="min-h-screen bg-[#0f111a] text-gray-200 p-4 overflow-y-auto overflow-x-hidden font-sans">
-      <header className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
+    <div className="min-h-screen bg-av-bg-primary text-zinc-300 p-4 overflow-y-auto overflow-x-hidden font-sans">
+      <header className="flex items-center justify-between mb-5 border-b border-zinc-800/80 pb-3.5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded bg-[#1e293b] flex items-center justify-center border border-white/10">
-            <span className="text-xl">⚡</span>
+          <div className="w-9 h-9 rounded-lg bg-zinc-900 flex items-center justify-center border border-zinc-800">
+            <span className="text-base text-[#dfa054]">⚡</span>
           </div>
           <div>
-            <h1 className="text-xl font-bold leading-tight tracking-tight text-white">AlgoVault</h1>
-            <p className="text-xs text-gray-400">@{username}</p>
+            <h1 className="text-base font-bold leading-none tracking-tight text-zinc-100">AlgoVault</h1>
+            <p className="text-[11px] text-zinc-500 font-mono mt-0.5">@{username}</p>
           </div>
         </div>
-        <div className="mr-2 flex flex-col items-end text-[11px] text-gray-400">
-          <span className="text-[#00d4aa]">{session?.mode || "PRACTICE"}</span>
-          <span>Focus {session?.focusScore ?? 100}</span>
+        
+        <div className="flex items-center gap-3">
+          {session ? (
+            <div className="flex items-center gap-2 px-2.5 py-1 rounded-full border border-zinc-800 bg-zinc-900/50 text-[10px] text-zinc-400 font-mono">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#dfa054] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#dfa054]"></span>
+              </span>
+              <span>{session.mode}</span>
+              <span className="text-zinc-700">|</span>
+              <span className="tabular-nums">F {session.focusScore ?? 100}</span>
+            </div>
+          ) : (
+            <div className="px-2 py-0.5 rounded border border-zinc-800/80 bg-zinc-900/20 text-[10px] text-zinc-500 font-mono">
+              STANDBY
+            </div>
+          )}
+          
+          <button 
+            onClick={() => window.close()} 
+            className="p-1.5 hover:bg-zinc-800/60 rounded-md transition-colors text-zinc-500 hover:text-zinc-200"
+            title="Close Sidebar"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
         </div>
-        <button 
-          onClick={() => window.close()} 
-          className="p-2 hover:bg-white/10 rounded-md transition-colors"
-          title="Close Sidebar"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 hover:text-white">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
       </header>
       
       <TabBar activeTab={activeTab} setActiveTab={setActiveTab} />

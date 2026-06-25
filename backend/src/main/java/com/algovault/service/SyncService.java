@@ -53,6 +53,7 @@ public class SyncService {
             Map<String, Double> zerotracRatings = zerotracService.getRatingsBySlug();
             ProblemUpsertResult problemUpsert = upsertSolvedProblems(request, zerotracRatings);
             Map<String, Problem> problemCache = problemUpsert.problemCache();
+            upsertMissingSubmissionProblems(request, zerotracRatings, problemCache);
             int newProblems = problemUpsert.newProblems();
 
             int newSubmissions = upsertSubmissions(user, request, problemCache);
@@ -81,6 +82,9 @@ public class SyncService {
 
     private void updateUserProfile(User user, SyncLeetcodeRequest request) {
         if (request.getUsername() != null && !request.getUsername().isBlank()) {
+            if (user.getLcUsername() != null && !user.getLcUsername().equalsIgnoreCase(request.getUsername().trim())) {
+                throw new IllegalArgumentException("Sync username does not match the authenticated user");
+            }
             user.setLcUsername(request.getUsername());
             user.setUsername(request.getUsername());
         }
@@ -186,6 +190,27 @@ public class SyncService {
         return newSubmissions;
     }
 
+    private void upsertMissingSubmissionProblems(
+        SyncLeetcodeRequest request,
+        Map<String, Double> zerotracRatings,
+        Map<String, Problem> problemCache
+    ) {
+        for (SyncLeetcodeRequest.SubmissionInfo submission : Optional.ofNullable(request.getSubmissions()).orElse(List.of())) {
+            String slug = submission.getTitleSlug();
+            if (slug == null || slug.isBlank() || problemCache.containsKey(slug)) {
+                continue;
+            }
+            Problem problem = problemRepository.findByTitleSlug(slug).orElseGet(() -> Problem.builder()
+                .titleSlug(slug)
+                .title(submission.getTitle() != null && !submission.getTitle().isBlank() ? submission.getTitle() : slug)
+                .build());
+            if (problem.getActualRating() == null) {
+                problem.setActualRating(zerotracRatings.get(slug));
+            }
+            problemCache.put(slug, problemRepository.save(problem));
+        }
+    }
+
     private void resolvePredictionMetrics(Long userId, SyncLeetcodeRequest request) {
         List<SyncLeetcodeRequest.SubmissionInfo> submissions = Optional.ofNullable(request.getSubmissions()).orElse(List.of());
         List<AnalyticsMetric> unresolvedMetrics = analyticsMetricRepository.findByUserIdAndActualResultIsNull(userId);
@@ -210,13 +235,48 @@ public class SyncService {
         List<SyncLeetcodeRequest.ContestHistoryInfo> history = Optional.ofNullable(request.getContestHistory()).orElse(List.of());
         history.sort(Comparator.comparing(c -> c.getContest() != null ? c.getContest().getStartTime() : 0L));
 
+        List<SyncLeetcodeRequest.SubmissionInfo> subs = Optional.ofNullable(request.getSubmissions()).orElse(List.of());
+
         for (SyncLeetcodeRequest.ContestHistoryInfo cInfo : history) {
             if (!Boolean.TRUE.equals(cInfo.getAttended()) || cInfo.getContest() == null || cInfo.getContest().getTitle() == null) {
                 continue;
             }
 
             String title = cInfo.getContest().getTitle();
-            if (contestResultRepository.existsByUserIdAndContestTitle(user.getId(), title)) {
+            long startTime = cInfo.getContest().getStartTime();
+            long endTime = startTime + 5400; // 90 mins
+
+            Map<String, Object> questionDetails = new HashMap<>();
+            List<Map<String, Object>> contestSubs = new ArrayList<>();
+            for (SyncLeetcodeRequest.SubmissionInfo sub : subs) {
+                if (sub.getTimestamp() != null) {
+                    try {
+                        long ts = Long.parseLong(sub.getTimestamp());
+                        if (ts >= startTime && ts <= endTime) {
+                            Map<String, Object> sData = new HashMap<>();
+                            sData.put("titleSlug", sub.getTitleSlug());
+                            sData.put("timestamp", ts);
+                            sData.put("verdict", sub.getStatusDisplay());
+                            contestSubs.add(sData);
+                        }
+                    } catch (NumberFormatException ignored) {}
+                }
+            }
+            if (!contestSubs.isEmpty()) {
+                questionDetails.put("submissions", contestSubs);
+            }
+
+            ContestResult existing = contestResultRepository.findByUserIdAndContestTitle(user.getId(), title).orElse(null);
+            if (existing != null) {
+                Double priorRating = previousRating;
+                existing.setNewRating(cInfo.getRating());
+                existing.setRatingDelta(priorRating != null && cInfo.getRating() != null ? cInfo.getRating() - priorRating : null);
+                existing.setRank(cInfo.getRanking());
+                existing.setProblemsSolved(cInfo.getProblemsSolved());
+                existing.setTotalProblems(cInfo.getTotalProblems());
+                existing.setFinishTimeSecs(cInfo.getFinishTimeInSeconds());
+                existing.setQuestionDetails(questionDetails);
+                contestResultRepository.save(existing);
                 previousRating = cInfo.getRating();
                 continue;
             }
@@ -224,10 +284,14 @@ public class SyncService {
             ContestResult result = ContestResult.builder()
                 .user(user)
                 .contestTitle(title)
-                .contestDate(LocalDateTime.ofInstant(Instant.ofEpochSecond(cInfo.getContest().getStartTime()), ZoneId.systemDefault()))
+                .contestDate(LocalDateTime.ofInstant(Instant.ofEpochSecond(startTime), ZoneId.systemDefault()))
                 .rank(cInfo.getRanking())
                 .newRating(cInfo.getRating())
                 .ratingDelta(previousRating != null && cInfo.getRating() != null ? cInfo.getRating() - previousRating : null)
+                .problemsSolved(cInfo.getProblemsSolved())
+                .totalProblems(cInfo.getTotalProblems())
+                .finishTimeSecs(cInfo.getFinishTimeInSeconds())
+                .questionDetails(questionDetails)
                 .build();
 
             contestResultRepository.save(result);

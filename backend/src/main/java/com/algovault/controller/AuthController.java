@@ -8,6 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -57,5 +59,28 @@ public class AuthController {
         return userRepository.findById(userId)
             .map(ResponseEntity::ok)
             .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/extension-login")
+    public ResponseEntity<?> extensionLogin(@RequestBody Map<String, String> request) {
+        String username = request.get("username");
+        if (username == null || username.isBlank()) {
+            return ResponseEntity.badRequest().body("Username required");
+        }
+        username = username.trim();
+        String normalizedUsername = username;
+
+        User user = userRepository.findByLcUsernameIgnoreCase(normalizedUsername).orElseGet(() -> {
+            User newUser = User.builder()
+                .githubId("leetcode:" + normalizedUsername.toLowerCase())
+                .username(normalizedUsername)
+                .lcUsername(normalizedUsername)
+                .virtualRating(1500)
+                .build();
+            return userRepository.save(newUser);
+        });
+
+        String token = jwtService.generateToken(user.getId(), user.getUsername());
+        return ResponseEntity.ok(Map.of("token", token));
     }
 }

@@ -41,6 +41,18 @@ export const fetchUserProfile = async (username: string) => {
   return fetchGraphQL(query, { username });
 };
 
+export const fetchUserStatus = async () => {
+  const query = `
+    query globalData {
+      userStatus {
+        isSignedIn
+        username
+      }
+    }
+  `;
+  return fetchGraphQL(query);
+};
+
 export const fetchSolvedProblems = async (skip: number, limit: number) => {
   const query = `
     query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {
@@ -66,6 +78,26 @@ export const fetchSolvedProblems = async (skip: number, limit: number) => {
     }
   `;
   return fetchGraphQL(query, { categorySlug: "", skip, limit, filters: { status: "AC" } });
+};
+
+export const fetchProblemMetadata = async (titleSlugs: string[]) => {
+  if (titleSlugs.length === 0) return [];
+
+  const aliases = titleSlugs.map((slug, index) => `
+    q${index}: question(titleSlug: ${JSON.stringify(slug)}) {
+      frontendQuestionId: questionFrontendId
+      title
+      titleSlug
+      difficulty
+      topicTags {
+        name
+        slug
+      }
+    }
+  `).join("\n");
+
+  const response = await fetchGraphQL(`query attemptedProblemMetadata { ${aliases} }`);
+  return Object.values(response.data || {}).filter(Boolean);
 };
 
 export const fetchAllSubmissions = async (offset: number, limit: number) => {
@@ -95,6 +127,9 @@ export const fetchContestHistory = async (username: string) => {
         attended
         rating
         ranking
+        problemsSolved
+        totalProblems
+        finishTimeInSeconds
         contest {
           title
           startTime

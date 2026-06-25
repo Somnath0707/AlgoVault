@@ -92,6 +92,7 @@ public class HeatmapService {
 
         List<UserRatingBucket> existing = userRatingBucketRepository.findByUserId(userId);
         userRatingBucketRepository.deleteAll(existing);
+        userRatingBucketRepository.flush();
         userRatingBucketRepository.saveAll(buckets.values());
     }
 }

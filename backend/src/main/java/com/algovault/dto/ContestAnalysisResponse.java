@@ -13,6 +13,7 @@ public class ContestAnalysisResponse {
     private Double ratingBefore;
     private Double ratingAfter;
     private Double ratingDelta;
+    private Double predictedDelta;
     private Integer problemsSolved;
     private Integer totalProblems;
     private Double finishTimeMinutes;
@@ -20,6 +21,7 @@ public class ContestAnalysisResponse {
     private String chokingIndex;
     private String staminaDropoff;
     private List<QuestionTiming> timings;
+    private Object questionDetails;
 
     @Data
     @Builder

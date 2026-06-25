@@ -15,7 +15,7 @@ import java.util.Map;
 @Slf4j
 public class ZerotracService {
     private static final String RATINGS_URL = "https://raw.githubusercontent.com/zerotrac/leetcode_problem_rating/main/ratings.txt";
-    private static final String CACHE_KEY = "zerotrac:ratings:v1";
+    private static final String CACHE_KEY = "zerotrac:ratings:v2";
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final RestTemplate restTemplate = new RestTemplate();
@@ -53,7 +53,7 @@ public class ZerotracService {
                 continue;
             }
 
-            String[] parts = trimmed.split("\\s+");
+            String[] parts = trimmed.split("\\t");
             if (parts.length < 6) {
                 continue;
             }

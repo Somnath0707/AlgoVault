@@ -27,10 +27,17 @@ public class WeaknessService {
     public WeaknessResponse getWeakness(Long userId) {
         List<TagMastery> masteries = tagMasteryRepository.findByUserIdOrderByMasteryScoreDesc(userId);
         
-        // Bottom 5 tags (reverse order)
+        // Bottom 5 tags prioritizing actual failures (totalSolved < totalAttempted)
         List<WeaknessResponse.WeakTag> weakTags = masteries.stream()
-            .filter(m -> m.getTotalAttempted() != null && m.getTotalAttempted() > 5) // At least 5 attempts
-            .sorted((m1, m2) -> Double.compare(m1.getMasteryScore(), m2.getMasteryScore()))
+            .filter(m -> m.getTotalAttempted() > 0)
+            .sorted((m1, m2) -> {
+                boolean m1Perfect = m1.getTotalSolved() == m1.getTotalAttempted();
+                boolean m2Perfect = m2.getTotalSolved() == m2.getTotalAttempted();
+                if (m1Perfect != m2Perfect) {
+                    return m1Perfect ? 1 : -1;
+                }
+                return Double.compare(m1.getMasteryScore(), m2.getMasteryScore());
+            })
             .limit(5)
             .map(m -> WeaknessResponse.WeakTag.builder()
                 .tag(m.getTag())

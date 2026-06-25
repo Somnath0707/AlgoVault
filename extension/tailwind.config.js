@@ -2,23 +2,29 @@
 module.exports = {
   mode: "jit",
   darkMode: "class",
-  content: ["./**/*.tsx"],
+  content: [
+    "./sidepanel.tsx",
+    "./components/**/*.{ts,tsx}",
+    "./contents/**/*.{ts,tsx}"
+  ],
   theme: {
     extend: {
       colors: {
         av: {
           bg: {
-            primary: "#1a1a2e",
-            secondary: "#16213e",
-            card: "rgba(30, 41, 59, 0.8)"
+            primary: "#09090b", // Deep zinc-950
+            secondary: "#121214", // Elevated graphite
+            card: "#141416", // Level 2 container
+            panel: "#1e1e21" // Level 3 container
           },
           accent: {
-            primary: "#00d4aa",
-            secondary: "#ffa116"
+            primary: "#dfa054", // Warm brass/gold
+            secondary: "#c5944e", // Muted brass
+            glow: "rgba(223, 160, 84, 0.12)"
           },
           text: {
-            primary: "#eff1f6",
-            secondary: "#9ca3af"
+            primary: "#f4f4f5", // Zinc-100
+            secondary: "#a1a1aa" // Zinc-400
           }
         }
       }

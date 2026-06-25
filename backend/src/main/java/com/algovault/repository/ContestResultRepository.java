@@ -7,4 +7,5 @@ import java.util.List;
 public interface ContestResultRepository extends JpaRepository<ContestResult, Long> {
     List<ContestResult> findByUserIdOrderByContestDateDesc(Long userId);
     boolean existsByUserIdAndContestTitle(Long userId, String contestTitle);
+    java.util.Optional<ContestResult> findByUserIdAndContestTitle(Long userId, String contestTitle);
 }

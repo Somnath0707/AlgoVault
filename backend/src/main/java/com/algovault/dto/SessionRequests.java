@@ -42,6 +42,9 @@ public class SessionRequests {
         private Integer focusSeconds;
         private Integer tabSwitches;
         private Integer pasteCount;
+        private Integer problemFocusSeconds;
+        private Integer problemTabSwitches;
+        private Integer problemPasteCount;
         private LocalDateTime openedAt;
     }
 
