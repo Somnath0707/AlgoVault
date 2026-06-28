@@ -119,14 +119,10 @@ const injectAlgoVaultOverlay = () => {
           const prob = data.find((p: any) => p.TitleSlug === slug);
           if (prob && prob.Rating) {
             const rating = Math.round(prob.Rating);
-            diffTag.textContent = `Rating: ${rating}`;
-            diffTag.className = "text-xs font-medium px-2 py-1 rounded-full";
-            if (rating < 1400) diffTag.classList.add("bg-green-500/20", "text-green-500");
-            else if (rating < 1600) diffTag.classList.add("bg-cyan-500/20", "text-cyan-500");
-            else if (rating < 1900) diffTag.classList.add("bg-blue-500/20", "text-blue-500");
-            else if (rating < 2100) diffTag.classList.add("bg-purple-500/20", "text-purple-500");
-            else if (rating < 2400) diffTag.classList.add("bg-orange-500/20", "text-orange-500");
-            else diffTag.classList.add("bg-red-500/20", "text-red-500");
+            const originalText = diffTag.textContent || "";
+            if (!originalText.includes("Rating:")) {
+              diffTag.textContent = `${originalText} (Rating: ${rating})`;
+            }
           }
         }
       } else {

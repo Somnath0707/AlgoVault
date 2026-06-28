@@ -19,6 +19,9 @@ let pasteBaseline = 0
 let lastActivityTime = Date.now()
 const IDLE_TIMEOUT_MS = 2 * 60 * 1000 // 2 minutes
 
+let isSolved = false
+let isWindowFocused = !document.hidden && document.hasFocus()
+
 function updateActivity() {
   lastActivityTime = Date.now()
 }
@@ -36,8 +39,9 @@ function currentTitle() {
   return heading?.replace(/^\d+\.\s*/, "").trim() || currentSlug()
 }
 
-function addFocusedTime() {
-  if (!document.hidden && document.hasFocus()) {
+function addFocusedTime(wasFocusActiveBefore = true) {
+  if (isSolved) return
+  if (wasFocusActiveBefore) {
     const now = Date.now()
     // Only add time if we are not idle
     if (now - lastActivityTime < IDLE_TIMEOUT_MS) {
@@ -67,7 +71,8 @@ function sendEvent(
 }
 
 function heartbeat(titleSlug = trackedSlug, title = trackedTitle) {
-  addFocusedTime()
+  if (isSolved) return
+  addFocusedTime(isWindowFocused)
   if (!titleSlug) return
 
   chrome.runtime.sendMessage({
@@ -89,36 +94,76 @@ function heartbeat(titleSlug = trackedSlug, title = trackedTitle) {
 chrome.runtime.sendMessage({ action: "session_start" })
 sendEvent("OPEN", { url: location.href })
 
+function handleInactive() {
+  if (isSolved) return
+  if (isWindowFocused) {
+    addFocusedTime(true)
+    isWindowFocused = false
+    tabSwitches += 1
+    sendEvent("TAB_SWITCH", { tabSwitches })
+  }
+}
+
+function handleActive() {
+  if (isSolved) return
+  if (!isWindowFocused) {
+    focusStartedAt = Date.now()
+    isWindowFocused = true
+    sendEvent("FOCUS", {})
+  }
+}
+
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
-    addFocusedTime()
-    tabSwitches += 1
-    sendEvent("TAB_SWITCH", { hidden: true, tabSwitches })
+    handleInactive()
   } else {
-    focusStartedAt = Date.now()
-    sendEvent("FOCUS", { visible: true })
+    handleActive()
   }
 })
 
 window.addEventListener("blur", () => {
-  addFocusedTime()
-  sendEvent("BLUR", { tabSwitches })
+  handleInactive()
 })
 
 window.addEventListener("focus", () => {
-  focusStartedAt = Date.now()
-  sendEvent("FOCUS", {})
+  handleActive()
 })
 
+// Listen to copy and paste events in the capture phase to bypass Monaco editor blockages
 document.addEventListener("paste", (event) => {
+  if (isSolved) return
   const pasted = event.clipboardData?.getData("text") || ""
   const charCount = pasted.length
   const classification = charCount < 20 ? "NATURAL" : charCount <= 100 ? "PARTIAL" : "FULL"
   pasteCount += 1
   sendEvent("PASTE", { charCount, classification, pasteCount })
-})
+}, true)
+
+document.addEventListener("copy", (event) => {
+  if (isSolved) return
+  const selectedText = window.getSelection()?.toString() || ""
+  const charCount = selectedText.length
+  sendEvent("COPY", { charCount })
+}, true)
+
+// Stop timer immediately on Accepted submission
+window.addEventListener("AV_SUBMISSION_RESULT", ((event: CustomEvent) => {
+  if (isSolved) return
+  const detail = event.detail || {}
+  const verdict = detail.statusCode === 10 ? "Accepted" : detail.statusDisplay
+  if (verdict === "Accepted") {
+    isSolved = true
+    addFocusedTime(isWindowFocused)
+    isWindowFocused = false
+    
+    // Force final heartbeat and solved event
+    heartbeat()
+    sendEvent("SOLVED", { focusSeconds, tabSwitches, pasteCount })
+  }
+}) as EventListener)
 
 setInterval(() => {
+  if (isSolved) return
   if (location.href !== lastUrl) {
     heartbeat(trackedSlug, trackedTitle)
     sendEvent("CLOSE", { url: lastUrl }, trackedSlug, trackedTitle)
@@ -129,12 +174,16 @@ setInterval(() => {
     focusBaseline = focusSeconds
     tabSwitchBaseline = tabSwitches
     pasteBaseline = pasteCount
+    isSolved = false // Reset solved flag for new page
+    isWindowFocused = !document.hidden && document.hasFocus()
     sendEvent("OPEN", { url: location.href })
   }
   heartbeat()
 }, 30_000)
 
 window.addEventListener("beforeunload", () => {
-  heartbeat()
-  sendEvent("CLOSE", { url: location.href })
+  if (!isSolved) {
+    heartbeat()
+    sendEvent("CLOSE", { url: location.href })
+  }
 })

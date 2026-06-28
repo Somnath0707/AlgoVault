@@ -81,10 +81,25 @@ export const Contest = () => {
               ehDelta = item.predictedRating - item.currentRating;
             }
 
+            let ehPredictedRating = item.predictedRating ?? item.newRating ?? null;
+            let ehOldRating = item.currentRating ?? item.oldRating ?? null;
+            if (ehPredictedRating === null && ehDelta !== null) {
+              const baseRating = ehOldRating ?? 1500;
+              ehPredictedRating = baseRating + ehDelta;
+            }
+
             if (backendSlugs.has(ehSlug)) {
               const existing = merged.find((c: any) => c.contestSlug === ehSlug);
-              if (existing && (!existing.ratingDelta || existing.ratingDelta === 0) && ehDelta !== null) {
-                existing.predictedDelta = ehDelta;
+              if (existing) {
+                if ((!existing.ratingDelta || existing.ratingDelta === 0) && ehDelta !== null) {
+                  existing.predictedDelta = ehDelta;
+                }
+                if (!existing.ratingAfter && ehPredictedRating) {
+                  existing.ratingAfter = ehPredictedRating;
+                }
+                if (!existing.ratingBefore && ehOldRating) {
+                  existing.ratingBefore = ehOldRating;
+                }
               }
             } else {
               merged.push({
@@ -96,6 +111,8 @@ export const Contest = () => {
                 ratingDelta: null,
                 predictedDelta: ehDelta,
                 contestDate: ehDate,
+                ratingBefore: ehOldRating,
+                ratingAfter: ehPredictedRating,
                 finishTimeMinutes: null,
                 panicIndex: "Unknown",
                 chokingIndex: "Unknown",
@@ -210,6 +227,19 @@ export const Contest = () => {
           const delta = c.ratingDelta ?? c.predictedDelta;
           const isPending = delta == null;
           const isPositive = delta > 0;
+
+          let ratingDisplay = "";
+          if (!isPending) {
+            const finalRating = c.ratingAfter || (c.ratingBefore ? c.ratingBefore + delta : null);
+            if (finalRating) {
+              ratingDisplay = `${Math.round(finalRating)} (${isPositive ? '+' : ''}${Math.round(delta)})`;
+            } else {
+              ratingDisplay = `${isPositive ? '+' : ''}${Math.round(delta)}`;
+            }
+          } else {
+            ratingDisplay = "Pending";
+          }
+
           return (
             <Card key={i} className="py-2.5 px-3">
               <div className="flex justify-between items-center mb-1">
@@ -220,7 +250,7 @@ export const Contest = () => {
                   {c.predictedDelta != null && (c.ratingDelta == null || c.ratingDelta === 0) ? (
                     <span className="text-zinc-500 text-[10px] mr-1 font-sans font-normal">Est:</span>
                   ) : null}
-                  {isPending ? "Pending" : `${isPositive ? '+' : ''}${Math.round(delta)}`}
+                  {ratingDisplay}
                 </span>
               </div>
               <div className="flex justify-between items-center text-[10px] text-zinc-400 font-mono">

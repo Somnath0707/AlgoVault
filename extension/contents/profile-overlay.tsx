@@ -105,6 +105,8 @@ export default function ProfileOverlay() {
             delta: c.ratingDelta,
             predictedDelta: null,
             contestDate: c.contestDate,
+            ratingBefore: c.ratingBefore,
+            ratingAfter: c.ratingAfter,
             submissions: c.questionDetails?.submissions || []
           }
         })
@@ -147,14 +149,27 @@ export default function ProfileOverlay() {
             ehDelta = item.predictedRating - item.currentRating
           }
 
+          let ehPredictedRating = item.predictedRating ?? item.newRating ?? null
+          let ehOldRating = item.currentRating ?? item.oldRating ?? null
+          if (ehPredictedRating === null && ehDelta !== null) {
+            const baseRating = ehOldRating ?? 1500
+            ehPredictedRating = baseRating + ehDelta
+          }
+
           if (backendSlugs.has(ehSlug)) {
-            // Enrich existing backend contest with EntrantHub prediction if official delta is not yet finalized
             const existing = merged.find(c => c.titleSlug === ehSlug)
-            if (existing && (!existing.delta || existing.delta === 0) && ehDelta !== null) {
-              existing.predictedDelta = ehDelta
+            if (existing) {
+              if ((!existing.delta || existing.delta === 0) && ehDelta !== null) {
+                existing.predictedDelta = ehDelta
+              }
+              if (!existing.ratingAfter && ehPredictedRating) {
+                existing.ratingAfter = ehPredictedRating
+              }
+              if (!existing.ratingBefore && ehOldRating) {
+                existing.ratingBefore = ehOldRating
+              }
             }
           } else {
-            // Create a pending contest placeholder from EntrantHub
             merged.push({
               id: merged.length,
               title: ehTitle,
@@ -165,6 +180,8 @@ export default function ProfileOverlay() {
               delta: null,
               predictedDelta: ehDelta,
               contestDate: ehDate,
+              ratingBefore: ehOldRating,
+              ratingAfter: ehPredictedRating,
               submissions: [],
               isUnofficial: true
             })
@@ -482,11 +499,11 @@ export default function ProfileOverlay() {
                           <span className={`text-[9px] px-1 py-0.2 rounded font-semibold font-mono ${
                             contest.delta > 0 ? 'bg-[#10b981]/10 text-[#10b981]' : 'bg-red-500/10 text-red-400'
                           }`}>
-                            {contest.delta > 0 ? "+" : ""}{Math.round(contest.delta)}
+                            {contest.ratingAfter ? `${Math.round(contest.ratingAfter)} (${contest.delta > 0 ? "+" : ""}${Math.round(contest.delta)})` : `${contest.delta > 0 ? "+" : ""}${Math.round(contest.delta)}`}
                           </span>
                         ) : contest.predictedDelta != null ? (
                           <span className="text-[9px] px-1 py-0.2 rounded font-semibold font-mono bg-[#dfa054]/10 text-[#dfa054] animate-pulse">
-                            Est: {contest.predictedDelta > 0 ? "+" : ""}{Math.round(contest.predictedDelta)}
+                            Est: {contest.ratingAfter ? `${Math.round(contest.ratingAfter)} (${contest.predictedDelta > 0 ? "+" : ""}${Math.round(contest.predictedDelta)})` : `${contest.predictedDelta > 0 ? "+" : ""}${Math.round(contest.predictedDelta)}`}
                           </span>
                         ) : (
                           <span className="text-[9px] text-zinc-650 font-semibold font-mono bg-zinc-950 px-1 py-0.2 rounded border border-zinc-850">
