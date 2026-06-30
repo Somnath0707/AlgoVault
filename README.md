@@ -1,104 +1,77 @@
-<div align="center">
-  <img src="docs/images/hero.png" alt="AlgoVault Hero" width="800">
+# AlgoVault
 
-  # AlgoVault 🛡️ 
-
-  **Your ultimate LeetCode companion for performance tracking, analytics, and topic mastery.**
-  
-  [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-  [![React](https://img.shields.io/badge/React-18.x-blue.svg)](https://reactjs.org/)
-  [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.0-brightgreen.svg)](https://spring.io/projects/spring-boot)
-  [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14-blue.svg)](https://www.postgresql.org/)
-
-  <p align="center">
-    <a href="#features">Features</a> •
-    <a href="#installation">Installation</a> •
-    <a href="#architecture">Architecture</a> •
-    <a href="#contributing">Contributing</a>
-  </p>
-</div>
+AlgoVault is a self-hosted performance telemetry, rating estimation, and algorithmic mastery tracker for competitive programmers. It operates via a lightweight Chrome Extension (MV3) that intercepts and collects problem statistics, backed by a Spring Boot analysis service that models your cognitive skill levels per topic.
 
 ---
 
-## 🚀 Welcome to AlgoVault
+## ⚡ System Architecture
 
-AlgoVault is a modern browser extension and backend analytics engine designed specifically for competitive programmers and software engineers preparing for interviews. It supercharges your LeetCode experience by passively collecting your submission data and providing **deep, actionable insights** into your coding journey.
+```mermaid
+graph TD
+    subgraph Browser Context (leetcode.com)
+        MAIN[MAIN World: Fetch Interceptor]
+        ISOLATED[ISOLATED World: session-tracker.ts]
+        UI[Plasmo React UI: profile-overlay.tsx]
+    end
 
-<div align="center">
-  <img src="docs/images/dashboard.png" alt="AlgoVault Dashboard" width="700">
-</div>
+    subgraph Local Server
+        SRV[Spring Boot Web Service]
+        DB[(PostgreSQL Database)]
+    end
 
----
+    MAIN -->|window.postMessage| ISOLATED
+    ISOLATED -->|chrome.runtime| SRV
+    UI -->|API Requests| SRV
+    SRV <---> DB
+```
 
-## ✨ Core Features
+### 1. The Interception Pipeline
+- **Fetch Injection**: Injected directly into the `MAIN` execution world to capture raw submission responses.
+- **World Crossing**: Uses `window.postMessage` to pass serialized payloads across the isolated context boundary, avoiding CSP blocks.
+- **State Serialization**: Session tracker records focus metrics, copy/paste keyboard events, and tab switches into local storage states.
 
-* **Real-time Synchronization**: Flawlessly syncs your LeetCode problem history, contest results, and topic masteries directly to a secure local vault using undocumented native REST APIs.
-* **True Elo Ratings**: Replaces the generic "Easy / Medium / Hard" tags with precise ZeroTrac Elo ratings right on the LeetCode UI.
-* **Predictive Analytics**: Analyzes your past performance to predict your *Solve Probability* and *Expected Time* for any new problem before you even start coding.
-* **Intimidation-Free UI**: Automatically hides global "Accepted" and "Submissions" numbers to reduce anxiety and keep you focused on the code.
-* **Floating Profile Dashboard**: View your Contest History, Heatmap, and Topic Weaknesses in a stunning, glassmorphism dark-mode widget.
-
----
-
-## 🛠️ Tech Stack
-
-### Frontend (Chrome Extension)
-* **Framework**: React 18 & Plasmo
-* **Styling**: Tailwind CSS (Dark Mode Native)
-* **DOM Injection**: Custom Content Scripts
-
-### Backend Server
-* **Framework**: Spring Boot 3.3.0 (Java 17)
-* **Database**: PostgreSQL 14 (Flyway Migrations)
-* **ORM**: Hibernate / Spring Data JPA
-* **Analytics**: Custom probabilistic rating algorithms
+### 2. The Analytical Core
+- **Topic Elo Rating System**: Models problem difficulty and user mastery as a zero-sum game. Solves increment rating, failures reduce it, and tags use dynamic K-factors based on topic frequency.
+- **Expected Solve Probability**: A logistics-based probability solver calculating your chance of solving any problem using ZeroTrac historical ratings.
+- **Spaced Repetition (SM-2 Modified)**: Scheduled intervals adjusted by tag mastery weights and contest failure flags.
 
 ---
 
-## 💻 Installation & Setup
+## 🛠️ Tech Stack & Directory Structure
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Somnath0707/AlgoVault.git
-   cd AlgoVault
-   ```
+```
+├── /extension     # Manifest V3 Extension (Plasmo, React 18, Tailwind, TS)
+└── /backend       # Web Service (Spring Boot 3.3.0, Flyway, Hibernate, PostgreSQL)
+```
 
-2. **Start the Database**
-   Ensure PostgreSQL is running locally on port `5432` with a database named `algovault` (or start via Docker if configured).
-   ```bash
-   brew services start postgresql@14
-   ```
-
-3. **Boot up the Spring Server**
-   ```bash
-   cd backend
-   export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home
-   mvn spring-boot:run
-   ```
-
-4. **Launch the Extension**
-   In a new terminal window:
-   ```bash
-   cd extension
-   npm install
-   npm run dev
-   ```
-
-5. **Load into Chrome**
-   - Open `chrome://extensions`
-   - Enable **Developer Mode**
-   - Click **Load unpacked** and select the `extension/build/chrome-mv3-dev` folder.
+- **Frontend**: Plasmo 0.89, React 18, Tailwind CSS, Recharts.
+- **Backend**: Spring Boot 3.3, Hibernate, Flyway Migrations, PostgreSQL 14.
 
 ---
 
-## 🎯 How it Works
+## 🚀 Setup & Deployment
 
-AlgoVault leverages **Plasmo** to inject intelligent overlays directly into the DOM of `leetcode.com`. When you open the extension sidebar, a background Service Worker authenticates with your browser cookies to fetch your full submission history via LeetCode's `/api/submissions/` endpoint. 
+### 1. Database Initialization
+Ensure PostgreSQL is running on port `5432` with a database named `algovault`:
+```bash
+createdb algovault
+```
 
-This data is streamed to the **Spring Boot backend**, where it is parsed, stored in a relational schema, and aggressively cached. The backend then computes mastery scores per topic (e.g., Dynamic Programming: 85%) and feeds the analytical models that predict your contest success rate.
+### 2. Start the Backend
+Execute the Spring Boot service:
+```bash
+cd backend
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home # or your Java 17 path
+mvn spring-boot:run
+```
 
----
-
-<div align="center">
-  <i>Built to track, optimize, and secure your algorithmic journey.</i>
-</div>
+### 3. Load the Extension
+Compile the extension locally:
+```bash
+cd extension
+npm install
+npm run build
+```
+1. Open `chrome://extensions` in Google Chrome.
+2. Toggle **Developer mode** (top-right).
+3. Click **Load unpacked** and select `extension/build/chrome-mv3-prod/` (or `chrome-mv3-dev/` if running `npm run dev`).
