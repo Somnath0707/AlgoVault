@@ -1,6 +1,7 @@
-import { fetchUserProfile, fetchSolvedProblems, fetchAllSubmissions, fetchContestHistory, fetchProblemMetadata, fetchUserStatus } from "../lib/api/leetcode"
-import { getUserSettings, getUsername, setLastSync, setUsername, storage, getGithubPat, getGithubRepo } from "../lib/storage"
+import { fetchUserProfile, fetchSolvedProblems, fetchAllSubmissions, fetchContestHistory, fetchProblemMetadata, fetchUserStatus, fetchContestQuestions, fetchReplayEvents } from "../lib/api/leetcode"
+import { getUserSettings, getUsername, setLastSync, setUsername, storage, getGithubPat, getGithubRepo, getZerotracData, getZerotracLastFetched, setZerotracData } from "../lib/storage"
 import { commitToGithub, getExtensionForLanguage } from "../lib/api/github"
+import { fetchEntrantHubHistory, fetchEntrantHubRealtime, fetchEntrantHubUpcoming, type LeetCodeRegion } from "../lib/api/entranthub"
 import {
   fetchPrediction,
   fetchCurrentSession,
@@ -9,6 +10,7 @@ import {
   sendSessionHeartbeat,
   sendSubmissionResult,
   startSession,
+  endSession,
   fetchContests,
   syncLeetcode
 } from "../lib/api/backend"
@@ -37,36 +39,54 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "get_entranthub_prediction") {
-    const { contestSlug, username } = message.payload;
-    fetch(`https://api.entranthub.com/api/v1/contests/leetcode/contests/${contestSlug}/users/US/${username}/realtime`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
-      })
+    const { contestSlug, username, region = "US" } = message.payload;
+    fetchEntrantHubRealtime(contestSlug, username, region.toUpperCase() as LeetCodeRegion)
       .then((data) => sendResponse({ ok: true, data }))
       .catch((err) => sendResponse({ ok: false, error: err.message }))
     return true
   }
 
   if (message.action === "get_entranthub_history") {
-    const { username } = message.payload;
-    fetch(`https://api.entranthub.com/api/v1/contests/leetcode/users/US/${username}/history`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
-      })
+    const { username, region = "US" } = message.payload;
+    fetchEntrantHubHistory(username, region.toUpperCase() as LeetCodeRegion)
       .then((data) => sendResponse({ ok: true, data }))
       .catch((err) => sendResponse({ ok: false, error: err.message }))
     return true
   }
 
-  if (message.action === "get_entranthub_questions") {
-    const { contestSlug } = message.payload;
-    fetch(`https://api.entranthub.com/api/v1/contests/leetcode/contests/${contestSlug}/questions`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
-      })
+  if (message.action === "get_entranthub_upcoming") {
+    fetchEntrantHubUpcoming()
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }))
+    return true
+  }
+
+  if (message.action === "get_contest_questions") {
+    fetchContestQuestions(message.payload.contestSlug)
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }))
+    return true
+  }
+
+  if (message.action === "get_replay_events") {
+    const { username, contestSlug, questionSlug } = message.payload;
+    fetchReplayEvents(username, contestSlug, questionSlug)
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }))
+    return true
+  }
+
+  if (message.action === "get_user_contest_history") {
+    fetchContestHistory(message.payload.username)
+      .then((data) => sendResponse({ ok: true, data: data.data || {} }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }))
+    return true
+  }
+
+  if (message.action === "get_leetcode_contest_ranking") {
+    const { contestSlug, username } = message.payload;
+    fetch(`https://leetcode.com/contest/api/ranking/${contestSlug}/?pagination=1&region=global&username=${username}`)
+      .then((res) => res.json())
       .then((data) => sendResponse({ ok: true, data }))
       .catch((err) => sendResponse({ ok: false, error: err.message }))
     return true
@@ -78,8 +98,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "get_zerotrac") {
-    fetch("https://zerotrac.github.io/leetcode_problem_rating/data.json")
-      .then((res) => res.json())
+    getCachedZerotracRatings()
       .then((data) => sendResponse(data))
       .catch((err) => sendResponse({ error: err.message }))
     return true
@@ -92,6 +111,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return current || startSession(message.mode || settings.sessionMode || "PRACTICE")
       })
       .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }))
+    return true
+  }
+
+  if (message.action === "session_end") {
+    endSession()
+      .then((data) => {
+        storage.remove("algovault.currentSession")
+        sendResponse({ ok: true, data })
+      })
       .catch((err) => sendResponse({ ok: false, error: err.message }))
     return true
   }
@@ -260,7 +289,7 @@ async function runSync(username: string) {
     let hasNext = true
 
     while (hasNext) {
-      const subsRes = await fetchAllSubmissions(offset, limit)
+      const subsRes = await fetchSubmissionPage(offset, limit)
       const pageSubs = subsRes.submissions_dump || []
       if (pageSubs.length === 0) {
         if (subsRes.has_next) throw new Error("LeetCode returned an empty submission page before history ended")
@@ -272,12 +301,7 @@ async function runSync(username: string) {
       
       updateStatus("RUNNING", "Fetching submissions...", problems.length, rawSubs.length)
       
-      if (rawSubs.length >= 400) {
-        console.warn("Capping submissions fetch at 400 to prevent rate limiting");
-        break;
-      }
-      
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await new Promise((resolve) => setTimeout(resolve, 300))
     }
 
     // Deduplicate submissions by ID to handle any list shifting during pagination
@@ -331,4 +355,36 @@ async function runSync(username: string) {
     updateStatus("ERROR", e.message || "An unknown error occurred during sync")
     return { ok: false, error: e.message }
   }
+}
+
+async function fetchSubmissionPage(offset: number, limit: number) {
+  let lastError: unknown
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      return await fetchAllSubmissions(offset, limit)
+    } catch (error) {
+      lastError = error
+      if (attempt < 3) {
+        await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt))
+      }
+    }
+  }
+  throw lastError
+}
+
+async function getCachedZerotracRatings() {
+  const [cached, fetchedAt] = await Promise.all([
+    getZerotracData(),
+    getZerotracLastFetched()
+  ])
+  if (cached && fetchedAt && Date.now() - fetchedAt < 24 * 60 * 60 * 1000) {
+    return cached
+  }
+
+  const response = await fetch("https://zerotrac.github.io/leetcode_problem_rating/data.json")
+  if (!response.ok) throw new Error(`ZeroTrac request failed: ${response.status}`)
+  const data = await response.json()
+  if (!Array.isArray(data)) throw new Error("ZeroTrac returned an invalid payload")
+  await setZerotracData(data)
+  return data
 }

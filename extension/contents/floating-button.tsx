@@ -14,31 +14,43 @@ export const getStyle: PlasmoGetStyle = () => {
 
 const FloatingButton = () => {
   const [session, setSession] = useState<any>(null)
+  const [sessionState, setSessionState] = useState<any>(null)
   const [elapsed, setElapsed] = useState(0)
   const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
     const load = () => {
-      chrome.storage.local.get("algovault.currentSession", (result) => {
+      chrome.storage.local.get(["algovault.currentSession", "algovault.sessionState"], (result) => {
         setSession(result["algovault.currentSession"] || null)
+        setSessionState(result["algovault.sessionState"] || null)
       })
     }
     load()
     const interval = window.setInterval(() => {
       load()
-      setElapsed((value) => value + 1)
     }, 1000)
     return () => window.clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    if (sessionState?.isSolved) return
+    const interval = window.setInterval(() => {
+      setElapsed((value) => value + 1)
+    }, 1000)
+    return () => window.clearInterval(interval)
+  }, [sessionState])
 
   const handleOpenPanel = (e: React.MouseEvent) => {
     e.stopPropagation()
     chrome.runtime.sendMessage({ action: "open_side_panel" })
   }
 
-  const seconds = session?.startedAt
-    ? Math.max(0, Math.floor((Date.now() - new Date(session.startedAt).getTime()) / 1000))
-    : elapsed
+  let seconds = elapsed
+  if (sessionState?.isSolved) {
+    seconds = sessionState.finalSeconds
+  } else if (session?.startedAt) {
+    seconds = Math.max(0, Math.floor((Date.now() - new Date(session.startedAt).getTime()) / 1000))
+  }
   const minutes = Math.floor(seconds / 60)
   const rem = String(seconds % 60).padStart(2, "0")
 

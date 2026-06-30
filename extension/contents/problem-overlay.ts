@@ -103,8 +103,13 @@ const injectAlgoVaultOverlay = () => {
   }
 
   // 2. Inject Rating (Replacing Difficulty Tag)
-  const difficultyTags = Array.from(document.querySelectorAll('.text-difficulty-easy, .text-difficulty-medium, .text-difficulty-hard')) as HTMLElement[];
-  const diffTag = difficultyTags[0];
+  const diffTag = Array.from(document.querySelectorAll("*")).find(el => {
+    const text = el.textContent?.trim();
+    if (text !== "Easy" && text !== "Medium" && text !== "Hard") return false;
+    const className = el.className || "";
+    if (typeof className !== "string") return false;
+    return className.includes("text-") || className.includes("difficulty") || className.includes("sd-");
+  }) as HTMLElement;
 
   if (diffTag && !diffTag.hasAttribute('data-algovault-rating')) {
     diffTag.setAttribute('data-algovault-rating', 'true');
@@ -119,9 +124,11 @@ const injectAlgoVaultOverlay = () => {
           const prob = data.find((p: any) => p.TitleSlug === slug);
           if (prob && prob.Rating) {
             const rating = Math.round(prob.Rating);
-            const originalText = diffTag.textContent || "";
-            if (!originalText.includes("Rating:")) {
-              diffTag.textContent = `${originalText} (Rating: ${rating})`;
+            if (!diffTag.querySelector(".av-rating")) {
+              const badge = document.createElement("span");
+              badge.className = "av-rating ml-2 font-mono font-bold opacity-90";
+              badge.textContent = ` (${rating})`;
+              diffTag.appendChild(badge);
             }
           }
         }

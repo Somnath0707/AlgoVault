@@ -66,6 +66,7 @@ public class SyncLeetcodeRequest {
     @Data
     public static class ContestInfo {
         private String title;
+        private String titleSlug;
         private Long startTime;
     }
 }

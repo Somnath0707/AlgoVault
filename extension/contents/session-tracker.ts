@@ -22,6 +22,9 @@ const IDLE_TIMEOUT_MS = 2 * 60 * 1000 // 2 minutes
 let isSolved = false
 let isWindowFocused = !document.hidden && document.hasFocus()
 
+// Reset solved sessionState on new page load
+chrome.storage.local.remove("algovault.sessionState")
+
 function updateActivity() {
   lastActivityTime = Date.now()
 }
@@ -147,25 +150,35 @@ document.addEventListener("copy", (event) => {
 }, true)
 
 // Stop timer immediately on Accepted submission
-window.addEventListener("AV_SUBMISSION_RESULT", ((event: CustomEvent) => {
+// Listen for postMessage from MAIN world (events cross world boundary, CustomEvents do NOT)
+window.addEventListener("message", ((event: MessageEvent) => {
+  if (event.source !== window || event.data?.type !== "AV_SUBMISSION_RESULT") return
   if (isSolved) return
-  const detail = event.detail || {}
+  const detail = event.data.detail || {}
   const verdict = detail.statusCode === 10 ? "Accepted" : detail.statusDisplay
   if (verdict === "Accepted") {
-    isSolved = true
-    addFocusedTime(isWindowFocused)
-    isWindowFocused = false
-    
-    // Force final heartbeat and solved event
+    // Heartbeat finalizes the current focus segment before the timer is frozen.
     heartbeat()
+    isSolved = true
+    isWindowFocused = false
     sendEvent("SOLVED", { focusSeconds, tabSwitches, pasteCount })
-  }
-}) as EventListener)
 
+    // Save solving time to local storage so floating-button and overlay panel stop the timer
+    chrome.storage.local.get("algovault.currentSession", (result) => {
+      const session = result["algovault.currentSession"]
+      const startTime = session?.startedAt ? new Date(session.startedAt).getTime() : openedAt.getTime()
+      const finalSeconds = Math.max(0, Math.floor((Date.now() - startTime) / 1000))
+      chrome.storage.local.set({ 
+        "algovault.sessionState": { isSolved: true, finalSeconds } 
+      })
+    })
+  }
+}))
+
+// Detect SPA route navigation instantly (every 1 second)
 setInterval(() => {
-  if (isSolved) return
   if (location.href !== lastUrl) {
-    heartbeat(trackedSlug, trackedTitle)
+    if (!isSolved) heartbeat(trackedSlug, trackedTitle)
     sendEvent("CLOSE", { url: lastUrl }, trackedSlug, trackedTitle)
     lastUrl = location.href
     trackedSlug = currentSlug()
@@ -174,10 +187,18 @@ setInterval(() => {
     focusBaseline = focusSeconds
     tabSwitchBaseline = tabSwitches
     pasteBaseline = pasteCount
-    isSolved = false // Reset solved flag for new page
+    isSolved = false
     isWindowFocused = !document.hidden && document.hasFocus()
+    chrome.storage.local.remove("algovault.sessionState")
     sendEvent("OPEN", { url: location.href })
+    // Send immediate heartbeat for the new page
+    heartbeat()
   }
+}, 1000)
+
+// Periodic heartbeat every 30 seconds
+setInterval(() => {
+  if (isSolved) return
   heartbeat()
 }, 30_000)
 

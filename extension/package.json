@@ -40,8 +40,15 @@
     "host_permissions": [
       "https://leetcode.com/*",
       "https://raw.githubusercontent.com/*",
+      "https://api.github.com/*",
       "https://api.entranthub.com/*",
       "http://localhost:8080/*"
+    ],
+    "web_accessible_resources": [
+      {
+        "resources": ["assets/*"],
+        "matches": ["https://leetcode.com/*"]
+      }
     ],
     "side_panel": {
       "default_path": "sidepanel.html"

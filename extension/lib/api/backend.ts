@@ -132,3 +132,9 @@ export const sendSelfReport = async (payload: Record<string, any>) => {
     body: JSON.stringify(payload)
   })
 }
+
+export const endSession = async () => {
+  return backendFetch("/api/sessions/end", {
+    method: "POST"
+  })
+}

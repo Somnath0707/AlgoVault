@@ -269,6 +269,7 @@ public class SyncService {
             ContestResult existing = contestResultRepository.findByUserIdAndContestTitle(user.getId(), title).orElse(null);
             if (existing != null) {
                 Double priorRating = previousRating;
+                existing.setContestSlug(cInfo.getContest().getTitleSlug());
                 existing.setNewRating(cInfo.getRating());
                 existing.setRatingDelta(priorRating != null && cInfo.getRating() != null ? cInfo.getRating() - priorRating : null);
                 existing.setRank(cInfo.getRanking());
@@ -284,6 +285,7 @@ public class SyncService {
             ContestResult result = ContestResult.builder()
                 .user(user)
                 .contestTitle(title)
+                .contestSlug(cInfo.getContest().getTitleSlug())
                 .contestDate(LocalDateTime.ofInstant(Instant.ofEpochSecond(startTime), ZoneId.systemDefault()))
                 .rank(cInfo.getRanking())
                 .newRating(cInfo.getRating())

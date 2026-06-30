@@ -8,6 +8,7 @@ import java.util.List;
 @Builder
 public class ContestAnalysisResponse {
     private String contestTitle;
+    private String contestSlug;
     private LocalDateTime contestDate;
     private Integer rank;
     private Double ratingBefore;

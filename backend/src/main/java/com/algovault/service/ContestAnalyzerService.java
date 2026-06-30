@@ -26,6 +26,7 @@ public class ContestAnalyzerService {
 
             return ContestAnalysisResponse.builder()
                 .contestTitle(r.getContestTitle())
+                .contestSlug(r.getContestSlug())
                 .contestDate(r.getContestDate())
                 .rank(r.getRank())
                 .ratingBefore(r.getOldRating() != null

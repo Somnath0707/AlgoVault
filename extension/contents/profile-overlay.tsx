@@ -34,9 +34,9 @@ export default function ProfileOverlay() {
   const [loadingQuestions, setLoadingQuestions] = useState<string | null>(null)
 
   // Settings states
-  const [celebrationMode, setCelebrationMode] = useState(true)
-  const [soundEffects, setSoundEffects] = useState(true)
-  const [celebrationTheme, setCelebrationTheme] = useState("GTA")
+  const [celebrationOverlay, setCelebrationOverlay] = useState(true)
+  const [celebrationSound, setCelebrationSound] = useState(true)
+  const [celebrationTheme, setCelebrationTheme] = useState("gta")
 
   useEffect(() => {
     const path = window.location.pathname
@@ -44,23 +44,23 @@ export default function ProfileOverlay() {
     if (match) {
       const u = match[1]
       setUsername(u)
+      // Check if this is the configured (own) profile (clean quotes/whitespace for bulletproof matching)
       getConfiguredUsername().then((configured) => {
-        const matches = Boolean(configured && configured.toLowerCase() === u.toLowerCase())
+        const cleanConfig = configured ? configured.replace(/^["']|["']$/g, "").trim().toLowerCase() : ""
+        const cleanUser = u ? u.replace(/^["']|["']$/g, "").trim().toLowerCase() : ""
+        const matches = Boolean(cleanConfig && cleanConfig === cleanUser)
         setIsConfiguredProfile(matches)
-        if (matches) {
-          fetchContestData(u)
-        } else {
-          setLoading(false)
-        }
       })
+      // Always fetch contest data — it's public GraphQL, works for any user
+      fetchContestData(u)
     }
 
-    // Load Settings
-    chrome.storage.local.get(
-      ["celebrationMode", "soundEffects", "celebrationTheme"],
+    // Load Settings — use chrome.storage.sync with keys matching solve-celebration.tsx
+    chrome.storage.sync.get(
+      ["celebrationOverlay", "celebrationSound", "celebrationTheme"],
       (res) => {
-        if (res.celebrationMode !== undefined) setCelebrationMode(res.celebrationMode)
-        if (res.soundEffects !== undefined) setSoundEffects(res.soundEffects)
+        if (res.celebrationOverlay !== undefined) setCelebrationOverlay(res.celebrationOverlay)
+        if (res.celebrationSound !== undefined) setCelebrationSound(res.celebrationSound)
         if (res.celebrationTheme !== undefined) setCelebrationTheme(res.celebrationTheme)
       }
     )
@@ -74,42 +74,72 @@ export default function ProfileOverlay() {
     }
     setLoading(true)
     try {
-      // 1. Fetch official contests from backend
-      const res: any = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({ action: "get_contests_backend" }, (response) => {
-          resolve(response)
-        })
+      // 1. Fetch live history directly from LeetCode public GraphQL (no sync required)
+      const lcRes: any = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({
+          action: "get_user_contest_history",
+          payload: { username: currentUsername }
+        }, resolve)
       })
 
-      // 2. Fetch history from EntrantHub
+      // 2. Fetch history from EntrantHub (for rating predictions fallback)
       const ehRes: any = await new Promise((resolve) => {
         chrome.runtime.sendMessage({
           action: "get_entranthub_history",
           payload: { username: currentUsername }
-        }, (response) => {
-          resolve(response)
-        })
+        }, resolve)
       })
 
       let formattedBackend: any[] = []
-      if (res && !res.error && Array.isArray(res)) {
-        formattedBackend = res.map((c: any, i: number) => {
-          const contestSlug = c.contestTitle.toLowerCase().replace(/ /g, '-')
+      if (lcRes && lcRes.ok && lcRes.data) {
+        const rankingHistory = lcRes.data.userContestRankingHistory || []
+        const attended = rankingHistory.filter((c: any) => c.attended)
+
+        formattedBackend = attended.map((c: any, i: number) => {
+          const prev = attended[i - 1]
+          const ratingDelta = prev ? (c.rating - prev.rating) : 0
+
           return {
             id: i,
-            title: c.contestTitle,
-            titleSlug: contestSlug,
-            ranking: c.rank ? `#${c.rank}` : "Unranked",
+            title: c.contest.title,
+            titleSlug: c.contest.titleSlug,
+            ranking: c.ranking ? `#${c.ranking}` : "Unranked",
             solved: c.problemsSolved ?? 0,
-            total: c.totalProblems,
-            delta: c.ratingDelta,
+            total: c.totalProblems ?? 4,
+            delta: ratingDelta,
             predictedDelta: null,
-            contestDate: c.contestDate,
-            ratingBefore: c.ratingBefore,
-            ratingAfter: c.ratingAfter,
-            submissions: c.questionDetails?.submissions || []
+            contestDate: new Date(c.contest.startTime * 1000).toISOString(),
+            ratingBefore: prev ? prev.rating : 1500,
+            ratingAfter: c.rating,
+            submissions: []
           }
         })
+      }
+
+      // Fallback to backend local data if LeetCode direct fetch failed
+      if (formattedBackend.length === 0) {
+        const res: any = await new Promise((resolve) => {
+          chrome.runtime.sendMessage({ action: "get_contests_backend" }, resolve)
+        })
+        if (res && !res.error && Array.isArray(res)) {
+          formattedBackend = res.map((c: any, i: number) => {
+            const contestSlug = c.contestTitle.toLowerCase().replace(/ /g, '-')
+            return {
+              id: i,
+              title: c.contestTitle,
+              titleSlug: contestSlug,
+              ranking: c.rank ? `#${c.rank}` : "Unranked",
+              solved: c.problemsSolved ?? 0,
+              total: c.totalProblems,
+              delta: c.ratingDelta,
+              predictedDelta: null,
+              contestDate: c.contestDate,
+              ratingBefore: c.ratingBefore,
+              ratingAfter: c.ratingAfter,
+              submissions: c.questionDetails?.submissions || []
+            }
+          })
+        }
       }
 
       const merged = [...formattedBackend]
@@ -117,44 +147,16 @@ export default function ProfileOverlay() {
 
       if (ehRes && ehRes.ok && Array.isArray(ehRes.data)) {
         for (const item of ehRes.data) {
-          const ehSlug = (item.contestSlug || item.titleSlug || item.slug || (item.contest && (item.contest.titleSlug || item.contest.slug)) || "").toLowerCase().replace(/ /g, '-')
+          // EntrantHub history shape: { titleSlug, ranking, newRating, oldRating, finishTimeInSeconds, attendedContestsCount }
+          const ehSlug = (item.titleSlug || "").toLowerCase()
           if (!ehSlug) continue
 
-          const ehTitle = item.contestTitle || item.title || item.contestName || (item.contest && (item.contest.title || item.contest.name)) || ehSlug.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
-          const ehRank = item.rank ?? item.ranking ?? null
-          const ehSolved = item.problemsSolved ?? item.solved ?? item.score ?? 0
-          const ehTotal = item.totalProblems ?? item.total ?? 4
-
-          let ehDate = null
-          if (item.contestDate) {
-            ehDate = item.contestDate
-          } else if (item.date) {
-            ehDate = item.date
-          } else if (item.contest && item.contest.startTime) {
-            ehDate = new Date(item.contest.startTime * 1000).toISOString()
-          } else if (item.contest && item.contest.date) {
-            ehDate = item.contest.date
-          }
-
-          let ehDelta = null
-          if (typeof item.delta === 'number') {
-            ehDelta = item.delta
-          } else if (typeof item.ratingChange === 'number') {
-            ehDelta = item.ratingChange
-          } else if (typeof item.predictedDelta === 'number') {
-            ehDelta = item.predictedDelta
-          } else if (item.ratings && Array.isArray(item.ratings) && item.ratings.length >= 2) {
-            ehDelta = item.ratings[item.ratings.length - 1] - item.ratings[0]
-          } else if (item.predictedRating && item.currentRating) {
-            ehDelta = item.predictedRating - item.currentRating
-          }
-
-          let ehPredictedRating = item.predictedRating ?? item.newRating ?? null
-          let ehOldRating = item.currentRating ?? item.oldRating ?? null
-          if (ehPredictedRating === null && ehDelta !== null) {
-            const baseRating = ehOldRating ?? 1500
-            ehPredictedRating = baseRating + ehDelta
-          }
+          // Derive a readable title from the slug
+          const ehTitle = ehSlug.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+          const ehRank = item.ranking ?? null
+          const ehNewRating = item.newRating ?? null
+          const ehOldRating = item.oldRating ?? null
+          const ehDelta = (ehNewRating !== null && ehOldRating !== null) ? (ehNewRating - ehOldRating) : null
 
           if (backendSlugs.has(ehSlug)) {
             const existing = merged.find(c => c.titleSlug === ehSlug)
@@ -162,8 +164,8 @@ export default function ProfileOverlay() {
               if ((!existing.delta || existing.delta === 0) && ehDelta !== null) {
                 existing.predictedDelta = ehDelta
               }
-              if (!existing.ratingAfter && ehPredictedRating) {
-                existing.ratingAfter = ehPredictedRating
+              if (!existing.ratingAfter && ehNewRating) {
+                existing.ratingAfter = ehNewRating
               }
               if (!existing.ratingBefore && ehOldRating) {
                 existing.ratingBefore = ehOldRating
@@ -175,13 +177,13 @@ export default function ProfileOverlay() {
               title: ehTitle,
               titleSlug: ehSlug,
               ranking: ehRank ? `#${ehRank}` : "Unranked",
-              solved: ehSolved,
-              total: ehTotal,
+              solved: 0,
+              total: 0,
               delta: null,
               predictedDelta: ehDelta,
-              contestDate: ehDate,
+              contestDate: null,
               ratingBefore: ehOldRating,
-              ratingAfter: ehPredictedRating,
+              ratingAfter: ehNewRating,
               submissions: [],
               isUnofficial: true
             })
@@ -218,22 +220,11 @@ export default function ProfileOverlay() {
               }, resolve)
             })
             if (predRes && predRes.ok && predRes.data) {
+              // EntrantHub realtime shape: { ranks: number[], ratings: number[] }
               const ehData = predRes.data
-              let predictedDelta = null
-              if (ehData) {
-                if (typeof ehData.delta === 'number') {
-                  predictedDelta = ehData.delta
-                } else if (typeof ehData.ratingChange === 'number') {
-                  predictedDelta = ehData.ratingChange
-                } else if (typeof ehData.predictedDelta === 'number') {
-                  predictedDelta = ehData.predictedDelta
-                } else if (ehData.ratings && Array.isArray(ehData.ratings) && ehData.ratings.length >= 2) {
-                  predictedDelta = ehData.ratings[ehData.ratings.length - 1] - ehData.ratings[0]
-                } else if (ehData.predictedRating && ehData.currentRating) {
-                  predictedDelta = ehData.predictedRating - ehData.currentRating
-                }
-              }
-              if (predictedDelta !== null) {
+              const ratings = ehData.ratings
+              if (ratings && Array.isArray(ratings) && ratings.length >= 2) {
+                const predictedDelta = ratings[ratings.length - 1] - ratings[0]
                 c.predictedDelta = predictedDelta
               }
             }
@@ -254,16 +245,10 @@ export default function ProfileOverlay() {
 
   const handleScan = async () => {
     setScanning(true)
-    setScanStatus("Analyzing keystrokes...")
-    chrome.runtime.sendMessage({ action: "sync_history", username }, () => {
-      setScanStatus("Parsing contest deltas...")
-      setTimeout(() => {
-        fetchContestData(username).then(() => {
-          setScanning(false)
-          setScanStatus("")
-        })
-      }, 1500)
-    })
+    setScanStatus("Fetching contest history...")
+    await fetchContestData(username)
+    setScanning(false)
+    setScanStatus("")
   }
 
   const toggleExpandContest = async (contest: any) => {
@@ -277,33 +262,134 @@ export default function ProfileOverlay() {
 
     setLoadingQuestions(contest.titleSlug)
     try {
-      const ehRes: any = await new Promise((resolve) => {
+      // Fetch contest questions from LeetCode GraphQL
+      const qRes: any = await new Promise((resolve) => {
         chrome.runtime.sendMessage({
-          action: "get_entranthub_questions",
+          action: "get_contest_questions",
           payload: { contestSlug: contest.titleSlug }
         }, resolve)
       })
 
-      if (ehRes && ehRes.ok && Array.isArray(ehRes.data)) {
-        const mappedQuestions = ehRes.data.map((q: any, index: number) => {
-          // Check if user has an attempt/submission in the contest
-          const sub = contest.submissions.find((s: any) => s.titleSlug === q.titleSlug)
-          const hasSubmission = !!sub
-          const isAc = sub && sub.verdict === "Accepted"
+      // Background already unwraps: fetchContestQuestions returns the array directly
+      const questionList = (qRes?.ok && Array.isArray(qRes.data)) ? qRes.data : []
 
-          // Realistic deterministic calculations for visual display
-          const seed = (contest.rank ? parseInt(contest.ranking.replace("#", "")) : 450) + index * 17
-          const tabSwitches = seed % 15 + 2
-          const pasteCount = seed % 8 === 0 ? 1 : 0 // realistic paste flag
+      if (questionList.length > 0) {
+        // Try fetching user's submission data for this contest
+        let submissions = contest.submissions || []
+        if (submissions.length === 0) {
+          const rankRes: any = await new Promise((resolve) => {
+            chrome.runtime.sendMessage({
+              action: "get_leetcode_contest_ranking",
+              payload: { contestSlug: contest.titleSlug, username: username }
+            }, resolve)
+          })
+          // LeetCode contest API returns { total_rank: [...], submissions: {...} }
+          if (rankRes && rankRes.ok && rankRes.data) {
+            const rankList = rankRes.data.total_rank || rankRes.data.ranking_show || []
+            if (rankList.length > 0) {
+              const userRanking = rankList[0]
+              const subsObj = userRanking.submissions || {}
+              submissions = Object.entries(subsObj).map(([qId, subDetail]: [string, any]) => {
+                return {
+                  questionId: parseInt(qId, 10),
+                  verdict: subDetail.status === 10 ? "Accepted" : "Wrong Answer",
+                  status: subDetail.status
+                }
+              })
+            }
+          }
+        }
+
+        const mappedQuestions = await Promise.all(questionList.map(async (q: any, index: number) => {
+          const sub = submissions.find((s: any) => s.titleSlug === q.titleSlug || s.questionId === q.questionId || s.question_id === q.questionId)
+          const hasSubmission = !!sub
+          const isAc = sub && (sub.verdict === "Accepted" || sub.status === 10)
+
+          let report: any = { status: 'SKIPPED', label: 'No Submission', color: 'text-zinc-500', details: [], pasteCount: 0, focusLoss: 0 }
+
+          if (hasSubmission) {
+            try {
+              const replayRes: any = await new Promise((resolve) => {
+                chrome.runtime.sendMessage({
+                  action: "get_replay_events",
+                  payload: { username: username, contestSlug: contest.titleSlug, questionSlug: q.titleSlug }
+                }, resolve)
+              })
+              // Background already unwraps: fetchReplayEvents returns the array directly
+              const events = (replayRes?.ok && Array.isArray(replayRes.data)) ? replayRes.data : []
+              if (events.length > 0) {
+                let isAccepted = false
+                for (const e of events) {
+                  const type = parseInt(e.eventType, 10)
+                  if (type === 5) {
+                    try {
+                      const data = JSON.parse(e.eventData)
+                      if (data.result && data.result.status === 10) { isAccepted = true; break }
+                    } catch (err) {}
+                  }
+                }
+
+                let pasteCount = 0
+                let focusLoss = 0
+                const HEAVY_THRESHOLD = 500
+                const MILD_THRESHOLD = 100
+                const detectedPastes: string[] = []
+
+                events.forEach((e: any) => {
+                  const type = parseInt(e.eventType, 10)
+                  if (type === 3) {
+                    if (e.eventData.includes('"val": false') || e.eventData.includes('"val":false')) focusLoss++
+                  }
+                  if ((type === 7 || type === 10) && e.eventData) {
+                    try {
+                      const data = JSON.parse(e.eventData)
+                      const isInternal = data.isFromInside === true
+                      if (data.change && data.change.changes) {
+                        data.change.changes.forEach((change: any) => {
+                          const insertedLen = (change.insert || "").length
+                          if (insertedLen > 0 && !isInternal && insertedLen > MILD_THRESHOLD && type === 10) {
+                            pasteCount++
+                            const dateStr = e.timestamp ? new Date(parseInt(e.timestamp, 10)).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'}) : ''
+                            const timePrefix = dateStr ? `[${dateStr}] ` : ''
+                            let snippet = change.insert.trim().substring(0, 40).replace(/\n/g, ' ')
+                            if (change.insert.length > 40) snippet += '...'
+                            if (insertedLen > HEAVY_THRESHOLD) {
+                              detectedPastes.push(`${timePrefix}Large Ext. Paste (${insertedLen}c): "${snippet}"`)
+                            } else {
+                              detectedPastes.push(`${timePrefix}Small Ext. Paste (${insertedLen}c): "${snippet}"`)
+                            }
+                          }
+                        })
+                      }
+                    } catch (err) {}
+                  }
+                })
+
+                let status = 'CLEAN'
+                let label = 'Manual Typing'
+                let color = 'text-emerald-500'
+                const hasHeavyPaste = detectedPastes.some(d => d.includes('Large Ext. Paste'))
+                if (hasHeavyPaste) { status = 'HEAVY_PASTE'; label = 'Large Paste'; color = 'text-rose-500' }
+                else if (pasteCount > 0) { status = 'MILD_PASTE'; label = 'Small Paste'; color = 'text-amber-500' }
+                if (!isAccepted) { status = 'SKIPPED'; label = 'Not Accepted'; color = 'text-zinc-500' }
+                report = { status, label, color, details: detectedPastes, pasteCount, focusLoss }
+              }
+            } catch (e) {
+              console.error(e)
+            }
+          }
 
           return {
             titleSlug: q.titleSlug,
             title: q.titleUs || q.title || q.titleSlug,
             status: hasSubmission ? (isAc ? "Accepted" : "Wrong Answer") : "Skipped",
-            tabSwitches,
-            typingType: pasteCount > 0 ? "Paste detected" : "Natural typing"
+            tabSwitches: report.focusLoss,
+            typingType: report.label,
+            reportColor: report.color,
+            statusLabel: report.status,
+            details: report.details || []
           }
-        })
+        }))
         setQuestionsMap(prev => ({ ...prev, [contest.titleSlug]: mappedQuestions }))
       }
     } catch (e) {
@@ -315,21 +401,21 @@ export default function ProfileOverlay() {
 
   // Toggle settings
   const handleToggleCelebration = () => {
-    const val = !celebrationMode
-    setCelebrationMode(val)
-    chrome.storage.local.set({ celebrationMode: val })
+    const val = !celebrationOverlay
+    setCelebrationOverlay(val)
+    chrome.storage.sync.set({ celebrationOverlay: val })
   }
 
   const handleToggleSound = () => {
-    const val = !soundEffects
-    setSoundEffects(val)
-    chrome.storage.local.set({ soundEffects: val })
+    const val = !celebrationSound
+    setCelebrationSound(val)
+    chrome.storage.sync.set({ celebrationSound: val })
   }
 
   const handleThemeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value
     setCelebrationTheme(val)
-    chrome.storage.local.set({ celebrationTheme: val })
+    chrome.storage.sync.set({ celebrationTheme: val })
   }
 
   // Floating Green Circle trigger button when panel is closed
@@ -395,9 +481,9 @@ export default function ProfileOverlay() {
                   </div>
                   <button
                     onClick={handleToggleCelebration}
-                    className={`w-8 h-4.5 rounded-full relative transition-colors shrink-0 ${celebrationMode ? 'bg-[#10b981]' : 'bg-zinc-850'}`}
+                    className={`w-8 h-4.5 rounded-full relative transition-colors shrink-0 ${celebrationOverlay ? 'bg-[#10b981]' : 'bg-zinc-850'}`}
                   >
-                    <div className={`w-3.5 h-3.5 rounded-full bg-zinc-950 absolute top-0.5 transition-all ${celebrationMode ? 'right-0.5' : 'left-0.5'}`} />
+                    <div className={`w-3.5 h-3.5 rounded-full bg-zinc-950 absolute top-0.5 transition-all ${celebrationOverlay ? 'right-0.5' : 'left-0.5'}`} />
                   </button>
                 </div>
 
@@ -408,9 +494,9 @@ export default function ProfileOverlay() {
                   </div>
                   <button
                     onClick={handleToggleSound}
-                    className={`w-8 h-4.5 rounded-full relative transition-colors shrink-0 ${soundEffects ? 'bg-[#10b981]' : 'bg-zinc-850'}`}
+                    className={`w-8 h-4.5 rounded-full relative transition-colors shrink-0 ${celebrationSound ? 'bg-[#10b981]' : 'bg-zinc-850'}`}
                   >
-                    <div className={`w-3.5 h-3.5 rounded-full bg-zinc-950 absolute top-0.5 transition-all ${soundEffects ? 'right-0.5' : 'left-0.5'}`} />
+                    <div className={`w-3.5 h-3.5 rounded-full bg-zinc-950 absolute top-0.5 transition-all ${celebrationSound ? 'right-0.5' : 'left-0.5'}`} />
                   </button>
                 </div>
               </div>
@@ -424,10 +510,8 @@ export default function ProfileOverlay() {
                   onChange={handleThemeChange}
                   className="w-full bg-zinc-900 border border-zinc-850 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-[#10b981] font-mono cursor-pointer"
                 >
-                  <option value="GTA">GTA San Andreas</option>
-                  <option value="Minecraft">Minecraft</option>
-                  <option value="Cyberpunk">Cyberpunk Neon</option>
-                  <option value="Retro">Retro Arcade</option>
+                  <option value="gta">GTA San Andreas</option>
+                  <option value="minecraft">Minecraft</option>
                 </select>
                 <div className="text-[9px] text-zinc-500 font-mono">Controls banner visuals and sound style.</div>
               </div>
@@ -458,8 +542,7 @@ export default function ProfileOverlay() {
             ) : (
               <button
                 onClick={handleScan}
-                disabled={!isConfiguredProfile}
-                className="w-full bg-gradient-to-r from-[#10b981] to-[#059669] hover:from-[#34d399] hover:to-[#059669] text-zinc-950 font-bold text-xs py-2.5 px-4 rounded-xl transition-all border border-[#10b981]/20 font-sans tracking-wide active:scale-98 disabled:opacity-50 disabled:pointer-events-none"
+                className="w-full bg-gradient-to-r from-[#10b981] to-[#059669] hover:from-[#34d399] hover:to-[#059669] text-zinc-950 font-bold text-xs py-2.5 px-4 rounded-xl transition-all border border-[#10b981]/20 font-sans tracking-wide active:scale-98"
               >
                 Scan Last 5 Contests
               </button>
@@ -515,16 +598,25 @@ export default function ProfileOverlay() {
                     <div className="flex items-center gap-2.5">
                       <span className="text-xs font-mono text-zinc-400 font-medium">{contest.ranking}</span>
                       
-                      {/* Play button opens LeetCode contest */}
-                      <a
-                        href={`https://leetcode.com/contest/${contest.titleSlug}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-7 h-7 rounded-full bg-[#10b981]/10 flex items-center justify-center text-[#10b981] hover:bg-[#10b981] hover:text-zinc-950 transition-colors"
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                      </a>
+                      {/* Play button opens user's exact ranking page */}
+                      {(() => {
+                        const rkStr = typeof contest.ranking === 'string' ? contest.ranking.replace(/\D/g, '') : String(contest.ranking)
+                        const rk = parseInt(rkStr, 10) || 1
+                        const pg = Math.ceil(rk / 25)
+                        const repUrl = `https://leetcode.com/contest/${contest.titleSlug}/ranking/${pg}/?region=global`
+                        return (
+                          <a
+                            href={repUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-7 h-7 rounded-full bg-[#10b981]/10 flex items-center justify-center text-[#10b981] hover:bg-[#10b981] hover:text-zinc-950 transition-colors"
+                            title="Go to my ranking page"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                          </a>
+                        )
+                      })()}
                     </div>
                   </div>
 
@@ -545,16 +637,21 @@ export default function ProfileOverlay() {
                                 <div className="text-zinc-300 font-medium truncate" title={q.title}>
                                   {q.title}
                                 </div>
-                                <div className="text-[8.5px] text-zinc-500 font-mono mt-0.5 flex flex-wrap gap-x-1.5">
-                                  {!isSkipped && <span>• Tab Switch: {q.tabSwitches}x</span>}
-                                  {!isSkipped && <span>• {q.typingType}</span>}
+                                <div className="text-[8.5px] text-zinc-500 font-mono mt-0.5 flex flex-col gap-0.5">
+                                  {!isSkipped && (
+                                    <>
+                                      <span>• Tab Switches: {q.tabSwitches}x</span>
+                                      <span>• Verdict: {q.typingType}</span>
+                                      {q.details && q.details.map((d: string, dIdx: number) => (
+                                        <span key={dIdx} className="text-red-400 font-medium">• {d}</span>
+                                      ))}
+                                    </>
+                                  )}
                                   {isSkipped && <span>• No Submission</span>}
                                 </div>
                               </div>
-                              <span className={`font-mono text-[9px] font-semibold tracking-wider ${
-                                isAc ? 'text-[#10b981]' : isSkipped ? 'text-zinc-500' : 'text-red-400'
-                              }`}>
-                                {isSkipped ? "Skipped" : isAc ? "Accepted" : "Manual Typing"}
+                              <span className={`font-mono text-[9px] font-semibold tracking-wider ${q.reportColor || (isSkipped ? 'text-zinc-500' : 'text-zinc-400')}`}>
+                                {q.statusLabel || (isSkipped ? "Skipped" : isAc ? "Accepted" : "Manual Typing")}
                               </span>
                             </div>
                           )

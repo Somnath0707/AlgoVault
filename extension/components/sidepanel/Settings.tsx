@@ -12,6 +12,9 @@ import { fetchUserStatus } from "../../lib/api/leetcode"
 
 export const Settings = () => {
   const [hideAccRate, setHideAccRate] = useState(true);
+  const [celebrationOverlay, setCelebrationOverlay] = useState(true);
+  const [celebrationSound, setCelebrationSound] = useState(true);
+  const [celebrationTheme, setCelebrationTheme] = useState("gta");
   const [syncStatus, setSyncStatus] = useState<any>(null);
   const [username, setUsername] = useState<string>('');
   const [activeLcUser, setActiveLcUser] = useState<string | null>(null);
@@ -21,8 +24,11 @@ export const Settings = () => {
   const [githubSaved, setGithubSaved] = useState<boolean>(false);
 
   useEffect(() => {
-    chrome.storage.sync.get(['hideAcceptanceRate'], (res) => {
+    chrome.storage.sync.get(['hideAcceptanceRate', 'celebrationOverlay', 'celebrationSound', 'celebrationTheme'], (res) => {
       if (res.hideAcceptanceRate !== undefined) setHideAccRate(res.hideAcceptanceRate);
+      if (res.celebrationOverlay !== undefined) setCelebrationOverlay(res.celebrationOverlay);
+      if (res.celebrationSound !== undefined) setCelebrationSound(res.celebrationSound);
+      if (res.celebrationTheme !== undefined) setCelebrationTheme(res.celebrationTheme);
     });
     getUsername().then((value) => setUsername(value || ""));
     getGithubPat().then((value) => setGithubPat(value || ""));
@@ -65,6 +71,24 @@ export const Settings = () => {
     chrome.storage.sync.set({ hideAcceptanceRate: val });
   };
 
+  const toggleCelebrationOverlay = () => {
+    const val = !celebrationOverlay;
+    setCelebrationOverlay(val);
+    chrome.storage.sync.set({ celebrationOverlay: val });
+  };
+
+  const toggleCelebrationSound = () => {
+    const val = !celebrationSound;
+    setCelebrationSound(val);
+    chrome.storage.sync.set({ celebrationSound: val });
+  };
+
+  const handleThemeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setCelebrationTheme(val);
+    chrome.storage.sync.set({ celebrationTheme: val });
+  };
+
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setUsername(val);
@@ -103,6 +127,53 @@ export const Settings = () => {
             >
                 <div className={`w-3.5 h-3.5 rounded-full bg-zinc-950 absolute top-0.5 transition-all ${hideAccRate ? 'right-0.5' : 'left-0.5'}`} />
             </button>
+        </div>
+
+        <div className="border-t border-zinc-800/50 my-2.5" />
+
+        <div className="flex justify-between items-center py-1">
+            <div>
+                <div className="text-xs font-medium text-zinc-200">Celebration Overlay</div>
+                <div className="text-[10px] text-zinc-500 mt-0.5 leading-relaxed font-mono">Show custom theme meme card on solving problems</div>
+            </div>
+            <button
+                onClick={toggleCelebrationOverlay}
+                className={`w-9 h-5 rounded-full relative transition-colors shrink-0 ${celebrationOverlay ? 'bg-[#dfa054]' : 'bg-zinc-800'}`}
+            >
+                <div className={`w-3.5 h-3.5 rounded-full bg-zinc-950 absolute top-0.5 transition-all ${celebrationOverlay ? 'right-0.5' : 'left-0.5'}`} />
+            </button>
+        </div>
+
+        <div className="border-t border-zinc-800/50 my-2.5" />
+
+        <div className="flex justify-between items-center py-1">
+            <div>
+                <div className="text-xs font-medium text-zinc-200">Celebration Sound</div>
+                <div className="text-[10px] text-zinc-500 mt-0.5 leading-relaxed font-mono">Play victory/defeat audio themes on submissions</div>
+            </div>
+            <button
+                onClick={toggleCelebrationSound}
+                className={`w-9 h-5 rounded-full relative transition-colors shrink-0 ${celebrationSound ? 'bg-[#dfa054]' : 'bg-zinc-800'}`}
+            >
+                <div className={`w-3.5 h-3.5 rounded-full bg-zinc-950 absolute top-0.5 transition-all ${celebrationSound ? 'right-0.5' : 'left-0.5'}`} />
+            </button>
+        </div>
+
+        <div className="border-t border-zinc-800/50 my-2.5" />
+
+        <div className="flex justify-between items-center py-1">
+            <div>
+                <div className="text-xs font-medium text-zinc-200">Celebration Theme</div>
+                <div className="text-[10px] text-zinc-500 mt-0.5 leading-relaxed font-mono">Choose Grand Theft Auto or Minecraft style</div>
+            </div>
+            <select
+                value={celebrationTheme}
+                onChange={handleThemeChange}
+                className="bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-xs text-zinc-350 focus:outline-none focus:border-[#dfa054]"
+            >
+                <option value="gta">Grand Theft Auto</option>
+                <option value="minecraft">Minecraft</option>
+            </select>
         </div>
       </Card>
 
