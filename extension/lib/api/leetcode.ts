@@ -288,3 +288,31 @@ export function analyzeEvents(events: any[]): CheatReport {
 
   return { status, label, color, details, pasteCount, focusLoss };
 }
+
+export const fetchUpcomingContests = async () => {
+  const query = `
+    query contestUpcomingContests {
+      upcomingContests {
+        title
+        titleSlug
+        startTime
+        duration
+      }
+    }
+  `;
+  try {
+    const res = await fetchGraphQL(query);
+    return (res.data?.upcomingContests || []).map((c: any) => ({
+      platform: "LeetCode",
+      id: c.titleSlug,
+      name: c.title,
+      startTime: new Date(c.startTime * 1000).toISOString(),
+      durationSeconds: c.duration,
+      url: `https://leetcode.com/contest/${c.titleSlug}`
+    }));
+  } catch (e) {
+    console.error("Failed to fetch LeetCode upcoming contests", e);
+    return [];
+  }
+};
+

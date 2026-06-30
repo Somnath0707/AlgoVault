@@ -152,7 +152,7 @@ document.addEventListener("copy", (event) => {
 // Stop timer immediately on Accepted submission
 // Listen for postMessage from MAIN world (events cross world boundary, CustomEvents do NOT)
 window.addEventListener("message", ((event: MessageEvent) => {
-  if (event.source !== window || event.data?.type !== "AV_SUBMISSION_RESULT") return
+  if (event.data?.type !== "AV_SUBMISSION_RESULT") return
   if (isSolved) return
   const detail = event.data.detail || {}
   const verdict = detail.statusCode === 10 ? "Accepted" : detail.statusDisplay

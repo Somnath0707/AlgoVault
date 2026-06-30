@@ -277,17 +277,21 @@ export default function ProfileOverlay() {
         // Try fetching user's submission data for this contest
         let submissions = contest.submissions || []
         if (submissions.length === 0) {
+          const rkStr = typeof contest.ranking === 'string' ? contest.ranking.replace(/\D/g, '') : String(contest.ranking)
+          const rk = parseInt(rkStr, 10) || 1
+          const pg = Math.ceil(rk / 25) || 1
+
           const rankRes: any = await new Promise((resolve) => {
             chrome.runtime.sendMessage({
               action: "get_leetcode_contest_ranking",
-              payload: { contestSlug: contest.titleSlug, username: username }
+              payload: { contestSlug: contest.titleSlug, username: username, page: pg }
             }, resolve)
           })
           // LeetCode contest API returns { total_rank: [...], submissions: {...} }
           if (rankRes && rankRes.ok && rankRes.data) {
             const rankList = rankRes.data.total_rank || rankRes.data.ranking_show || []
-            if (rankList.length > 0) {
-              const userRanking = rankList[0]
+            const userRanking = rankList.find((r: any) => r.username?.toLowerCase() === username.toLowerCase())
+            if (userRanking) {
               const subsObj = userRanking.submissions || {}
               submissions = Object.entries(subsObj).map(([qId, subDetail]: [string, any]) => {
                 return {
@@ -308,6 +312,15 @@ export default function ProfileOverlay() {
           let report: any = { status: 'SKIPPED', label: 'No Submission', color: 'text-zinc-500', details: [], pasteCount: 0, focusLoss: 0 }
 
           if (hasSubmission) {
+            report = {
+              status: isAc ? 'CLEAN' : 'WRONG_ANSWER',
+              label: isAc ? 'Accepted' : 'Wrong Answer',
+              color: isAc ? 'text-[#10b981]' : 'text-red-400',
+              details: ['Replay telemetry unavailable'],
+              pasteCount: 0,
+              focusLoss: 0
+            }
+
             try {
               const replayRes: any = await new Promise((resolve) => {
                 chrome.runtime.sendMessage({

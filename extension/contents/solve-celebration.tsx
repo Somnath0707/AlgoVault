@@ -129,7 +129,7 @@ export default function SolveCelebration() {
     })
 
     const handleSubmission = (event: MessageEvent) => {
-      if (event.source !== window || event.data?.type !== "AV_SUBMISSION_RESULT") return
+      if (event.data?.type !== "AV_SUBMISSION_RESULT") return
       const detail = event.data.detail || {}
       const status = detail.statusCode
 

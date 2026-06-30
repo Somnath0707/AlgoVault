@@ -1,4 +1,4 @@
-import { fetchUserProfile, fetchSolvedProblems, fetchAllSubmissions, fetchContestHistory, fetchProblemMetadata, fetchUserStatus, fetchContestQuestions, fetchReplayEvents } from "../lib/api/leetcode"
+import { fetchUserProfile, fetchSolvedProblems, fetchAllSubmissions, fetchContestHistory, fetchProblemMetadata, fetchUserStatus, fetchContestQuestions, fetchReplayEvents, fetchUpcomingContests } from "../lib/api/leetcode"
 import { getUserSettings, getUsername, setLastSync, setUsername, storage, getGithubPat, getGithubRepo, getZerotracData, getZerotracLastFetched, setZerotracData } from "../lib/storage"
 import { commitToGithub, getExtensionForLanguage } from "../lib/api/github"
 import { fetchEntrantHubHistory, fetchEntrantHubRealtime, fetchEntrantHubUpcoming, type LeetCodeRegion } from "../lib/api/entranthub"
@@ -57,7 +57,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "get_entranthub_upcoming") {
     fetchEntrantHubUpcoming()
       .then((data) => sendResponse({ ok: true, data }))
-      .catch((err) => sendResponse({ ok: false, error: err.message }))
+      .catch(async (err) => {
+        console.warn("EntrantHub upcoming failed, falling back to LeetCode GraphQL", err)
+        try {
+          const fallbackData = await fetchUpcomingContests()
+          sendResponse({ ok: true, data: fallbackData })
+        } catch (fallbackErr: any) {
+          sendResponse({ ok: false, error: fallbackErr.message || "Failed to fetch contests" })
+        }
+      })
     return true
   }
 
@@ -84,8 +92,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "get_leetcode_contest_ranking") {
-    const { contestSlug, username } = message.payload;
-    fetch(`https://leetcode.com/contest/api/ranking/${contestSlug}/?pagination=1&region=global&username=${username}`)
+    const { contestSlug, username, page = 1 } = message.payload;
+    fetch(`https://leetcode.com/contest/api/ranking/${contestSlug}/?pagination=${page}&region=global&username=${username}`)
       .then((res) => res.json())
       .then((data) => sendResponse({ ok: true, data }))
       .catch((err) => sendResponse({ ok: false, error: err.message }))
@@ -288,7 +296,7 @@ async function runSync(username: string) {
     const limit = 100
     let hasNext = true
 
-    while (hasNext) {
+    while (hasNext && rawSubs.length < 600) {
       const subsRes = await fetchSubmissionPage(offset, limit)
       const pageSubs = subsRes.submissions_dump || []
       if (pageSubs.length === 0) {
