@@ -27,6 +27,20 @@ export default function RankingOverlay() {
       container.appendChild(badge)
     }
 
+    const injectUnavailable = (container: Element, message: string) => {
+      if (container.querySelector(".av-prediction")) return
+      const badge = document.createElement("span")
+      badge.className = "av-prediction"
+      badge.title = message
+      badge.style.display = "block"
+      badge.style.marginTop = "2px"
+      badge.style.fontSize = "10px"
+      badge.style.fontWeight = "600"
+      badge.style.color = "#71717a"
+      badge.textContent = "prediction unavailable"
+      container.appendChild(badge)
+    }
+
     const scan = () => {
       const contestSlug = location.pathname.match(/\/contest\/([^/]+)\/ranking/)?.[1]
       if (!contestSlug || disposed) return
@@ -48,7 +62,11 @@ export default function RankingOverlay() {
           payload: { contestSlug, username, region: "US" }
         }, (response) => {
           delete (container as HTMLElement).dataset.algovaultPredictionLoading
-          if (disposed || !response?.ok || !response.data) return
+          if (disposed) return
+          if (!response?.ok || !response.data) {
+            injectUnavailable(container, response?.error || "EntrantHub prediction unavailable")
+            return
+          }
           predictionCache.set(cacheKey, response.data)
           injectPrediction(container, response.data)
         })

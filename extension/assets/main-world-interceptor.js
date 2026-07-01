@@ -11,6 +11,31 @@
     return '';
   }
 
+  function emitSubmissionResult(url, data) {
+    var body = data && data.data ? data.data : data;
+    if (!body || body.state !== 'SUCCESS') return;
+    var match = String(url).match(/\/submissions\/detail\/(\d+)\/check/);
+    var submissionId = match ? match[1] : undefined;
+    if (submissionId && submissionId === lastSeenSubmissionId) return;
+    lastSeenSubmissionId = submissionId;
+    var captured = window.__ALGOVAULT_LAST_SUBMITTED_CODE__ || {};
+    window.postMessage({
+      type: 'AV_SUBMISSION_RESULT',
+      detail: {
+        submissionId: submissionId,
+        statusCode: body.status_code,
+        statusDisplay: body.status_msg || body.status_runtime || body.state || undefined,
+        runtime: body.status_runtime,
+        memory: body.status_memory,
+        totalCorrect: body.total_correct,
+        totalTestcases: body.total_testcases,
+        lang: body.lang || captured.lang,
+        code: body.code || body.typed_code || captured.code,
+        codeLang: body.lang || captured.lang
+      }
+    }, '*');
+  }
+
   // 1. Monkey-patch window.fetch
   window.fetch = async function() {
     var args = Array.from(arguments);
@@ -47,27 +72,7 @@
     // Intercept submission check polling responses
     if (/\/submissions\/detail\/\d+\/check/.test(url)) {
       response.clone().json().then(function(data) {
-        var body = data && data.data ? data.data : data;
-        if (!body || body.state !== 'SUCCESS') return;
-        var match = url.match(/\/submissions\/detail\/(\d+)\/check/);
-        var submissionId = match ? match[1] : undefined;
-        // Deduplicate: LeetCode polls /check repeatedly; only fire once per submission
-        if (submissionId && submissionId === lastSeenSubmissionId) return;
-        lastSeenSubmissionId = submissionId;
-        var detail = {
-          submissionId: submissionId,
-          statusCode: body.status_code,
-          statusDisplay: body.status_msg || body.status_runtime || undefined,
-          runtime: body.status_runtime,
-          memory: body.status_memory,
-          totalCorrect: body.total_correct,
-          totalTestcases: body.total_testcases,
-          lang: body.lang,
-          code: window.__ALGOVAULT_LAST_SUBMITTED_CODE__ ? window.__ALGOVAULT_LAST_SUBMITTED_CODE__.code : undefined,
-          codeLang: window.__ALGOVAULT_LAST_SUBMITTED_CODE__ ? window.__ALGOVAULT_LAST_SUBMITTED_CODE__.lang : undefined
-        };
-        // postMessage crosses the MAIN→ISOLATED world boundary (CustomEvent does NOT)
-        window.postMessage({ type: 'AV_SUBMISSION_RESULT', detail: detail }, '*');
+        emitSubmissionResult(url, data);
       }).catch(function() {});
     }
 
@@ -96,6 +101,14 @@
       } catch (e) {
         console.warn("AlgoVault: Failed to extract XHR submission code", e);
       }
+    }
+    if (/\/submissions\/detail\/\d+\/check/.test(url)) {
+      this.addEventListener('loadend', function() {
+        try {
+          if (this.status < 200 || this.status >= 300 || !this.responseText) return;
+          emitSubmissionResult(url, JSON.parse(this.responseText));
+        } catch (e) {}
+      });
     }
     return originalXhrSend.apply(this, arguments);
   };

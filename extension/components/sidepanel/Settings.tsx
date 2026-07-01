@@ -6,7 +6,8 @@ import {
   getGithubPat,
   setGithubPat as persistGithubPat,
   getGithubRepo,
-  setGithubRepo as persistGithubRepo
+  setGithubRepo as persistGithubRepo,
+  getLastSync
 } from "../../lib/storage"
 import { fetchUserStatus } from "../../lib/api/leetcode"
 
@@ -24,6 +25,7 @@ export const Settings = () => {
   const [githubSaved, setGithubSaved] = useState<boolean>(false);
   const [gitSyncStatus, setGitSyncStatus] = useState<any>(null);
   const [syncHasMore, setSyncHasMore] = useState<any>(null);
+  const [lastSync, setLastSync] = useState<number | null>(null);
 
   useEffect(() => {
     chrome.storage.sync.get(['hideAcceptanceRate', 'celebrationOverlay', 'celebrationSound', 'celebrationTheme'], (res) => {
@@ -35,6 +37,7 @@ export const Settings = () => {
     getUsername().then((value) => setUsername(value || ""));
     getGithubPat().then((value) => setGithubPat(value || ""));
     getGithubRepo().then((value) => setGithubRepo(value || ""));
+    getLastSync().then(setLastSync).catch(() => setLastSync(null));
     
     chrome.storage.local.get("algovault.gitSyncStatus", (res) => {
       setGitSyncStatus(res["algovault.gitSyncStatus"] || null);
@@ -71,6 +74,7 @@ export const Settings = () => {
     const checkSync = () => {
       chrome.storage.local.get(['syncStatus', 'algovault.syncHasMore'], (res) => {
         if (res.syncStatus) setSyncStatus(res.syncStatus);
+        getLastSync().then(setLastSync).catch(() => {});
         let hasMoreVal = res['algovault.syncHasMore'];
         if (typeof hasMoreVal === 'string') {
           try { hasMoreVal = JSON.parse(hasMoreVal) } catch (e) {}
@@ -201,8 +205,13 @@ export const Settings = () => {
       <Card className="p-3.5">
         <h3 className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-2">Data Synchronization</h3>
         <p className="text-[11px] text-zinc-500 font-mono leading-relaxed mb-3.5">
-            AlgoVault maps your entire LeetCode history to build custom telemetry metrics. Syncing queries your historical submissions, problem tags, and contest records directly from LeetCode.
+            AlgoVault maps your entire LeetCode history once, then keeps new accepted submissions live through the extension.
         </p>
+        {lastSync && (
+          <div className="mb-3 text-[10px] text-emerald-400 font-mono bg-emerald-950/15 border border-emerald-900/25 rounded-lg px-3 py-2">
+            Full sync valid since {new Date(lastSync).toLocaleString()}.
+          </div>
+        )}
 
         <div className="mb-4">
             <label className="text-[10px] text-zinc-400 block mb-1.5 flex justify-between items-center font-mono">
@@ -256,7 +265,7 @@ export const Settings = () => {
                 onClick={handleSync}
                 className="w-full bg-[#dfa054] hover:bg-[#e5b376] text-zinc-950 font-semibold text-xs py-2 px-4 rounded-lg transition-colors border border-[#dfa054]/20 font-mono tracking-wider uppercase"
             >
-                Sync Now
+                Full Sync / Refresh
             </button>
         )}
 
@@ -269,7 +278,7 @@ export const Settings = () => {
         {syncStatus?.status !== 'RUNNING' && syncHasMore?.hasMore && (
             <div className="mt-3 p-3 bg-zinc-950 border border-zinc-800 rounded-lg flex flex-col gap-2">
                 <div className="text-[10px] text-zinc-400 font-mono leading-relaxed">
-                    Additional older submissions are available. Syncing in chunks of 600 prevents LeetCode rate limits.
+                    LeetCode still reports older pages after the last run. Continue from the saved offset.
                 </div>
                 <button
                     onClick={() => {

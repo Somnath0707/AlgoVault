@@ -4,6 +4,7 @@ import { Card } from "../ui/Card"
 import { fetchContests } from "../../lib/api/backend"
 import { getUsername, setCachedContests } from "../../lib/storage"
 import { loadContestLifecycle, type ContestLifecycleItem } from "../../lib/contest-lifecycle"
+import { getPredictedContests, type PredictedContest, type PredictedContestResult } from "../../lib/predicted-contests"
 import { UpcomingContests } from "./UpcomingContests"
 import { AreaChart, Area, XAxis, YAxis, Tooltip as ChartTooltip, ResponsiveContainer } from "recharts"
 
@@ -11,13 +12,26 @@ function deltaText(contest: ContestLifecycleItem) {
   if (contest.attended === false) return "Unchanged"
   const delta = contest.status === "FINALIZED" ? contest.ratingDelta : contest.predictedDelta
   const rating = contest.status === "FINALIZED" ? contest.ratingAfter : contest.predictedRating
-  if (delta == null) return contest.status === "FINALIZED" && rating != null ? `${Math.round(rating)} official` : "Pending"
+  if (delta == null) {
+    if (contest.status === "FINALIZED" && rating != null) return `${Math.round(rating)} official`
+    return contest.predictionError ? "Source blocked" : "Pending"
+  }
   return `${rating == null ? "" : `${Math.round(rating)} `}(${delta >= 0 ? "+" : ""}${Math.round(delta)})`
+}
+
+function statusText(contest: ContestLifecycleItem) {
+  if (contest.attended === false) return "DID NOT ATTEND"
+  if (contest.status === "FINALIZED") return "OFFICIAL"
+  if (contest.status === "PREDICTED") return "ENTRANTHUB PREDICTION"
+  if (contest.predictionError) return "ENTRANTHUB UNAVAILABLE"
+  return "PREDICTION PENDING"
 }
 
 export const Contest = () => {
   const [activeTab, setActiveTab] = useState<"history" | "predicted" | "upcoming">("history")
   const [data, setData] = useState<ContestLifecycleItem[]>([])
+  const [predictedResult, setPredictedResult] = useState<PredictedContestResult | null>(null)
+  const [loadingPredicted, setLoadingPredicted] = useState(false)
   const [profile, setProfile] = useState<any>(null)
   const [rankingInfo, setRankingInfo] = useState<any>(null)
   const [analytics, setAnalytics] = useState<any[]>([])
@@ -25,13 +39,26 @@ export const Contest = () => {
   const [error, setError] = useState("")
   const [username, setUsernameState] = useState("")
 
-  const refresh = async () => {
+  const refresh = async (forcePredictRefresh = false) => {
     setLoading(true)
     setError("")
     try {
       const username = await getUsername()
       if (!username) throw new Error("Set your LeetCode username in Settings")
       setUsernameState(username)
+
+      // Fetch predicted contests asynchronously and sequentially inside the service
+      setLoadingPredicted(true)
+      getPredictedContests({ username, region: "US", forceRefresh: forcePredictRefresh })
+        .then((result) => {
+          setPredictedResult(result)
+        })
+        .catch((err) => {
+          console.warn("Predicted contests query failed:", err)
+        })
+        .finally(() => {
+          setLoadingPredicted(false)
+        })
 
       const [lifecycle, profileRes, rankingRes, localAnalytics] = await Promise.all([
         loadContestLifecycle(username),
@@ -57,8 +84,8 @@ export const Contest = () => {
   }
 
   useEffect(() => {
-    void refresh()
-    const interval = window.setInterval(() => void refresh(), 2 * 60 * 1000)
+    void refresh(false)
+    const interval = window.setInterval(() => void refresh(false), 2 * 60 * 1000)
     return () => window.clearInterval(interval)
   }, [])
 
@@ -66,7 +93,7 @@ export const Contest = () => {
   const avgFinish = timed.length
     ? Math.round(timed.reduce((sum, contest) => sum + contest.finishTimeMinutes!, 0) / timed.length)
     : null
-  const pendingCount = data.filter((contest) => contest.status === "PREDICTED" || contest.status === "PREDICTING").length
+  const pendingCount = predictedResult?.contests?.length || 0
   const latestAnalytics = analytics[0]
 
   // Statistics & chart memoized calculations
@@ -108,9 +135,6 @@ export const Contest = () => {
     if (activeTab === "history") {
       return data.filter((contest) => contest.status === "FINALIZED")
     }
-    if (activeTab === "predicted") {
-      return data.filter((contest) => contest.status !== "FINALIZED")
-    }
     return []
   }, [data, activeTab])
 
@@ -124,7 +148,7 @@ export const Contest = () => {
 
       {activeTab === "upcoming" ? <UpcomingContests /> : <>
         <div className="flex justify-end -mb-2">
-          <button onClick={() => void refresh()} disabled={loading} title="Refresh contest data" className="p-1.5 text-zinc-500 hover:text-zinc-200 disabled:opacity-40">
+          <button onClick={() => void refresh(true)} disabled={loading} title="Refresh contest data" className="p-1.5 text-zinc-500 hover:text-zinc-200 disabled:opacity-40">
             <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
           </button>
         </div>
@@ -217,14 +241,55 @@ export const Contest = () => {
         )}
 
         {activeTab === "predicted" && (
-          <div className="grid grid-cols-1">
+          <div className="grid gap-3">
             <Card className="p-3.5 flex justify-between items-center bg-[#dfa054]/5 border border-[#dfa054]/25">
               <div>
-                <div className="text-xs font-semibold text-[#dfa054] uppercase tracking-wider">Unfinalized Contests</div>
-                <div className="text-[10px] text-zinc-400 mt-1 leading-relaxed">Displays estimated ranking delta. Solved items move to history upon official update.</div>
+                <div className="text-xs font-semibold text-[#dfa054] uppercase tracking-wider">Predicted Contests</div>
+                <div className="text-[10px] text-zinc-400 mt-1 leading-relaxed">Only contests with EntrantHub realtime ratings that are not official yet.</div>
               </div>
               <div className="text-xl font-bold font-mono text-[#dfa054] tabular-nums shrink-0">{pendingCount}</div>
             </Card>
+
+            {loadingPredicted && (
+              <div className="rounded-md border border-zinc-800 bg-zinc-900/25 px-3 py-10 text-center text-xs text-zinc-500">
+                <RefreshCw size={20} className="animate-spin text-zinc-500 mx-auto mb-2.5" />
+                Calculating realtime predictions...
+              </div>
+            )}
+
+            {!loadingPredicted && (!predictedResult || predictedResult.contests.length === 0) && (
+              <div className="rounded-md border border-zinc-800 bg-zinc-900/25 px-3 py-8 text-center text-xs text-zinc-500">
+                No predicted ratings available.
+              </div>
+            )}
+
+            {!loadingPredicted && predictedResult && predictedResult.contests.map((contest) => (
+              <Card key={contest.titleSlug} className="p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold text-zinc-100">{contest.contestName}</div>
+                    <div className="mt-1 flex items-center gap-2 text-[10px] font-semibold text-[#dfa054]">
+                      <span className="rounded-full border border-[#dfa054]/30 bg-[#dfa054]/10 px-2 py-0.5 font-bold uppercase tracking-wider">⭐ Predicted</span>
+                      <span className="font-mono text-zinc-500">Rank {contest.predictedRank ?? "n/a"}</span>
+                    </div>
+                  </div>
+                  <div className={`shrink-0 text-right font-mono text-sm font-bold ${contest.predictedDelta >= 0 ? "text-emerald-450" : "text-red-400"}`}>
+                    {contest.predictedDelta >= 0 ? "+" : ""}{Math.round(contest.predictedDelta)}
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-md border border-zinc-800 bg-zinc-950/35 p-3">
+                  <div>
+                    <div className="text-[9px] uppercase text-zinc-650 font-bold font-mono">Old Rating</div>
+                    <div className="mt-1 font-mono text-lg font-bold text-zinc-350">{Math.round(contest.oldRating)}</div>
+                  </div>
+                  <div className="text-zinc-600 font-bold">↓</div>
+                  <div className="text-right">
+                    <div className="text-[9px] uppercase text-[#dfa054] font-bold font-mono">Predicted Rating</div>
+                    <div className="mt-1 font-mono text-lg font-bold text-[#dfa054]">{Math.round(contest.predictedRating)}</div>
+                  </div>
+                </div>
+              </Card>
+            ))}
           </div>
         )}
 
@@ -234,7 +299,7 @@ export const Contest = () => {
           </div>
         )}
 
-        <div className="flex flex-col gap-2 mt-2">
+        {activeTab === "history" && <div className="flex flex-col gap-2 mt-2">
           {!loading && filteredContests.length === 0 && <div className="text-xs text-zinc-500 py-4 text-center">No contests found for this view.</div>}
           {filteredContests.map((contest) => {
             const delta = contest.status === "FINALIZED" ? contest.ratingDelta : contest.predictedDelta
@@ -257,14 +322,15 @@ export const Contest = () => {
                       {attended ? deltaText(contest) : "0 (Unchanged)"}
                     </div>
                     <div className={`text-[9px] mt-1 font-semibold ${!attended ? "text-zinc-500" : contest.status === "FINALIZED" ? "text-emerald-550" : contest.status === "PREDICTED" ? "text-amber-450" : "text-zinc-500"}`}>
-                      {!attended ? "DID NOT ATTEND" : contest.status === "FINALIZED" ? "OFFICIAL" : contest.status === "PREDICTED" ? "ENTRANTHUB PREDICTION" : "PREDICTION PENDING"}
+                      {statusText(contest)}
                     </div>
+                    {contest.predictionError && <div className="mt-1 max-w-[130px] truncate text-[8px] text-zinc-600" title={contest.predictionError}>{contest.predictionError}</div>}
                   </div>
                 </div>
               </Card>
             )
           })}
-        </div>
+        </div>}
         {data[0]?.refreshedAt && <div className="text-[9px] text-zinc-650 text-right mt-1.5">Refreshed {new Date(data[0].refreshedAt).toLocaleString()}</div>}
       </>}
     </div>

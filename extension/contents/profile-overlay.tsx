@@ -32,7 +32,11 @@ function message<T>(payload: Record<string, unknown>): Promise<T> {
 function displayDelta(contest?: ContestLifecycleItem) {
   if (!contest) return "Contest analytics"
   const delta = contest.status === "FINALIZED" ? contest.ratingDelta : contest.predictedDelta
-  if (delta == null) return "Prediction pending"
+  const rating = contest.status === "FINALIZED" ? contest.ratingAfter : contest.predictedRating
+  if (delta == null) {
+    if (contest.status === "FINALIZED" && rating != null) return `${Math.round(rating)} official`
+    return contest.predictionError ? "Prediction unavailable" : "Prediction pending"
+  }
   return `${delta >= 0 ? "+" : ""}${Math.round(delta)} ${contest.status === "FINALIZED" ? "official" : "predicted"}`
 }
 
@@ -126,7 +130,7 @@ export default function ProfileOverlay() {
                     <div key={contest.contestSlug} className="rounded-md border border-zinc-800 bg-zinc-900/60 p-2.5">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0"><div className="truncate text-xs font-semibold">{contest.contestTitle}</div><div className="mt-1 text-[10px] text-zinc-500">Rank {contest.rank ?? contest.predictedRank ?? "n/a"} · {contest.problemsSolved ?? "?"}/{contest.totalProblems ?? "?"}</div></div>
-                        <div className="shrink-0 text-right"><div className={`text-xs font-bold ${delta == null ? "text-zinc-500" : delta >= 0 ? "text-emerald-400" : "text-red-400"}`}>{delta == null ? "Pending" : `${rating == null ? "" : `${Math.round(rating)} `}${delta >= 0 ? "+" : ""}${Math.round(delta)}`}</div><div className={`text-[9px] ${contest.status === "FINALIZED" ? "text-emerald-500" : "text-amber-400"}`}>{contest.status === "FINALIZED" ? "OFFICIAL" : contest.status}</div></div>
+                        <div className="shrink-0 text-right"><div className={`text-xs font-bold ${delta == null ? "text-zinc-500" : delta >= 0 ? "text-emerald-400" : "text-red-400"}`}>{delta == null ? (contest.status === "FINALIZED" && rating != null ? `${Math.round(rating)} official` : contest.predictionError ? "Unavailable" : "Pending") : `${rating == null ? "" : `${Math.round(rating)} `}${delta >= 0 ? "+" : ""}${Math.round(delta)}`}</div><div className={`text-[9px] ${contest.status === "FINALIZED" ? "text-emerald-500" : contest.predictionError ? "text-zinc-500" : "text-amber-400"}`}>{contest.status === "FINALIZED" ? "OFFICIAL" : contest.predictionError ? "SOURCE BLOCKED" : contest.status}</div></div>
                       </div>
                     </div>
                   )
@@ -152,7 +156,7 @@ export default function ProfileOverlay() {
                           : report.status === 'MILD_PASTE' 
                             ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
                             : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
-                        const labelText = report.status === 'CLEAN' ? 'Manual Typing' : report.label;
+                        const labelText = report.status === 'CLEAN' ? 'No external paste' : report.label;
                         return (
                           <div key={title} className="mt-3 border-t border-zinc-900 pt-2.5 first:border-t-0">
                             <div className="flex justify-between items-start gap-2">
@@ -169,7 +173,7 @@ export default function ProfileOverlay() {
                                   <li key={idx}>• {displayDetail}</li>
                                 )
                               })}
-                              {isManual && <li>• Natural typing</li>}
+                              {isManual && <li>• No external paste event recorded</li>}
                               {!isManual && report.focusLoss > 0 && !report.details.some(d => d.includes("Tab Switch")) && (
                                 <li>• Tab Switch: {report.focusLoss}x</li>
                               )}

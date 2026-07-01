@@ -11,7 +11,8 @@ import {
   getCachedHeatmap,
   setCachedHeatmap,
   getCachedWeakness,
-  setCachedWeakness
+  setCachedWeakness,
+  getLastSync
 } from "../../lib/storage"
 
 function message<T>(payload: Record<string, unknown>): Promise<T> {
@@ -28,6 +29,7 @@ export const Dashboard = () => {
   const [manual, setManual] = useState<Record<string, boolean>>({})
   const [profile, setProfile] = useState<any>(null)
   const [zerotrac, setZerotrac] = useState<any[] | null>(null)
+  const [lastSync, setLastSync] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -40,8 +42,9 @@ export const Dashboard = () => {
       new Promise<any>((resolve) => chrome.storage.local.get("algovault.solvedSlugs", (res) => {
         resolve(res?.["algovault.solvedSlugs"]?.slugs || [])
       })),
-      new Promise<any>((resolve) => chrome.storage.local.get("algovault.study.manual.v1", resolve))
-    ]).then(([cachedDashboard, cachedHeatmap, cachedWeakness, solvedSlugs, manualResult]) => {
+      new Promise<any>((resolve) => chrome.storage.local.get("algovault.study.manual.v1", resolve)),
+      getLastSync().catch(() => null)
+    ]).then(([cachedDashboard, cachedHeatmap, cachedWeakness, solvedSlugs, manualResult, storedLastSync]) => {
       if (cachedDashboard) {
         setData(cachedDashboard)
       }
@@ -53,6 +56,7 @@ export const Dashboard = () => {
       }
       setSolved(new Set(solvedSlugs))
       setManual(manualResult?.["algovault.study.manual.v1"] || {})
+      setLastSync(storedLastSync)
       setLoading(false)
     })
 
@@ -144,7 +148,16 @@ export const Dashboard = () => {
     )
   }
 
-  if (!data) return <Card className="py-8 text-center"><div className="text-sm font-semibold text-zinc-200">Sync required</div><div className="mt-1 text-xs text-zinc-500">Run LeetCode history sync in Settings to build your dashboard.</div></Card>
+  if (!data && solved.size > 0) {
+    return (
+      <Card className="py-8 text-center">
+        <div className="text-sm font-semibold text-zinc-200">Local history cache active</div>
+        <div className="mt-1 text-xs text-zinc-500">{solved.size} solved problems are available locally{lastSync ? ` · last full sync ${new Date(lastSync).toLocaleDateString()}` : ""}.</div>
+      </Card>
+    )
+  }
+
+  if (!data) return <Card className="py-8 text-center"><div className="text-sm font-semibold text-zinc-200">Sync required</div><div className="mt-1 text-xs text-zinc-500">Run one full LeetCode history sync in Settings to build your dashboard.</div></Card>
 
   const weakest = weakness?.weakTags?.[0]
   const listProgress = STUDY_LISTS.map((list) => {

@@ -141,7 +141,7 @@ export default function SolveCelebration() {
     })
 
     const handleSubmission = (event: MessageEvent) => {
-      if (event.data?.type !== "AV_SUBMISSION_RESULT") return
+      if (!["AV_SUBMISSION_RESULT", "AV_SUBMISSION_RESULT_CONFIRMED"].includes(event.data?.type)) return
       const detail = event.data.detail || {}
       if (detail.submissionId) {
         const submissionId = String(detail.submissionId)
@@ -151,8 +151,9 @@ export default function SolveCelebration() {
       const status = detail.statusCode != null ? Number(detail.statusCode) : null
 
       let newType: "VICTORY" | "DEFEAT" | null = null
-      if (status === 10) newType = "VICTORY"
-      else if (status !== null) newType = "DEFEAT"
+      const verdict = String(detail.statusDisplay || "").toLowerCase()
+      if (status === 10 || verdict === "accepted") newType = "VICTORY"
+      else if (status !== null || verdict) newType = "DEFEAT"
 
       if (newType) {
         const heading = document.querySelector("a[href*='/problems/']")?.textContent

@@ -1,4 +1,4 @@
-import { fetchUserProfile, fetchSolvedProblems, fetchAllSubmissions, fetchContestHistory, fetchProblemMetadata, fetchUserStatus, fetchContestQuestions, fetchReplayEvents, fetchUpcomingContests } from "../lib/api/leetcode"
+import { fetchUserProfile, fetchSolvedProblems, fetchAllSubmissions, fetchContestHistory, fetchProblemMetadata, fetchUserStatus, fetchContestQuestions, fetchReplayEvents, fetchUpcomingContests, fetchPastContests } from "../lib/api/leetcode"
 import { getUserSettings, getUsername, setLastSync, setUsername, storage, getGithubPat, getGithubRepo, getZerotracData, getZerotracLastFetched, setZerotracData } from "../lib/storage"
 import { commitToGithub, getExtensionForLanguage } from "../lib/api/github"
 import { fetchEntrantHubHistory, fetchEntrantHubRealtime, fetchEntrantHubUpcoming, fetchEntrantHubPast, type LeetCodeRegion } from "../lib/api/entranthub"
@@ -42,7 +42,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const { contestSlug, username, region = "US" } = message.payload;
     fetchEntrantHubRealtime(contestSlug, username, region.toUpperCase() as LeetCodeRegion)
       .then((data) => sendResponse({ ok: true, data }))
-      .catch((err) => sendResponse({ ok: false, error: err.message }))
+      .catch(async (err) => {
+        const fallback = await fetchLeetCodeContestRankFallback(contestSlug, username).catch(() => null)
+        sendResponse({ ok: false, error: err.message, fallback })
+      })
     return true
   }
 
@@ -72,7 +75,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "get_entranthub_past") {
     fetchEntrantHubPast()
       .then((data) => sendResponse({ ok: true, data }))
-      .catch((err) => sendResponse({ ok: false, error: err.message }))
+      .catch(async (err) => {
+        console.warn("EntrantHub past contests failed, falling back to LeetCode GraphQL", err)
+        try {
+          const fallbackData = await fetchPastContests(1, 20)
+          sendResponse({ ok: true, data: fallbackData, warning: err.message })
+        } catch (fallbackErr: any) {
+          sendResponse({ ok: false, error: fallbackErr.message || err.message })
+        }
+      })
     return true
   }
 
@@ -180,105 +191,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .then(async (data) => {
         storage.set("algovault.currentSession", data)
 
-        // Try syncing code and generating structured docs on GitHub if Accepted and credentials exist
-        if (payload.statusDisplay === "Accepted" && payload.code) {
-          let pat = await getGithubPat();
-          let repo = await getGithubRepo();
-          if (pat && repo) {
-            pat = pat.trim();
-            if (pat.startsWith('"') && pat.endsWith('"')) {
-              pat = pat.slice(1, -1);
-            }
-            repo = repo.trim();
-            if (repo.startsWith('"') && repo.endsWith('"')) {
-              repo = repo.slice(1, -1);
-            }
-
-            try {
-              // 1. Fetch LeetCode problem metadata
-              const metaList = await fetchProblemMetadata([payload.titleSlug]);
-              const meta: any = metaList && metaList.length ? metaList[0] : null;
-
-              const ext = getExtensionForLanguage(payload.codeLang || payload.language);
-              
-              // 2. Commit the solution code file
-              const codePath = `problems/${payload.titleSlug}/Solution.${ext}`;
-              const commitMessageCode = `Add solution for ${payload.title || payload.titleSlug} [Accepted]`;
-              const resCode = await commitToGithub(pat, repo, codePath, commitMessageCode, payload.code);
-              if (!resCode.ok) {
-                console.error("GitHub code sync failed:", resCode.message);
-                await storage.set("algovault.gitSyncStatus", {
-                  success: false,
-                  message: resCode.message,
-                  timestamp: Date.now(),
-                  problem: payload.title || payload.titleSlug
-                });
-              } else {
-                console.log(`Successfully synced solution code for ${payload.titleSlug} to GitHub.`);
-                
-                // 3. Construct and commit the README.md file
-                const readmePath = `problems/${payload.titleSlug}/README.md`;
-                const qId = meta?.frontendQuestionId ? `${meta.frontendQuestionId}. ` : "";
-                const qTitle = meta?.title || payload.title || payload.titleSlug;
-                const difficulty = meta?.difficulty || "Unknown";
-                const tags = meta?.topicTags ? meta.topicTags.map((t: any) => `\`${t.name}\``).join(", ") : "None";
-
-                // Map difficulty to color for shields.io badges
-                let difficultyColor = "gray";
-                if (difficulty.toLowerCase() === "easy") difficultyColor = "10b981";
-                else if (difficulty.toLowerCase() === "medium") difficultyColor = "dfa054";
-                else if (difficulty.toLowerCase() === "hard") difficultyColor = "ef4444";
-
-                const langRaw = payload.codeLang || payload.language || "Unknown";
-                const langBadge = encodeURIComponent(langRaw);
-                const langMarkdown = langRaw.toLowerCase();
-
-                const readmeContent = [
-                  `# ⚡ LeetCode Solution: ${qId}${qTitle}`,
-                  "",
-                  `[![Difficulty](https://img.shields.io/badge/Difficulty-${difficulty}-${difficultyColor}?style=for-the-badge)](#)`,
-                  `[![Language](https://img.shields.io/badge/Language-${langBadge}-2563eb?style=for-the-badge)](#)`,
-                  "",
-                  `## 📝 Problem Metadata`,
-                  `- **Problem Link**: [LeetCode Link](https://leetcode.com/problems/${payload.titleSlug}/)`,
-                  `- **Difficulty**: ${difficulty}`,
-                  `- **Topics**: ${tags}`,
-                  "",
-                  `## 📊 Performance Telemetry`,
-                  `| Metric | Value | Performance Status |`,
-                  `| :--- | :--- | :--- |`,
-                  `| **Runtime Speed** | \`${payload.runtimeMs != null ? `${payload.runtimeMs} ms` : "N/A"}\` | Optimized execution |`,
-                  `| **Memory Allocation** | \`${payload.memoryKb != null ? `${Math.round(payload.memoryKb / 10.24) / 100} MB` : "N/A"}\` | Braced space allocation |`,
-                  `| **Date Solved** | \`${new Date(payload.submittedAt).toLocaleString()}\` | Completed successfully |`,
-                  "",
-                  `## 💻 Implementation Source Code`,
-                  "```" + (langMarkdown.includes("c++") ? "cpp" : langMarkdown),
-                  payload.code,
-                  "```",
-                  "",
-                  `---`,
-                  `*Generated and synchronized automatically by [AlgoVault](https://github.com/Somnath0707/AlgoVault) - Your competitive programming operating system.*`
-                ].join("\n");
-
-                const commitMessageReadme = `Generate README for ${payload.title || payload.titleSlug}`;
-                const resReadme = await commitToGithub(pat, repo, readmePath, commitMessageReadme, readmeContent);
-                if (!resReadme.ok) {
-                  console.error("GitHub README sync failed:", resReadme.message);
-                } else {
-                  console.log(`Successfully synced README for ${payload.titleSlug} to GitHub.`);
-                }
-
-                await storage.set("algovault.gitSyncStatus", {
-                  success: true,
-                  message: "Success",
-                  timestamp: Date.now(),
-                  problem: payload.title || payload.titleSlug
-                });
-              }
-            } catch (gitErr) {
-              console.error("Error during GitHub sync operation:", gitErr);
-            }
-          }
+        if (payload.statusDisplay === "Accepted") {
+          await syncAcceptedSubmissionToGithub(payload, "PENDING_SELF_REPORT", data).catch((gitErr) => {
+            console.error("Error during GitHub sync operation:", gitErr)
+          })
         }
 
         sendResponse({ ok: true, data })
@@ -289,7 +205,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === "post_solve_report") {
     sendSelfReport(message.payload)
-      .then(() => sendResponse({ ok: true }))
+      .then(async () => {
+        await updateGithubHelpReport(message.payload).catch((err) => console.warn("GitHub help report update failed", err))
+        sendResponse({ ok: true })
+      })
       .catch((err) => sendResponse({ ok: false, error: err.message }))
     return true
   }
@@ -301,6 +220,232 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true
   }
 })
+
+function stripWrappingQuotes(value: string) {
+  const trimmed = value.trim()
+  return trimmed.startsWith('"') && trimmed.endsWith('"') ? trimmed.slice(1, -1) : trimmed
+}
+
+function slugPathSegment(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "unknown"
+}
+
+function markdownLanguage(language?: string) {
+  const raw = (language || "").toLowerCase()
+  if (raw.includes("c++") || raw.includes("cpp")) return "cpp"
+  if (raw.includes("c#") || raw.includes("csharp")) return "csharp"
+  if (raw.includes("javascript")) return "javascript"
+  if (raw.includes("typescript")) return "typescript"
+  if (raw.includes("python")) return "python"
+  if (raw.includes("golang")) return "go"
+  return raw.replace(/[^a-z0-9#+-]/g, "") || "text"
+}
+
+function formatMb(memoryKb?: number) {
+  return memoryKb != null ? `${Math.round(memoryKb / 10.24) / 100} MB` : "N/A"
+}
+
+function formatMs(runtimeMs?: number) {
+  return runtimeMs != null ? `${runtimeMs} ms` : "N/A"
+}
+
+function helpTypeLabel(helpType?: string) {
+  switch (helpType) {
+    case "NONE":
+      return "Solved solo"
+    case "HINT":
+      return "Needed hint"
+    case "EDITORIAL":
+      return "Used editorial"
+    case "EXTERNAL":
+      return "Used external help"
+    case "PENDING_SELF_REPORT":
+      return "Pending self report"
+    default:
+      return helpType || "Not recorded"
+  }
+}
+
+async function fetchLeetCodeContestRankFallback(contestSlug: string, username: string) {
+  if (!contestSlug || !username) return null
+  const url = `https://leetcode.com/contest/api/ranking/${encodeURIComponent(contestSlug)}/?pagination=1&region=global&username=${encodeURIComponent(username)}`
+  const response = await fetch(url, { credentials: "include" })
+  if (!response.ok) throw new Error(`LeetCode ranking fallback failed: ${response.status}`)
+  const data = await response.json()
+  const rows = [
+    ...(Array.isArray(data?.total_rank) ? data.total_rank : []),
+    ...(Array.isArray(data?.user_rank) ? data.user_rank : [])
+  ]
+  const row = rows.find((item: any) => {
+    const rowName = item?.username || item?.user_slug || item?.user?.username || item?.user?.user_slug
+    return rowName && String(rowName).toLowerCase() === username.toLowerCase()
+  }) || rows[0]
+  if (!row) return null
+  return {
+    attended: true,
+    rank: Number(row.rank ?? row.ranking ?? row.real_rank) || null,
+    score: Number(row.score ?? row.total_score) || null,
+    finishTimeSeconds: Number(row.finish_time ?? row.finishTimeInSeconds) || null,
+    source: "LEETCODE_RANKING"
+  }
+}
+
+async function buildGithubArtifact(payload: any, helpType: string, sessionData?: any) {
+  const metaList = await fetchProblemMetadata([payload.titleSlug]).catch(() => [])
+  const meta: any = metaList && metaList.length ? metaList[0] : null
+  const qId = meta?.frontendQuestionId ? String(meta.frontendQuestionId) : ""
+  const qTitle = meta?.title || payload.title || payload.titleSlug
+  const difficulty = meta?.difficulty || "Unknown"
+  const difficultyFolder = slugPathSegment(difficulty)
+  const idPrefix = qId ? `${qId}-` : ""
+  const folder = `leetcode/${difficultyFolder}/${idPrefix}${payload.titleSlug}`
+  const language = payload.codeLang || payload.language || "Unknown"
+  const ext = payload.code ? getExtensionForLanguage(language) : "missing.txt"
+  const codePath = `${folder}/solution.${ext}`
+  const tags = Array.isArray(meta?.topicTags) ? meta.topicTags.map((tag: any) => tag.name).filter(Boolean) : []
+  const timeSpentSeconds = typeof sessionData?.focusSeconds === "number" ? sessionData.focusSeconds : null
+
+  const metadata = {
+    title: qTitle,
+    titleSlug: payload.titleSlug,
+    frontendQuestionId: qId || null,
+    leetcodeUrl: `https://leetcode.com/problems/${payload.titleSlug}/`,
+    difficulty,
+    topics: tags,
+    language,
+    verdict: payload.statusDisplay,
+    submissionId: payload.submissionId || null,
+    submittedAt: payload.submittedAt,
+    runtimeMs: payload.runtimeMs ?? null,
+    memoryKb: payload.memoryKb ?? null,
+    totalCorrect: payload.totalCorrect ?? null,
+    totalTestcases: payload.totalTestcases ?? null,
+    helpType,
+    helpLabel: helpTypeLabel(helpType),
+    focusSeconds: timeSpentSeconds,
+    syncedAt: new Date().toISOString()
+  }
+
+  const topicText = tags.length ? tags.map((tag: string) => `\`${tag}\``).join(", ") : "N/A"
+  const codeFence = markdownLanguage(language)
+  const solutionBlock = payload.code
+    ? ["```" + codeFence, payload.code, "```"].join("\n")
+    : "Code was not captured from the LeetCode submit response. The metadata and solve record were still saved."
+
+  const readme = [
+    `# ${qId ? `${qId}. ` : ""}${qTitle}`,
+    "",
+    `- Link: https://leetcode.com/problems/${payload.titleSlug}/`,
+    `- Difficulty: ${difficulty}`,
+    `- Topics: ${topicText}`,
+    `- Language: ${language}`,
+    `- Verdict: ${payload.statusDisplay || "Accepted"}`,
+    `- Help used: ${helpTypeLabel(helpType)}`,
+    `- Runtime: ${formatMs(payload.runtimeMs)}`,
+    `- Memory: ${formatMb(payload.memoryKb)}`,
+    `- Test cases: ${payload.totalCorrect ?? "?"}/${payload.totalTestcases ?? "?"}`,
+    `- Focus time: ${timeSpentSeconds != null ? `${Math.round(timeSpentSeconds / 60)} min` : "N/A"}`,
+    `- Solved at: ${payload.submittedAt}`,
+    "",
+    "## Solution",
+    "",
+    solutionBlock,
+    "",
+    "## AlgoVault Notes",
+    "",
+    "This folder was generated from a real accepted LeetCode submission event. Help-used data is updated after the post-solve self report."
+  ].join("\n")
+
+  const codeContent = payload.code || [
+    "AlgoVault could not capture source code for this accepted event.",
+    "The problem, telemetry, and self-report metadata are still recorded in README.md and metadata.json."
+  ].join("\n")
+
+  return {
+    folder,
+    codePath,
+    readmePath: `${folder}/README.md`,
+    metadataPath: `${folder}/metadata.json`,
+    codeContent,
+    readme,
+    metadata,
+    payload
+  }
+}
+
+async function syncAcceptedSubmissionToGithub(payload: any, helpType = "PENDING_SELF_REPORT", sessionData?: any) {
+  if (!payload?.titleSlug) return
+  const artifact = await buildGithubArtifact(payload, helpType, sessionData)
+  await storage.set(`algovault.gitSolve.${payload.titleSlug}`, artifact)
+
+  let pat = await getGithubPat()
+  let repo = await getGithubRepo()
+  if (!pat || !repo) {
+    await storage.set("algovault.gitSyncStatus", {
+      success: false,
+      message: "GitHub credentials are not configured",
+      timestamp: Date.now(),
+      problem: payload.title || payload.titleSlug
+    })
+    return
+  }
+
+  pat = stripWrappingQuotes(pat)
+  repo = stripWrappingQuotes(repo)
+
+  const commitPrefix = `${artifact.metadata.frontendQuestionId ? `${artifact.metadata.frontendQuestionId}. ` : ""}${artifact.metadata.title}`
+  const writes = [
+    {
+      path: artifact.codePath,
+      message: `Sync accepted solution for ${commitPrefix}`,
+      content: artifact.codeContent
+    },
+    {
+      path: artifact.readmePath,
+      message: `Update notes for ${commitPrefix}`,
+      content: artifact.readme
+    },
+    {
+      path: artifact.metadataPath,
+      message: `Update metadata for ${commitPrefix}`,
+      content: JSON.stringify(artifact.metadata, null, 2) + "\n"
+    }
+  ]
+
+  for (const write of writes) {
+    const result = await commitToGithub(pat, repo, write.path, write.message, write.content)
+    if (!result.ok) {
+      await storage.set("algovault.gitSyncStatus", {
+        success: false,
+        message: result.message,
+        timestamp: Date.now(),
+        problem: payload.title || payload.titleSlug,
+        path: write.path
+      })
+      return
+    }
+  }
+
+  await storage.set("algovault.gitSyncStatus", {
+    success: true,
+    message: "Success",
+    timestamp: Date.now(),
+    problem: payload.title || payload.titleSlug,
+    path: artifact.folder
+  })
+}
+
+async function updateGithubHelpReport(report: any) {
+  if (!report?.titleSlug || !report.helpType) return
+  const artifact = await storage.get<any>(`algovault.gitSolve.${report.titleSlug}`)
+  if (!artifact?.payload) return
+  await syncAcceptedSubmissionToGithub(artifact.payload, report.helpType, {
+    focusSeconds: artifact.metadata?.focusSeconds
+  })
+}
 
 async function runSync(username: string, startOffset = 0) {
   if (!username || !username.trim()) {
@@ -379,9 +524,7 @@ async function runSync(username: string, startOffset = 0) {
     let offset = startOffset
     const limit = 100
     let hasNext = true
-    const maxSubmissionsToSync = 400
-
-    while (hasNext && rawSubs.length < maxSubmissionsToSync) {
+    while (hasNext) {
       const subsRes = await fetchSubmissionPage(offset, limit)
       const pageSubs = subsRes.submissions_dump || []
       if (pageSubs.length === 0) {
@@ -447,7 +590,7 @@ async function runSync(username: string, startOffset = 0) {
     })
 
     await setLastSync(Date.now())
-    updateStatus("SUCCESS", "Sync completed successfully!", problems.length, startOffset + submissions.length)
+    updateStatus("SUCCESS", "Sync completed successfully. This full sync remains valid for long-term dashboard use.", problems.length, startOffset + submissions.length)
     return { ok: true }
   } catch (e: any) {
     console.error("Sync Error:", e)

@@ -259,7 +259,7 @@ export function analyzeEvents(events: any[]): CheatReport {
   });
 
   let status: AnalysisStatus = 'CLEAN';
-  let label = 'Manual Typing';
+  let label = 'No external paste detected';
   let color = 'text-green-450';
   const details: string[] = [];
 
@@ -314,4 +314,28 @@ export const fetchUpcomingContests = async () => {
     console.error("Failed to fetch LeetCode upcoming contests", e);
     return [];
   }
+};
+
+export const fetchPastContests = async (pageNo = 1, numPerPage = 20) => {
+  const query = `
+    query contestPastContests($pageNo: Int, $numPerPage: Int) {
+      pastContests(pageNo: $pageNo, numPerPage: $numPerPage) {
+        data {
+          title
+          titleSlug
+          startTime
+          duration
+        }
+      }
+    }
+  `;
+  const res = await fetchGraphQL(query, { pageNo, numPerPage });
+  return (res.data?.pastContests?.data || []).map((c: any) => ({
+    platform: "LeetCode",
+    id: c.titleSlug,
+    name: c.title,
+    startTime: new Date(c.startTime * 1000).toISOString(),
+    durationSeconds: c.duration,
+    url: `https://leetcode.com/contest/${c.titleSlug}`
+  }));
 };

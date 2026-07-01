@@ -2,6 +2,7 @@ export interface StudyProblem {
   slug: string
   title: string
   topic: string
+  difficulty?: string
 }
 
 export interface StudyList {

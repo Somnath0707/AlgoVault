@@ -29,8 +29,24 @@ export interface EntrantHubContest {
 }
 
 async function entrantHubFetch<T>(path: string): Promise<T> {
-  const response = await fetch(`${ENTRANTHUB_BASE_URL}${path}`)
-  if (!response.ok) throw new Error(`EntrantHub request failed: ${response.status}`)
+  const response = await fetch(`${ENTRANTHUB_BASE_URL}${path}`, {
+    headers: {
+      Accept: "application/json"
+    }
+  })
+  if (!response.ok) {
+    const body = await response.text().catch(() => "")
+    const isCloudflareChallenge = response.status === 403 && body.includes("cf-mitigated")
+    throw new Error(
+      isCloudflareChallenge
+        ? "EntrantHub API is blocked by Cloudflare challenge right now"
+        : `EntrantHub request failed: ${response.status}`
+    )
+  }
+  const contentType = response.headers.get("content-type") || ""
+  if (!contentType.includes("application/json")) {
+    throw new Error("EntrantHub returned a non-JSON response")
+  }
   return response.json()
 }
 

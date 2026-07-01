@@ -19,6 +19,8 @@ export interface ContestLifecycleItem {
   predictedRank: number | null
   status: ContestRatingStatus
   source: "LEETCODE" | "ENTRANTHUB" | "LEETCODE_AND_ENTRANTHUB"
+  attended?: boolean
+  predictionError?: string | null
   refreshedAt: string
 }
 
@@ -129,6 +131,7 @@ export async function loadContestLifecycle(username: string): Promise<ContestLif
 
   // Append past unfinalized/unattended contests from EntrantHub
   const pastContests = pastResponse?.ok && Array.isArray(pastResponse.data) ? pastResponse.data : []
+  const pastSource: ContestLifecycleItem["source"] = pastResponse?.warning ? "LEETCODE" : "ENTRANTHUB"
   pastContests.forEach((c: any) => {
     if (c.platform !== "LeetCode") return
     const slug = c.id.toLowerCase()
@@ -149,7 +152,7 @@ export async function loadContestLifecycle(username: string): Promise<ContestLif
       predictedDelta: null,
       predictedRank: null,
       status: "UNRATED",
-      source: "ENTRANTHUB",
+      source: pastSource,
       refreshedAt,
       attended: false
     })
@@ -180,9 +183,19 @@ export async function loadContestLifecycle(username: string): Promise<ContestLif
             contest.status = "PREDICTED"
             contest.source = "ENTRANTHUB"
           }
+        } else if (response?.fallback?.attended) {
+          contest.attended = true
+          contest.rank = response.fallback.rank ?? contest.rank
+          contest.finishTimeMinutes = response.fallback.finishTimeSeconds != null
+            ? response.fallback.finishTimeSeconds / 60
+            : contest.finishTimeMinutes
+          contest.predictionError = response.error || "Prediction source unavailable"
+        } else if (response?.error) {
+          contest.predictionError = response.error
         }
       } catch (err) {
         console.warn(`Failed to check prediction for ${contest.contestSlug}:`, err)
+        contest.predictionError = err instanceof Error ? err.message : "Prediction source unavailable"
       }
     })
   )

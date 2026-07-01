@@ -32,6 +32,20 @@ function currentTitle() {
   return heading?.replace(/^\d+\.\s*/, "").trim() || currentSlug()
 }
 
+function editorCodeFallback() {
+  const textarea = document.querySelector<HTMLTextAreaElement>("textarea.inputarea")
+  if (textarea?.value?.trim()) return textarea.value
+  const lines = Array.from(document.querySelectorAll<HTMLElement>(".view-lines .view-line"))
+    .map((line) => line.innerText)
+    .filter(Boolean)
+  return lines.length ? lines.join("\n") : undefined
+}
+
+function languageFallback() {
+  const selected = document.querySelector<HTMLElement>("[data-cy='lang-select'], button[id*='headlessui-listbox-button']")
+  return selected?.innerText?.trim() || undefined
+}
+
 function parseRuntimeMs(runtime?: string) {
   if (!runtime) return undefined
   const match = runtime.match(/\d+/)
@@ -174,12 +188,13 @@ window.addEventListener("message", ((event: MessageEvent) => {
     totalCorrect: detail.totalCorrect,
     totalTestcases: detail.totalTestcases,
     submittedAt: new Date().toISOString(),
-    code: detail.code,
-    codeLang: detail.codeLang
+    code: detail.code || editorCodeFallback(),
+    codeLang: detail.codeLang || detail.lang || languageFallback()
   }
 
   chrome.runtime.sendMessage({ action: "submission_result", payload })
   if (payload.statusDisplay === "Accepted") {
+    window.postMessage({ type: "AV_SUBMISSION_RESULT_CONFIRMED", detail: payload }, "*")
     chrome.storage.local.get("algovault.solvedSlugs", (result) => {
       const cached = result["algovault.solvedSlugs"]
       const slugs = new Set<string>(Array.isArray(cached?.slugs) ? cached.slugs : [])
