@@ -6,6 +6,7 @@ export const config: PlasmoCSConfig = {
 }
 
 let openedAt = new Date()
+chrome.storage.local.set({ "algovault.problemStartTime": openedAt.toISOString() })
 let focusStartedAt = Date.now()
 let focusSeconds = 0
 let tabSwitches = 0
@@ -187,6 +188,7 @@ setInterval(() => {
     trackedSlug = currentSlug()
     trackedTitle = currentTitle()
     openedAt = new Date()
+    chrome.storage.local.set({ "algovault.problemStartTime": openedAt.toISOString() })
     focusBaseline = focusSeconds
     tabSwitchBaseline = tabSwitches
     pasteBaseline = pasteCount

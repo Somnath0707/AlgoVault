@@ -55,6 +55,10 @@ export function fetchEntrantHubUpcoming(): Promise<EntrantHubContest[]> {
   return entrantHubFetch("?status=upcoming")
 }
 
+export function fetchEntrantHubPast(): Promise<EntrantHubContest[]> {
+  return entrantHubFetch("?status=past")
+}
+
 export function summarizeRealtimePrediction(data: EntrantHubRealtimeData | null | undefined) {
   const ratings = data?.ratings?.filter(Number.isFinite) ?? []
   const ranks = data?.ranks?.filter(Number.isFinite) ?? []

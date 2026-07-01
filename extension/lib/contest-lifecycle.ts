@@ -52,9 +52,10 @@ function finite(value: unknown): value is number {
 
 export async function loadContestLifecycle(username: string): Promise<ContestLifecycleItem[]> {
   const refreshedAt = new Date().toISOString()
-  const [officialResponse, entrantHubResponse] = await Promise.all([
+  const [officialResponse, entrantHubResponse, pastResponse] = await Promise.all([
     sendMessage<any>({ action: "get_user_contest_history", payload: { username } }).catch(() => null),
-    sendMessage<any>({ action: "get_entranthub_history", payload: { username, region: "US" } }).catch(() => null)
+    sendMessage<any>({ action: "get_entranthub_history", payload: { username, region: "US" } }).catch(() => null),
+    sendMessage<any>({ action: "get_entranthub_past" }).catch(() => null)
   ])
 
   const officialRows: OfficialContestRow[] = officialResponse?.ok
@@ -77,9 +78,6 @@ export async function loadContestLifecycle(username: string): Promise<ContestLif
     const ratingBefore = finite(history?.oldRating) ? history!.oldRating : previousRating
     const ratingAfter = finite(history?.newRating) ? history!.newRating : currentRating
     const ratingDelta = ratingBefore != null && ratingAfter != null ? ratingAfter - ratingBefore : null
-    const ratingChanged = previousRating != null && currentRating != null && previousRating !== currentRating
-    const contestIsOlderThanAWeek = finite(row.contest?.startTime) && row.contest!.startTime! * 1000 < Date.now() - 7 * 24 * 60 * 60 * 1000
-    const finalized = Boolean(history && finite(history.oldRating) && finite(history.newRating)) || ratingChanged || contestIsOlderThanAWeek
 
     result.set(slug, {
       contestSlug: slug,
@@ -97,9 +95,10 @@ export async function loadContestLifecycle(username: string): Promise<ContestLif
       predictedRating: null,
       predictedDelta: null,
       predictedRank: null,
-      status: finalized ? "FINALIZED" : "PREDICTING",
+      status: "FINALIZED", // If it's in LeetCode's official ranking history, it's finalized
       source: history ? "LEETCODE_AND_ENTRANTHUB" : "LEETCODE",
-      refreshedAt
+      refreshedAt,
+      attended: true
     })
   })
 
@@ -116,14 +115,43 @@ export async function loadContestLifecycle(username: string): Promise<ContestLif
       totalProblems: null,
       finishTimeMinutes: finite(history.finishTimeInSeconds) ? history.finishTimeInSeconds / 60 : null,
       ratingBefore: hasRating ? history.oldRating : null,
-      ratingAfter: hasRating ? history.newRating : null,
-      ratingDelta: hasRating ? history.newRating - history.oldRating : null,
+      ratingAfter: null,
+      ratingDelta: null,
+      predictedRating: hasRating ? history.newRating : null,
+      predictedDelta: hasRating ? history.newRating - history.oldRating : null,
+      predictedRank: finite(history.ranking) ? history.ranking : null,
+      status: hasRating ? "PREDICTED" : "PREDICTING", // Stays in prediction until LeetCode officials update it
+      source: "ENTRANTHUB",
+      refreshedAt,
+      attended: true
+    })
+  })
+
+  // Append past unfinalized/unattended contests from EntrantHub
+  const pastContests = pastResponse?.ok && Array.isArray(pastResponse.data) ? pastResponse.data : []
+  pastContests.forEach((c: any) => {
+    if (c.platform !== "LeetCode") return
+    const slug = c.id.toLowerCase()
+    if (result.has(slug)) return
+    
+    result.set(slug, {
+      contestSlug: slug,
+      contestTitle: c.name,
+      contestDate: c.startTime,
+      rank: null,
+      problemsSolved: null,
+      totalProblems: null,
+      finishTimeMinutes: null,
+      ratingBefore: null,
+      ratingAfter: null,
+      ratingDelta: null,
       predictedRating: null,
       predictedDelta: null,
       predictedRank: null,
-      status: hasRating ? "FINALIZED" : "PREDICTING",
+      status: "UNRATED",
       source: "ENTRANTHUB",
-      refreshedAt
+      refreshedAt,
+      attended: false
     })
   })
 
@@ -132,7 +160,7 @@ export async function loadContestLifecycle(username: string): Promise<ContestLif
     return right.contestSlug.localeCompare(left.contestSlug, undefined, { numeric: true })
   })
 
-  const pending = ordered.filter((contest) => contest.status === "PREDICTING").slice(0, 5)
+  const pending = ordered.filter((contest) => contest.status === "PREDICTING" && contest.attended !== false).slice(0, 5)
   await Promise.all(pending.map(async (contest) => {
     const response = await sendMessage<any>({
       action: "get_entranthub_prediction",

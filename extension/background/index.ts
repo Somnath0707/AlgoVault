@@ -1,7 +1,7 @@
 import { fetchUserProfile, fetchSolvedProblems, fetchAllSubmissions, fetchContestHistory, fetchProblemMetadata, fetchUserStatus, fetchContestQuestions, fetchReplayEvents, fetchUpcomingContests } from "../lib/api/leetcode"
 import { getUserSettings, getUsername, setLastSync, setUsername, storage, getGithubPat, getGithubRepo, getZerotracData, getZerotracLastFetched, setZerotracData } from "../lib/storage"
 import { commitToGithub, getExtensionForLanguage } from "../lib/api/github"
-import { fetchEntrantHubHistory, fetchEntrantHubRealtime, fetchEntrantHubUpcoming, type LeetCodeRegion } from "../lib/api/entranthub"
+import { fetchEntrantHubHistory, fetchEntrantHubRealtime, fetchEntrantHubUpcoming, fetchEntrantHubPast, type LeetCodeRegion } from "../lib/api/entranthub"
 import {
   fetchPrediction,
   fetchCurrentSession,
@@ -66,6 +66,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ ok: false, error: fallbackErr.message || "Failed to fetch contests" })
         }
       })
+    return true
+  }
+
+  if (message.action === "get_entranthub_past") {
+    fetchEntrantHubPast()
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }))
     return true
   }
 
@@ -334,7 +341,7 @@ async function runSync(username: string, startOffset = 0) {
     let offset = startOffset
     const limit = 100
     let hasNext = true
-    const maxSubmissionsToSync = 600
+    const maxSubmissionsToSync = 400
 
     while (hasNext && rawSubs.length < maxSubmissionsToSync) {
       const subsRes = await fetchSubmissionPage(offset, limit)

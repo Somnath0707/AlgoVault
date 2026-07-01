@@ -15,12 +15,13 @@ export const getStyle: PlasmoGetStyle = () => {
 const FloatingButton = () => {
   const [session, setSession] = useState<any>(null)
   const [sessionState, setSessionState] = useState<any>(null)
+  const [problemStartTime, setProblemStartTime] = useState<string | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
     const load = () => {
-      chrome.storage.local.get(["algovault.currentSession", "algovault.sessionState"], (result) => {
+      chrome.storage.local.get(["algovault.currentSession", "algovault.sessionState", "algovault.problemStartTime"], (result) => {
         let sess = result["algovault.currentSession"]
         if (typeof sess === "string") {
           try { sess = JSON.parse(sess) } catch (e) {}
@@ -31,6 +32,7 @@ const FloatingButton = () => {
         }
         setSession(sess || null)
         setSessionState(state || null)
+        setProblemStartTime(result["algovault.problemStartTime"] || null)
       })
     }
     load()
@@ -56,8 +58,8 @@ const FloatingButton = () => {
   let seconds = 0
   if (sessionState?.isSolved) {
     seconds = sessionState.finalSeconds
-  } else if (session?.startedAt) {
-    seconds = Math.max(0, Math.floor((Date.now() - new Date(session.startedAt).getTime()) / 1000))
+  } else if (problemStartTime) {
+    seconds = Math.max(0, Math.floor((Date.now() - new Date(problemStartTime).getTime()) / 1000))
   }
   const minutes = Math.floor(seconds / 60)
   const rem = String(seconds % 60).padStart(2, "0")

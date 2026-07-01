@@ -7,6 +7,7 @@ import { loadContestLifecycle, type ContestLifecycleItem } from "../../lib/conte
 import { UpcomingContests } from "./UpcomingContests"
 
 function deltaText(contest: ContestLifecycleItem) {
+  if (contest.attended === false) return "Unchanged"
   const delta = contest.status === "FINALIZED" ? contest.ratingDelta : contest.predictedDelta
   const rating = contest.status === "FINALIZED" ? contest.ratingAfter : contest.predictedRating
   if (delta == null) return contest.status === "FINALIZED" && rating != null ? `${Math.round(rating)} official` : "Pending"
@@ -106,19 +107,26 @@ export const Contest = () => {
           {!loading && filteredContests.length === 0 && <div className="text-xs text-zinc-500 py-4 text-center">No contests found for this view.</div>}
           {filteredContests.map((contest) => {
             const delta = contest.status === "FINALIZED" ? contest.ratingDelta : contest.predictedDelta
+            const attended = contest.attended !== false
             return (
               <Card key={contest.contestSlug} className="py-2.5 px-3">
                 <div className="flex justify-between gap-3 items-start">
                   <div className="min-w-0">
                     <div className="font-semibold text-xs text-zinc-200 truncate">{contest.contestTitle}</div>
                     <div className="text-[10px] text-zinc-500 font-mono mt-1">
-                      Rank {contest.rank ?? contest.predictedRank ?? "n/a"} · {contest.problemsSolved ?? "?"}/{contest.totalProblems ?? "?"} solved
+                      {attended ? (
+                        `Rank ${contest.rank ?? contest.predictedRank ?? "n/a"} · ${contest.problemsSolved ?? "?"}/${contest.totalProblems ?? "?"} solved`
+                      ) : (
+                        "Rank n/a · 0/4 solved"
+                      )}
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className={`font-bold text-xs font-mono ${delta == null ? "text-zinc-500" : delta >= 0 ? "text-emerald-400" : "text-red-400"}`}>{deltaText(contest)}</div>
-                    <div className={`text-[9px] mt-1 font-semibold ${contest.status === "FINALIZED" ? "text-emerald-500" : contest.status === "PREDICTED" ? "text-amber-400" : "text-zinc-500"}`}>
-                      {contest.status === "FINALIZED" ? "OFFICIAL" : contest.status === "PREDICTED" ? "ENTRANTHUB PREDICTION" : "PREDICTION PENDING"}
+                    <div className={`font-bold text-xs font-mono ${!attended ? "text-zinc-500" : delta == null ? "text-zinc-500" : delta >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      {attended ? deltaText(contest) : "0 (Unchanged)"}
+                    </div>
+                    <div className={`text-[9px] mt-1 font-semibold ${!attended ? "text-zinc-500" : contest.status === "FINALIZED" ? "text-emerald-500" : contest.status === "PREDICTED" ? "text-amber-400" : "text-zinc-500"}`}>
+                      {!attended ? "DID NOT ATTEND" : contest.status === "FINALIZED" ? "OFFICIAL" : contest.status === "PREDICTED" ? "ENTRANTHUB PREDICTION" : "PREDICTION PENDING"}
                     </div>
                   </div>
                 </div>
