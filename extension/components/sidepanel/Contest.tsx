@@ -47,11 +47,19 @@ export const Contest = () => {
       if (!username) throw new Error("Set your LeetCode username in Settings")
       setUsernameState(username)
 
-      // Fetch predicted contests asynchronously and sequentially inside the service
+      // Stage 1 Log
+      console.log("Contest.tsx: getPredictedContests input details:", { username, region: "US", forceRefresh: forcePredictRefresh })
+
       setLoadingPredicted(true)
       getPredictedContests({ username, region: "US", forceRefresh: forcePredictRefresh })
         .then((result) => {
+          // Stage 1 Log (result)
+          console.log("Contest.tsx: getPredictedContests result returned:", result)
+
           setPredictedResult(result)
+
+          // Stage 5 Log
+          console.log("Contest.tsx: setPredictedResult complete:", { result, length: result?.contests?.length })
         })
         .catch((err) => {
           console.warn("Predicted contests query failed:", err)

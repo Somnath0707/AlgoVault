@@ -63,22 +63,51 @@ export interface EntrantHubRankingsResponse {
   items: EntrantHubRankingItem[]
 }
 
-export function fetchEntrantHubRankingPrediction(
+export async function fetchEntrantHubRankingPrediction(
   contestSlug: string,
   username: string
 ): Promise<EntrantHubRankingItem | null> {
   const cleanUsername = username.trim().toLowerCase()
-  return entrantHubFetch<EntrantHubRankingsResponse>(
-    `/contests/leetcode/contests/${encodeURIComponent(contestSlug)}/rankings?limit=25&offset=0&userSlug=${encodeURIComponent(cleanUsername)}`
-  ).then((res) => {
-    if (res && Array.isArray(res.items)) {
-      const match = res.items.find(
-        (item: any) => item.userSlug?.toLowerCase() === cleanUsername
-      )
-      return match || null
+  const path = `/contests/leetcode/contests/${encodeURIComponent(contestSlug)}/rankings?limit=25&offset=0&userSlug=${encodeURIComponent(cleanUsername)}`
+  const url = `${ENTRANTHUB_BASE_URL}${path}`
+
+  console.log("entranthub.ts: fetchEntrantHubRankingPrediction requesting URL:", url)
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json"
     }
-    return null
   })
+
+  console.log("entranthub.ts: fetchEntrantHubRankingPrediction response status:", response.status)
+
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => "")
+    console.warn("entranthub.ts: fetchEntrantHubRankingPrediction query failed with body:", errorBody)
+    throw new Error(`EntrantHub request failed: ${response.status}`)
+  }
+
+  const payload = await response.json()
+
+  console.log("entranthub.ts: fetchEntrantHubRankingPrediction raw JSON payload:", payload)
+
+  if (payload && Array.isArray(payload.items)) {
+    const match = payload.items.find(
+      (item: any) => item.userSlug?.toLowerCase() === cleanUsername
+    )
+
+    if (match) {
+      console.log("entranthub.ts: fetchEntrantHubRankingPrediction matched item:", match)
+    } else {
+      const returnedSlugs = payload.items.map((item: any) => item.userSlug)
+      console.log("entranthub.ts: fetchEntrantHubRankingPrediction no userSlug match. Returned userSlugs in items:", returnedSlugs)
+    }
+
+    return match || null
+  }
+
+  console.log("entranthub.ts: fetchEntrantHubRankingPrediction payload has no items list or is invalid")
+  return null
 }
 
 /**

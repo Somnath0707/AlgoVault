@@ -40,14 +40,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === "get_entranthub_prediction") {
     const { contestSlug, username } = message.payload;
+    console.log("background/index.ts: get_entranthub_prediction called with:", { contestSlug, username })
+
     fetchEntrantHubRankingPrediction(contestSlug, username)
-      .then((data) => sendResponse({ ok: true, data }))
+      .then((data) => {
+        console.log("background/index.ts: fetchEntrantHubRankingPrediction resolved with:", data)
+        sendResponse({ ok: true, data })
+      })
       .catch(async (err) => {
+        console.error("background/index.ts: fetchEntrantHubRankingPrediction rejected with error:", err)
         const fallback = await fetchLeetCodeContestRankFallback(contestSlug, username).catch(() => null)
+        console.log("background/index.ts: fetchLeetCodeContestRankFallback returned:", fallback)
         sendResponse({ ok: false, error: err.message, fallback })
       })
     return true
   }
+
 
   if (message.action === "get_entranthub_history") {
     const { username, region = "US" } = message.payload;

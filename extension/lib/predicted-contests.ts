@@ -91,25 +91,44 @@ export async function getPredictedContests(
       })
     ])
 
+    // Stage 2 Logs
+    console.log("predicted-contests.ts: historyRes:", historyRes)
+    console.log("predicted-contests.ts: pastRes:", pastRes)
+
     const history = historyRes?.ok && Array.isArray(historyRes.data) ? historyRes.data : []
     const pastContests = pastRes?.ok && Array.isArray(pastRes.data) ? pastRes.data : []
+
+    console.log("predicted-contests.ts: history:", history)
+    console.log("predicted-contests.ts: pastContests:", pastContests)
 
     const officialSlugs = new Set(
       (history || []).map((item: any) => item.titleSlug.toLowerCase().trim())
     )
+
+    console.log("predicted-contests.ts: officialSlugs:", Array.from(officialSlugs))
 
     // Filter to LeetCode platform only and sort newest first
     const sortedContests = (pastContests || [])
       .filter((c: any) => c.platform === "LeetCode")
       .sort((a: any, b: any) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
 
+    console.log("predicted-contests.ts: sortedContests:", sortedContests)
+
     const predictedContests: PredictedContest[] = []
     const limit = Math.min(sortedContests.length, MAX_RECENT_CONTESTS)
+
+    console.log("predicted-contests.ts: limit:", limit)
 
     // 3. Sequential timeout-wrapped prediction checks
     for (let i = 0; i < limit; i++) {
       const contest = sortedContests[i]
       const contestSlug = contest.id.toLowerCase().trim()
+
+      console.log("predicted-contests.ts: loop details:", {
+        contestId: contest.id,
+        contestName: contest.name,
+        isOfficial: officialSlugs.has(contestSlug)
+      })
 
       // If already official, skip it
       if (officialSlugs.has(contestSlug)) {
@@ -117,6 +136,11 @@ export async function getPredictedContests(
       }
 
       try {
+        console.log("predicted-contests.ts: before get_entranthub_prediction sendMessage:", {
+          contestId: contest.id,
+          username
+        })
+
         // Fetch prediction rankings via background script message, raced against a timeout
         const response = await withTimeout(
           sendMessage<any>({
@@ -126,7 +150,15 @@ export async function getPredictedContests(
           REQUEST_TIMEOUT_MS
         )
 
+        console.log("predicted-contests.ts: after get_entranthub_prediction sendMessage response:", response)
+        if (response && response.ok === false) {
+          console.log("predicted-contests.ts: response.ok is false. error:", response.error)
+        }
+
         const ranking = response?.ok ? response.data : null
+        if (ranking === null) {
+          console.log("predicted-contests.ts: ranking data is null explicitly")
+        }
 
         if (ranking) {
           // Debug Logging Groups for Development diagnostics
@@ -135,7 +167,7 @@ export async function getPredictedContests(
           console.log("Ranking Details:", ranking)
           console.groupEnd()
 
-          predictedContests.push({
+          const newContest: PredictedContest = {
             titleSlug: contestSlug,
             contestName: contest.name,
             oldRating: ranking.oldRating,
@@ -144,7 +176,10 @@ export async function getPredictedContests(
             predictedRank: ranking.rank,
             predicted: true,
             platform: "LeetCode"
-          })
+          }
+
+          console.log("predicted-contests.ts: PUSHED:", newContest)
+          predictedContests.push(newContest)
         }
       } catch (err) {
         console.warn(
@@ -153,6 +188,8 @@ export async function getPredictedContests(
         )
       }
     }
+
+    console.log("predicted-contests.ts: final predictedContests list before returning:", predictedContests)
 
     const result: PredictedContestResult = {
       contests: predictedContests,
@@ -169,6 +206,7 @@ export async function getPredictedContests(
     }
 
     return result
+
   } catch (err) {
     console.error("Critical error inside getPredictedContests:", err)
     return {
