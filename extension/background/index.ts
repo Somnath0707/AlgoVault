@@ -42,26 +42,42 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const { contestSlug, username } = message.payload;
     console.log("background/index.ts: get_entranthub_prediction called with:", { contestSlug, username })
 
-    fetchEntrantHubRankingPrediction(contestSlug, username)
-      .then((data) => {
-        console.log("background/index.ts: fetchEntrantHubRankingPrediction resolved with:", data)
-        sendResponse({ ok: true, data })
-      })
-      .catch(async (err) => {
-        console.error("background/index.ts: fetchEntrantHubRankingPrediction rejected with error:", err)
-        const fallback = await fetchLeetCodeContestRankFallback(contestSlug, username).catch(() => null)
-        console.log("background/index.ts: fetchLeetCodeContestRankFallback returned:", fallback)
-        sendResponse({ ok: false, error: err.message, fallback })
-      })
+    departitionCookies().then(() => {
+      fetchEntrantHubRankingPrediction(contestSlug, username)
+        .then((data) => {
+          console.log("background/index.ts: fetchEntrantHubRankingPrediction resolved with:", data)
+          sendResponse({ ok: true, data })
+        })
+        .catch(async (err) => {
+          console.error("background/index.ts: fetchEntrantHubRankingPrediction rejected with error:", err)
+          const fallback = await fetchLeetCodeContestRankFallback(contestSlug, username).catch(() => null)
+          console.log("background/index.ts: fetchLeetCodeContestRankFallback returned:", fallback)
+          sendResponse({ ok: false, error: err.message, fallback })
+        })
+    }).catch((departitionErr) => {
+      console.warn("background/index.ts: departition failed, running without clone:", departitionErr)
+      fetchEntrantHubRankingPrediction(contestSlug, username)
+        .then((data) => sendResponse({ ok: true, data }))
+        .catch(async (err) => {
+          const fallback = await fetchLeetCodeContestRankFallback(contestSlug, username).catch(() => null)
+          sendResponse({ ok: false, error: err.message, fallback })
+        })
+    })
     return true
   }
 
-
   if (message.action === "get_entranthub_history") {
     const { username, region = "US" } = message.payload;
-    fetchEntrantHubHistory(username, region.toUpperCase() as LeetCodeRegion)
-      .then((data) => sendResponse({ ok: true, data }))
-      .catch((err) => sendResponse({ ok: false, error: err.message }))
+    departitionCookies().then(() => {
+      fetchEntrantHubHistory(username, region.toUpperCase() as LeetCodeRegion)
+        .then((data) => sendResponse({ ok: true, data }))
+        .catch((err) => sendResponse({ ok: false, error: err.message }))
+    }).catch((departitionErr) => {
+      console.warn("background/index.ts: departition failed, running without clone:", departitionErr)
+      fetchEntrantHubHistory(username, region.toUpperCase() as LeetCodeRegion)
+        .then((data) => sendResponse({ ok: true, data }))
+        .catch((err) => sendResponse({ ok: false, error: err.message }))
+    })
     return true
   }
 
@@ -699,3 +715,47 @@ async function getCachedZerotracRatings() {
   await setZerotracData(data)
   return data
 }
+
+/**
+ * Utility to query partitioned cookies and duplicate them into standard, non-partitioned storage.
+ * Resolves issues arising from Cloudflare introducing the Partitioned (CHIPS) cookie attribute.
+ */
+async function departitionCookies(): Promise<void> {
+  try {
+    const domains = ["entranthub.com", "api.entranthub.com", ".entranthub.com"]
+    for (const domain of domains) {
+      const cookies = await new Promise<chrome.cookies.Cookie[]>((resolve) => {
+        chrome.cookies.getAll({ name: "cf_clearance", domain, partitionKey: {} } as any, (list) => {
+          resolve(list || [])
+        })
+      })
+
+      if (cookies && cookies.length > 0) {
+        for (const cookie of cookies) {
+          // If this is a partitioned cookie, clone it as a non-partitioned one
+          if (cookie.partitionKey) {
+            console.log(`background/index.ts: Cloning partitioned cookie ${cookie.name} from ${cookie.domain} as non-partitioned...`)
+            const secure = cookie.secure ?? true
+            const url = `http${secure ? "s" : ""}://${cookie.domain.startsWith(".") ? cookie.domain.substring(1) : cookie.domain}${cookie.path}`
+            
+            await new Promise<void>((resolveSet) => {
+              chrome.cookies.set({
+                url,
+                name: cookie.name,
+                value: cookie.value,
+                domain: cookie.domain,
+                path: cookie.path,
+                secure,
+                httpOnly: cookie.httpOnly,
+                expirationDate: cookie.expirationDate
+              }, () => resolveSet())
+            })
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("background/index.ts: Failed to departition cookies:", err)
+  }
+}
+
