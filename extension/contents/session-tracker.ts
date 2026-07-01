@@ -156,7 +156,8 @@ window.addEventListener("message", ((event: MessageEvent) => {
   if (event.data?.type !== "AV_SUBMISSION_RESULT") return
   if (isSolved) return
   const detail = event.data.detail || {}
-  const verdict = detail.statusCode === 10 ? "Accepted" : detail.statusDisplay
+  const statusNum = detail.statusCode != null ? Number(detail.statusCode) : null
+  const verdict = statusNum === 10 ? "Accepted" : detail.statusDisplay
   if (verdict === "Accepted") {
     // Heartbeat finalizes the current focus segment before the timer is frozen.
     heartbeat()

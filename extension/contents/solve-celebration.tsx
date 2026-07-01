@@ -148,11 +148,11 @@ export default function SolveCelebration() {
         if (handledSubmissionIds.has(submissionId)) return
         handledSubmissionIds.add(submissionId)
       }
-      const status = detail.statusCode
+      const status = detail.statusCode != null ? Number(detail.statusCode) : null
 
       let newType: "VICTORY" | "DEFEAT" | null = null
       if (status === 10) newType = "VICTORY"
-      else if (status !== undefined && status !== null) newType = "DEFEAT"
+      else if (status !== null) newType = "DEFEAT"
 
       if (newType) {
         const heading = document.querySelector("a[href*='/problems/']")?.textContent

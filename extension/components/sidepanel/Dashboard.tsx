@@ -21,11 +21,16 @@ export const Dashboard = () => {
   const [profile, setProfile] = useState<any>(null)
   const [zerotrac, setZerotrac] = useState<any[] | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     getUsername().then((username) => {
       Promise.all([
-        fetchDashboard().catch(() => null),
+        fetchDashboard().catch((err) => {
+          console.error("Dashboard fetch error:", err);
+          setError(err.message || "Failed to fetch dashboard data");
+          return null;
+        }),
         fetchHeatmap().catch(() => []),
         fetchPotd().catch(() => []),
         fetchRevisionQueue().catch(() => []),
@@ -78,6 +83,22 @@ export const Dashboard = () => {
   }, [zerotrac, solved])
 
   if (loading) return <div className="grid gap-3"><Skeleton className="h-28" /><Skeleton className="h-20" /><Skeleton className="h-48" /></div>
+
+  if (error) {
+    return (
+      <Card className="py-8 text-center border-red-900/35 bg-red-950/20">
+        <div className="text-sm font-semibold text-red-400">Dashboard Failed to Load</div>
+        <div className="mt-1.5 text-[10px] text-zinc-405 font-mono px-4 break-all">{error}</div>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="mt-4 px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-[10px] font-mono border border-zinc-700"
+        >
+          Retry
+        </button>
+      </Card>
+    )
+  }
+
   if (!data) return <Card className="py-8 text-center"><div className="text-sm font-semibold text-zinc-200">Sync required</div><div className="mt-1 text-xs text-zinc-500">Run LeetCode history sync in Settings to build your dashboard.</div></Card>
 
   const weakest = weakness?.weakTags?.[0]

@@ -45,11 +45,12 @@ function parseMemoryKb(memory?: string) {
   return memory.toLowerCase().includes("mb") ? Math.round(value * 1024) : Math.round(value)
 }
 
-function verdictFromCode(statusCode?: number, fallback?: string) {
+function verdictFromCode(statusCode?: any, fallback?: string) {
   if (fallback && ["Accepted", "Wrong Answer", "Time Limit Exceeded", "Runtime Error", "Compile Error"].includes(fallback)) {
     return fallback
   }
-  switch (statusCode) {
+  const codeVal = statusCode != null ? Number(statusCode) : null
+  switch (codeVal) {
     case 10:
       return "Accepted"
     case 11:
