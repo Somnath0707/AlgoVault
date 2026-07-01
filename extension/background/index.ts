@@ -1,7 +1,7 @@
 import { fetchUserProfile, fetchSolvedProblems, fetchAllSubmissions, fetchContestHistory, fetchProblemMetadata, fetchUserStatus, fetchContestQuestions, fetchReplayEvents, fetchUpcomingContests, fetchPastContests } from "../lib/api/leetcode"
 import { getUserSettings, getUsername, setLastSync, setUsername, storage, getGithubPat, getGithubRepo, getZerotracData, getZerotracLastFetched, setZerotracData } from "../lib/storage"
 import { commitToGithub, getExtensionForLanguage } from "../lib/api/github"
-import { fetchEntrantHubHistory, fetchEntrantHubRealtime, fetchEntrantHubUpcoming, fetchEntrantHubPast, type LeetCodeRegion } from "../lib/api/entranthub"
+import { fetchEntrantHubHistory, fetchEntrantHubRealtime, fetchEntrantHubUpcoming, fetchEntrantHubPast, fetchEntrantHubRankingPrediction, type LeetCodeRegion } from "../lib/api/entranthub"
 import {
   fetchPrediction,
   fetchCurrentSession,
@@ -39,8 +39,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "get_entranthub_prediction") {
-    const { contestSlug, username, region = "US" } = message.payload;
-    fetchEntrantHubRealtime(contestSlug, username, region.toUpperCase() as LeetCodeRegion)
+    const { contestSlug, username } = message.payload;
+    fetchEntrantHubRankingPrediction(contestSlug, username)
       .then((data) => sendResponse({ ok: true, data }))
       .catch(async (err) => {
         const fallback = await fetchLeetCodeContestRankFallback(contestSlug, username).catch(() => null)
@@ -84,6 +84,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ ok: false, error: fallbackErr.message || err.message })
         }
       })
+    return true
+  }
+
+  if (message.action === "get_leetcode_past_contests") {
+    fetchPastContests(1, 20)
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }))
     return true
   }
 

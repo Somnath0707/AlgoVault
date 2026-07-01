@@ -1,7 +1,4 @@
-import {
-  summarizeRealtimePrediction,
-  type LeetCodeRegion
-} from "./api/entranthub"
+import type { LeetCodeRegion } from "./api/entranthub"
 import { withTimeout } from "./utils/network"
 
 // Constants
@@ -87,7 +84,7 @@ export async function getPredictedContests(
         return null
       }),
       sendMessage<any>({
-        action: "get_entranthub_past"
+        action: "get_leetcode_past_contests"
       }).catch((err) => {
         console.warn("Failed to fetch past contests for predictions:", err)
         return null
@@ -120,41 +117,34 @@ export async function getPredictedContests(
       }
 
       try {
-        // Fetch prediction via background script message, raced against a timeout
+        // Fetch prediction rankings via background script message, raced against a timeout
         const response = await withTimeout(
           sendMessage<any>({
             action: "get_entranthub_prediction",
-            payload: { contestSlug: contest.id, username, region: normalizedRegion }
+            payload: { contestSlug: contest.id, username }
           }),
           REQUEST_TIMEOUT_MS
         )
 
-        const realtimeData = response?.ok ? response.data : null
+        const ranking = response?.ok ? response.data : null
 
-        if (realtimeData) {
-          const summary = summarizeRealtimePrediction(realtimeData)
-          
+        if (ranking) {
           // Debug Logging Groups for Development diagnostics
-          console.group(`AlgoVault EntrantHub Prediction: ${contest.id}`)
+          console.group(`AlgoVault EntrantHub Rankings Prediction: ${contest.id}`)
           console.log("Contest ID/Slug:", contest.id)
-          console.log("Realtime Data:", realtimeData)
-          console.log("Summary:", summary)
+          console.log("Ranking Details:", ranking)
           console.groupEnd()
 
-          if (summary) {
-            // Resolve using canonical slug returned from EntrantHub or fallback to contest.id
-            const canonicalSlug = (realtimeData.contestTitleSlug || contest.id).toLowerCase().trim()
-            predictedContests.push({
-              titleSlug: canonicalSlug,
-              contestName: contest.name,
-              oldRating: summary.oldRating,
-              predictedRating: summary.predictedRating,
-              predictedDelta: summary.predictedDelta,
-              predictedRank: summary.predictedRank,
-              predicted: true,
-              platform: "LeetCode"
-            })
-          }
+          predictedContests.push({
+            titleSlug: contestSlug,
+            contestName: contest.name,
+            oldRating: ranking.oldRating,
+            predictedRating: ranking.newRating,
+            predictedDelta: ranking.deltaRating,
+            predictedRank: ranking.rank,
+            predicted: true,
+            platform: "LeetCode"
+          })
         }
       } catch (err) {
         console.warn(

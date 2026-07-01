@@ -50,6 +50,40 @@ async function entrantHubFetch<T>(path: string): Promise<T> {
   return response.json()
 }
 
+export interface EntrantHubRankingItem {
+  userSlug: string
+  rank: number
+  oldRating: number
+  newRating: number
+  deltaRating: number
+  expectedRating: number
+}
+
+export interface EntrantHubRankingsResponse {
+  items: EntrantHubRankingItem[]
+}
+
+export function fetchEntrantHubRankingPrediction(
+  contestSlug: string,
+  username: string
+): Promise<EntrantHubRankingItem | null> {
+  const cleanUsername = username.trim().toLowerCase()
+  return entrantHubFetch<EntrantHubRankingsResponse>(
+    `/contests/leetcode/contests/${encodeURIComponent(contestSlug)}/rankings?limit=25&offset=0&userSlug=${encodeURIComponent(cleanUsername)}`
+  ).then((res) => {
+    if (res && Array.isArray(res.items)) {
+      const match = res.items.find(
+        (item: any) => item.userSlug?.toLowerCase() === cleanUsername
+      )
+      return match || null
+    }
+    return null
+  })
+}
+
+/**
+ * @deprecated Use fetchEntrantHubRankingPrediction instead for rankings-based prediction details.
+ */
 export function fetchEntrantHubRealtime(
   contestSlug: string,
   username: string,
