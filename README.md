@@ -19,7 +19,7 @@ AlgoVault is a self-hosted performance telemetry, rating estimation, and algorit
 
 ```mermaid
 graph TD
-    subgraph Browser Context (leetcode.com)
+    subgraph "Browser Context (leetcode.com)"
         MAIN[MAIN World: Fetch Interceptor]
         ISOLATED[ISOLATED World: Telemetry Scripts]
         UI[Plasmo React UI: Overlays]
