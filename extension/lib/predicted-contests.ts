@@ -1,7 +1,4 @@
 import {
-  fetchEntrantHubHistory,
-  fetchEntrantHubRealtime,
-  fetchEntrantHubPast,
   summarizeRealtimePrediction,
   type LeetCodeRegion
 } from "./api/entranthub"
@@ -39,6 +36,19 @@ export interface GetPredictedContestsConfig {
 let cache: { data: PredictedContestResult; timestamp: number } | null = null
 
 /**
+ * Message sending helper to delegate fetches to background script to bypass CORS.
+ */
+function sendMessage<T>(message: Record<string, unknown>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(message, (response) => {
+      const runtimeError = chrome.runtime.lastError
+      if (runtimeError) reject(new Error(runtimeError.message))
+      else resolve(response as T)
+    })
+  })
+}
+
+/**
  * Helper to race a promise against a timeout.
  */
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
@@ -67,26 +77,34 @@ export async function getPredictedContests(
   }
 
   try {
-    // 2. Fetch history and past contests in parallel
-    const [history, pastContests] = await Promise.all([
-      fetchEntrantHubHistory(username, normalizedRegion).catch((err) => {
+    // 2. Fetch history and past contests in parallel via background script
+    const [historyRes, pastRes] = await Promise.all([
+      sendMessage<any>({
+        action: "get_entranthub_history",
+        payload: { username, region: normalizedRegion }
+      }).catch((err) => {
         console.warn("Failed to fetch official history for predictions:", err)
-        return []
+        return null
       }),
-      fetchEntrantHubPast().catch((err) => {
+      sendMessage<any>({
+        action: "get_entranthub_past"
+      }).catch((err) => {
         console.warn("Failed to fetch past contests for predictions:", err)
-        return []
+        return null
       })
     ])
 
+    const history = historyRes?.ok && Array.isArray(historyRes.data) ? historyRes.data : []
+    const pastContests = pastRes?.ok && Array.isArray(pastRes.data) ? pastRes.data : []
+
     const officialSlugs = new Set(
-      (history || []).map((item) => item.titleSlug.toLowerCase().trim())
+      (history || []).map((item: any) => item.titleSlug.toLowerCase().trim())
     )
 
     // Filter to LeetCode platform only and sort newest first
     const sortedContests = (pastContests || [])
-      .filter((c) => c.platform === "LeetCode")
-      .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+      .filter((c: any) => c.platform === "LeetCode")
+      .sort((a: any, b: any) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
 
     const predictedContests: PredictedContest[] = []
     const limit = Math.min(sortedContests.length, MAX_RECENT_CONTESTS)
@@ -102,11 +120,16 @@ export async function getPredictedContests(
       }
 
       try {
-        // Fetch prediction with a timeout race
-        const realtimeData = await withTimeout(
-          fetchEntrantHubRealtime(contest.id, username, normalizedRegion),
+        // Fetch prediction via background script message, raced against a timeout
+        const response = await withTimeout(
+          sendMessage<any>({
+            action: "get_entranthub_prediction",
+            payload: { contestSlug: contest.id, username, region: normalizedRegion }
+          }),
           REQUEST_TIMEOUT_MS
         )
+
+        const realtimeData = response?.ok ? response.data : null
 
         if (realtimeData) {
           const summary = summarizeRealtimePrediction(realtimeData)

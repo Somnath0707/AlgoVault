@@ -522,9 +522,10 @@ async function runSync(username: string, startOffset = 0) {
 
     const rawSubs: any[] = []
     let offset = startOffset
-    const limit = 100
+    const limit = 20
     let hasNext = true
-    while (hasNext) {
+    const maxSubmissionsToSync = 400
+    while (hasNext && rawSubs.length < maxSubmissionsToSync) {
       const subsRes = await fetchSubmissionPage(offset, limit)
       const pageSubs = subsRes.submissions_dump || []
       if (pageSubs.length === 0) {
