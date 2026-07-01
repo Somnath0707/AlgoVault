@@ -274,128 +274,95 @@ export default function ProfileOverlay() {
       const questionList = (qRes?.ok && Array.isArray(qRes.data)) ? qRes.data : []
 
       if (questionList.length > 0) {
-        // Try fetching user's submission data for this contest
-        let submissions = contest.submissions || []
-        if (submissions.length === 0) {
-          const rkStr = typeof contest.ranking === 'string' ? contest.ranking.replace(/\D/g, '') : String(contest.ranking)
-          const rk = parseInt(rkStr, 10) || 1
-          const pg = Math.ceil(rk / 25) || 1
+        const mappedQuestions = await Promise.all(questionList.map(async (q: any) => {
+          let report: any = { status: 'SKIPPED', label: 'No Data', color: 'text-zinc-500', details: ['No data'], pasteCount: 0, focusLoss: 0 }
+          let isAccepted = false
+          let attemptStatus = null
 
-          const rankRes: any = await new Promise((resolve) => {
-            chrome.runtime.sendMessage({
-              action: "get_leetcode_contest_ranking",
-              payload: { contestSlug: contest.titleSlug, username: username, page: pg }
-            }, resolve)
-          })
-          // LeetCode contest API returns { total_rank: [...], submissions: {...} }
-          if (rankRes && rankRes.ok && rankRes.data) {
-            const rankList = rankRes.data.total_rank || rankRes.data.ranking_show || []
-            const userRanking = rankList.find((r: any) => r.username?.toLowerCase() === username.toLowerCase())
-            if (userRanking) {
-              const subsObj = userRanking.submissions || {}
-              submissions = Object.entries(subsObj).map(([qId, subDetail]: [string, any]) => {
-                return {
-                  questionId: parseInt(qId, 10),
-                  verdict: subDetail.status === 10 ? "Accepted" : "Wrong Answer",
-                  status: subDetail.status
+          try {
+            const replayRes: any = await new Promise((resolve) => {
+              chrome.runtime.sendMessage({
+                action: "get_replay_events",
+                payload: { username: username, contestSlug: contest.titleSlug, questionSlug: q.titleSlug }
+              }, resolve)
+            })
+            
+            const events = (replayRes?.ok && Array.isArray(replayRes.data)) ? replayRes.data : []
+            if (events.length > 0) {
+              for (const e of events) {
+                const type = parseInt(e.eventType, 10)
+                if (type === 5) {
+                  try {
+                    const data = JSON.parse(e.eventData)
+                    if (data.result && data.result.status === 10) { isAccepted = true; break }
+                    else if (data.result) { attemptStatus = data.result.status }
+                  } catch (err) {}
                 }
-              })
-            }
-          }
-        }
+              }
 
-        const mappedQuestions = await Promise.all(questionList.map(async (q: any, index: number) => {
-          const sub = submissions.find((s: any) => s.titleSlug === q.titleSlug || s.questionId === q.questionId || s.question_id === q.questionId)
-          const hasSubmission = !!sub
-          const isAc = sub && (sub.verdict === "Accepted" || sub.status === 10)
+              let pasteCount = 0
+              let focusLoss = 0
+              const HEAVY_THRESHOLD = 500
+              const MILD_THRESHOLD = 100
+              const detectedPastes: string[] = []
 
-          let report: any = { status: 'SKIPPED', label: 'No Submission', color: 'text-zinc-500', details: [], pasteCount: 0, focusLoss: 0 }
-
-          if (hasSubmission) {
-            report = {
-              status: isAc ? 'CLEAN' : 'WRONG_ANSWER',
-              label: isAc ? 'Accepted' : 'Wrong Answer',
-              color: isAc ? 'text-[#10b981]' : 'text-red-400',
-              details: ['Replay telemetry unavailable'],
-              pasteCount: 0,
-              focusLoss: 0
-            }
-
-            try {
-              const replayRes: any = await new Promise((resolve) => {
-                chrome.runtime.sendMessage({
-                  action: "get_replay_events",
-                  payload: { username: username, contestSlug: contest.titleSlug, questionSlug: q.titleSlug }
-                }, resolve)
-              })
-              // Background already unwraps: fetchReplayEvents returns the array directly
-              const events = (replayRes?.ok && Array.isArray(replayRes.data)) ? replayRes.data : []
-              if (events.length > 0) {
-                let isAccepted = false
-                for (const e of events) {
-                  const type = parseInt(e.eventType, 10)
-                  if (type === 5) {
-                    try {
-                      const data = JSON.parse(e.eventData)
-                      if (data.result && data.result.status === 10) { isAccepted = true; break }
-                    } catch (err) {}
-                  }
+              events.forEach((e: any) => {
+                const type = parseInt(e.eventType, 10)
+                if (type === 3) {
+                  if (e.eventData.includes('"val": false') || e.eventData.includes('"val":false')) focusLoss++
                 }
-
-                let pasteCount = 0
-                let focusLoss = 0
-                const HEAVY_THRESHOLD = 500
-                const MILD_THRESHOLD = 100
-                const detectedPastes: string[] = []
-
-                events.forEach((e: any) => {
-                  const type = parseInt(e.eventType, 10)
-                  if (type === 3) {
-                    if (e.eventData.includes('"val": false') || e.eventData.includes('"val":false')) focusLoss++
-                  }
-                  if ((type === 7 || type === 10) && e.eventData) {
-                    try {
-                      const data = JSON.parse(e.eventData)
-                      const isInternal = data.isFromInside === true
-                      if (data.change && data.change.changes) {
-                        data.change.changes.forEach((change: any) => {
-                          const insertedLen = (change.insert || "").length
-                          if (insertedLen > 0 && !isInternal && insertedLen > MILD_THRESHOLD && type === 10) {
-                            pasteCount++
-                            const dateStr = e.timestamp ? new Date(parseInt(e.timestamp, 10)).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'}) : ''
-                            const timePrefix = dateStr ? `[${dateStr}] ` : ''
-                            let snippet = change.insert.trim().substring(0, 40).replace(/\n/g, ' ')
-                            if (change.insert.length > 40) snippet += '...'
-                            if (insertedLen > HEAVY_THRESHOLD) {
-                              detectedPastes.push(`${timePrefix}Large Ext. Paste (${insertedLen}c): "${snippet}"`)
-                            } else {
-                              detectedPastes.push(`${timePrefix}Small Ext. Paste (${insertedLen}c): "${snippet}"`)
-                            }
+                if ((type === 7 || type === 10) && e.eventData) {
+                  try {
+                    const data = JSON.parse(e.eventData)
+                    const isInternal = data.isFromInside === true
+                    if (data.change && data.change.changes) {
+                      data.change.changes.forEach((change: any) => {
+                        const insertedLen = (change.insert || "").length
+                        if (insertedLen > 0 && !isInternal && insertedLen > MILD_THRESHOLD && type === 10) {
+                          pasteCount++
+                          const dateStr = e.timestamp ? new Date(parseInt(e.timestamp, 10)).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'}) : ''
+                          const timePrefix = dateStr ? `[${dateStr}] ` : ''
+                          let snippet = change.insert.trim().substring(0, 40).replace(/\n/g, ' ')
+                          if (change.insert.length > 40) snippet += '...'
+                          if (insertedLen > HEAVY_THRESHOLD) {
+                            detectedPastes.push(`${timePrefix}Large Ext. Paste (${insertedLen}c): "${snippet}"`)
+                          } else {
+                            detectedPastes.push(`${timePrefix}Small Ext. Paste (${insertedLen}c): "${snippet}"`)
                           }
-                        })
-                      }
-                    } catch (err) {}
-                  }
-                })
+                        }
+                      })
+                    }
+                  } catch (err) {}
+                }
+              })
 
-                let status = 'CLEAN'
-                let label = 'Manual Typing'
-                let color = 'text-emerald-500'
-                const hasHeavyPaste = detectedPastes.some(d => d.includes('Large Ext. Paste'))
-                if (hasHeavyPaste) { status = 'HEAVY_PASTE'; label = 'Large Paste'; color = 'text-rose-500' }
-                else if (pasteCount > 0) { status = 'MILD_PASTE'; label = 'Small Paste'; color = 'text-amber-500' }
-                if (!isAccepted) { status = 'SKIPPED'; label = 'Not Accepted'; color = 'text-zinc-500' }
+              let status = 'CLEAN'
+              let label = 'Manual Typing'
+              let color = 'text-emerald-500'
+              const hasHeavyPaste = detectedPastes.some(d => d.includes('Large Ext. Paste'))
+              if (hasHeavyPaste) { status = 'HEAVY_PASTE'; label = 'Large Paste'; color = 'text-rose-500' }
+              else if (pasteCount > 0) { status = 'MILD_PASTE'; label = 'Small Paste'; color = 'text-amber-500' }
+              
+              if (!isAccepted) { 
+                const msg = attemptStatus ? `Not Accepted (Status ${attemptStatus})` : `No Submission`;
+                status = 'SKIPPED'; 
+                label = 'Skipped'; 
+                color = 'text-zinc-500';
+                report = { status, label, color, details: [msg], pasteCount: 0, focusLoss: 0 }
+              } else {
                 report = { status, label, color, details: detectedPastes, pasteCount, focusLoss }
               }
-            } catch (e) {
-              console.error(e)
+            } else {
+               report = { status: 'SKIPPED', label: 'Skipped', color: 'text-zinc-500', details: ['No Submission'], pasteCount: 0, focusLoss: 0 }
             }
+          } catch (e) {
+            console.error(e)
           }
 
           return {
             titleSlug: q.titleSlug,
             title: q.titleUs || q.title || q.titleSlug,
-            status: hasSubmission ? (isAc ? "Accepted" : "Wrong Answer") : "Skipped",
+            status: isAccepted ? "Accepted" : (attemptStatus ? "Wrong Answer" : "Skipped"),
             tabSwitches: report.focusLoss,
             typingType: report.label,
             reportColor: report.color,
