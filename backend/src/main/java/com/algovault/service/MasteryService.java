@@ -70,7 +70,8 @@ public class MasteryService {
             double totalSolveMinutes = 0;
             int timedSolves = 0;
 
-            double startingRating = (user.getLcRating() != null && user.getLcRating() > 0) ? user.getLcRating() : 1500.0;
+            double globalRating = (user.getLcRating() != null && user.getLcRating() > 0) ? user.getLcRating() : (user.getVirtualRating() != null && user.getVirtualRating() > 0 ? user.getVirtualRating() : 1500.0);
+            double startingRating = 0.8 * globalRating + 0.2 * 1500.0;
             Glicko2MasteryEngine.GlickoRating currentRating = new Glicko2MasteryEngine.GlickoRating(startingRating, 350.0, 0.06);
 
             for (List<Submission> problemAttempts : attempts) {
@@ -113,9 +114,15 @@ public class MasteryService {
                 double opponentRating = first.getProblem().getActualRating() != null
                     ? first.getProblem().getActualRating()
                     : 1500.0;
-                currentRating = glickoEngine.updateRating(currentRating, List.of(
-                    new Glicko2MasteryEngine.MatchResult(opponentRating, 50.0, score)
-                ));
+
+                // Anti-Farming Penalty: Skip rating bumps if the problem is far below current skill level
+                if (opponentRating < currentRating.rating - 300.0 && score > 0.0) {
+                    currentRating = glickoEngine.updateRating(currentRating, java.util.Collections.emptyList());
+                } else {
+                    currentRating = glickoEngine.updateRating(currentRating, List.of(
+                        new Glicko2MasteryEngine.MatchResult(opponentRating, 50.0, score)
+                    ));
+                }
             }
 
             if (lastSolvedAt != null) {
@@ -136,7 +143,8 @@ public class MasteryService {
             tm.setFirstAcCount(firstAcCount);
             tm.setSuccessRate(successRate * 100.0);
             tm.setAvgSolveTime(timedSolves > 0 ? totalSolveMinutes / timedSolves : null);
-            double conservativeScore = currentRating.rating - (1.5 * currentRating.rd);
+            double penaltyFactor = 1.5 + (10.0 / (totalAttempted + 1.0));
+            double conservativeScore = currentRating.rating - (penaltyFactor * currentRating.rd);
             tm.setMasteryScore(Math.max(800.0, conservativeScore));
             tm.setRd(currentRating.rd);
             tm.setVolatility(currentRating.volatility);
