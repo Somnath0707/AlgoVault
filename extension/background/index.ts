@@ -105,11 +105,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "get_entranthub_cookies") {
     chrome.cookies.getAll({ domain: "entranthub.com" }, (cookies) => {
       chrome.cookies.getAll({ domain: "api.entranthub.com" }, (cookiesApi) => {
-        sendResponse({ ok: true, cookies, cookiesApi })
+        const formatCookies = (list: chrome.cookies.Cookie[]) =>
+          (list || []).map(c => ({
+            name: c.name,
+            valueLength: c.value ? c.value.length : 0,
+            domain: c.domain,
+            path: c.path,
+            httpOnly: c.httpOnly,
+            secure: c.secure,
+            sameSite: c.sameSite,
+            session: c.session,
+            expirationDate: c.expirationDate
+          }))
+
+        sendResponse({
+          ok: true,
+          cookies: formatCookies(cookies),
+          cookiesApi: formatCookies(cookiesApi)
+        })
       })
     })
     return true
   }
+
 
   if (message.action === "get_contest_questions") {
     fetchContestQuestions(message.payload.contestSlug)
