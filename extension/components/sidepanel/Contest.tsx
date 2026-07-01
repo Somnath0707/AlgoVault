@@ -47,6 +47,11 @@ export const Contest = () => {
       if (!username) throw new Error("Set your LeetCode username in Settings")
       setUsernameState(username)
 
+      // Query entranthub cookies for diagnostics
+      chrome.runtime.sendMessage({ action: "get_entranthub_cookies" }, (res) => {
+        console.log("DIAGNOSTIC COOKIES RESPONSE:", res)
+      })
+
       // Stage 1 Log
       console.log("Contest.tsx: getPredictedContests input details:", { username, region: "US", forceRefresh: forcePredictRefresh })
 

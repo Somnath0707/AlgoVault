@@ -102,6 +102,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true
   }
 
+  if (message.action === "get_entranthub_cookies") {
+    chrome.cookies.getAll({ domain: "entranthub.com" }, (cookies) => {
+      chrome.cookies.getAll({ domain: "api.entranthub.com" }, (cookiesApi) => {
+        sendResponse({ ok: true, cookies, cookiesApi })
+      })
+    })
+    return true
+  }
+
   if (message.action === "get_contest_questions") {
     fetchContestQuestions(message.payload.contestSlug)
       .then((data) => sendResponse({ ok: true, data }))
