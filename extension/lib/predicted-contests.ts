@@ -1,4 +1,5 @@
 import type { LeetCodeRegion } from "./api/entranthub"
+import { fetchEntrantHubHistoryBackend, fetchEntrantHubRankingPredictionBackend } from "./api/backend"
 import { withTimeout } from "./utils/network"
 
 // Constants
@@ -74,14 +75,11 @@ export async function getPredictedContests(
   }
 
   try {
-    // 2. Fetch history and past contests in parallel via background script
-    const [historyRes, pastRes] = await Promise.all([
-      sendMessage<any>({
-        action: "get_entranthub_history",
-        payload: { username, region: normalizedRegion }
-      }).catch((err) => {
+    // 2. Fetch history from backend and past contests in parallel via background script
+    const [history, pastRes] = await Promise.all([
+      fetchEntrantHubHistoryBackend(username, normalizedRegion).catch((err) => {
         console.warn("Failed to fetch official history for predictions:", err)
-        return null
+        return []
       }),
       sendMessage<any>({
         action: "get_leetcode_past_contests"
@@ -92,13 +90,10 @@ export async function getPredictedContests(
     ])
 
     // Stage 2 Logs
-    console.log("predicted-contests.ts: historyRes:", historyRes)
+    console.log("predicted-contests.ts: history:", history)
     console.log("predicted-contests.ts: pastRes:", pastRes)
 
-    const history = historyRes?.ok && Array.isArray(historyRes.data) ? historyRes.data : []
     const pastContests = pastRes?.ok && Array.isArray(pastRes.data) ? pastRes.data : []
-
-    console.log("predicted-contests.ts: history:", history)
     console.log("predicted-contests.ts: pastContests:", pastContests)
 
     const officialSlugs = new Set(
@@ -136,26 +131,19 @@ export async function getPredictedContests(
       }
 
       try {
-        console.log("predicted-contests.ts: before get_entranthub_prediction sendMessage:", {
+        console.log("predicted-contests.ts: before fetchEntrantHubRankingPredictionBackend:", {
           contestId: contest.id,
           username
         })
 
-        // Fetch prediction rankings via background script message, raced against a timeout
-        const response = await withTimeout(
-          sendMessage<any>({
-            action: "get_entranthub_prediction",
-            payload: { contestSlug: contest.id, username }
-          }),
+        // Fetch prediction rankings from our backend proxy, raced against a timeout
+        const ranking = await withTimeout(
+          fetchEntrantHubRankingPredictionBackend(contest.id, username),
           REQUEST_TIMEOUT_MS
         )
 
-        console.log("predicted-contests.ts: after get_entranthub_prediction sendMessage response:", response)
-        if (response && response.ok === false) {
-          console.log("predicted-contests.ts: response.ok is false. error:", response.error)
-        }
+        console.log("predicted-contests.ts: after fetchEntrantHubRankingPredictionBackend response:", ranking)
 
-        const ranking = response?.ok ? response.data : null
         if (ranking === null) {
           console.log("predicted-contests.ts: ranking data is null explicitly")
         }

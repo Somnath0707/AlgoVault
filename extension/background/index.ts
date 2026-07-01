@@ -1,7 +1,7 @@
 import { fetchUserProfile, fetchSolvedProblems, fetchAllSubmissions, fetchContestHistory, fetchProblemMetadata, fetchUserStatus, fetchContestQuestions, fetchReplayEvents, fetchUpcomingContests, fetchPastContests } from "../lib/api/leetcode"
 import { getUserSettings, getUsername, setLastSync, setUsername, storage, getGithubPat, getGithubRepo, getZerotracData, getZerotracLastFetched, setZerotracData } from "../lib/storage"
 import { commitToGithub, getExtensionForLanguage } from "../lib/api/github"
-import { fetchEntrantHubHistory, fetchEntrantHubRealtime, fetchEntrantHubUpcoming, fetchEntrantHubPast, fetchEntrantHubRankingPrediction, type LeetCodeRegion } from "../lib/api/entranthub"
+import { type LeetCodeRegion } from "../lib/api/entranthub"
 import {
   fetchPrediction,
   fetchCurrentSession,
@@ -12,7 +12,8 @@ import {
   startSession,
   endSession,
   fetchContests,
-  syncLeetcode
+  syncLeetcode,
+  fetchEntrantHubRankingPredictionBackend
 } from "../lib/api/backend"
 
 export {}
@@ -42,71 +43,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const { contestSlug, username } = message.payload;
     console.log("background/index.ts: get_entranthub_prediction called with:", { contestSlug, username })
 
-    departitionCookies().then(() => {
-      fetchEntrantHubRankingPrediction(contestSlug, username)
-        .then((data) => {
-          console.log("background/index.ts: fetchEntrantHubRankingPrediction resolved with:", data)
-          sendResponse({ ok: true, data })
-        })
-        .catch(async (err) => {
-          console.error("background/index.ts: fetchEntrantHubRankingPrediction rejected with error:", err)
-          const fallback = await fetchLeetCodeContestRankFallback(contestSlug, username).catch(() => null)
-          console.log("background/index.ts: fetchLeetCodeContestRankFallback returned:", fallback)
-          sendResponse({ ok: false, error: err.message, fallback })
-        })
-    }).catch((departitionErr) => {
-      console.warn("background/index.ts: departition failed, running without clone:", departitionErr)
-      fetchEntrantHubRankingPrediction(contestSlug, username)
-        .then((data) => sendResponse({ ok: true, data }))
-        .catch(async (err) => {
-          const fallback = await fetchLeetCodeContestRankFallback(contestSlug, username).catch(() => null)
-          sendResponse({ ok: false, error: err.message, fallback })
-        })
-    })
-    return true
-  }
-
-  if (message.action === "get_entranthub_history") {
-    const { username, region = "US" } = message.payload;
-    departitionCookies().then(() => {
-      fetchEntrantHubHistory(username, region.toUpperCase() as LeetCodeRegion)
-        .then((data) => sendResponse({ ok: true, data }))
-        .catch((err) => sendResponse({ ok: false, error: err.message }))
-    }).catch((departitionErr) => {
-      console.warn("background/index.ts: departition failed, running without clone:", departitionErr)
-      fetchEntrantHubHistory(username, region.toUpperCase() as LeetCodeRegion)
-        .then((data) => sendResponse({ ok: true, data }))
-        .catch((err) => sendResponse({ ok: false, error: err.message }))
-    })
-    return true
-  }
-
-  if (message.action === "get_entranthub_upcoming") {
-    fetchEntrantHubUpcoming()
-      .then((data) => sendResponse({ ok: true, data }))
-      .catch(async (err) => {
-        console.warn("EntrantHub upcoming failed, falling back to LeetCode GraphQL", err)
-        try {
-          const fallbackData = await fetchUpcomingContests()
-          sendResponse({ ok: true, data: fallbackData })
-        } catch (fallbackErr: any) {
-          sendResponse({ ok: false, error: fallbackErr.message || "Failed to fetch contests" })
-        }
+    fetchEntrantHubRankingPredictionBackend(contestSlug, username)
+      .then((data) => {
+        console.log("background/index.ts: fetchEntrantHubRankingPredictionBackend resolved with:", data)
+        sendResponse({ ok: true, data })
       })
-    return true
-  }
-
-  if (message.action === "get_entranthub_past") {
-    fetchEntrantHubPast()
-      .then((data) => sendResponse({ ok: true, data }))
       .catch(async (err) => {
-        console.warn("EntrantHub past contests failed, falling back to LeetCode GraphQL", err)
-        try {
-          const fallbackData = await fetchPastContests(1, 20)
-          sendResponse({ ok: true, data: fallbackData, warning: err.message })
-        } catch (fallbackErr: any) {
-          sendResponse({ ok: false, error: fallbackErr.message || err.message })
-        }
+        console.error("background/index.ts: fetchEntrantHubRankingPredictionBackend rejected with error:", err)
+        const fallback = await fetchLeetCodeContestRankFallback(contestSlug, username).catch(() => null)
+        console.log("background/index.ts: fetchLeetCodeContestRankFallback returned:", fallback)
+        sendResponse({ ok: false, error: err.message, fallback })
       })
     return true
   }
@@ -115,32 +61,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     fetchPastContests(1, 20)
       .then((data) => sendResponse({ ok: true, data }))
       .catch((err) => sendResponse({ ok: false, error: err.message }))
-    return true
-  }
-
-  if (message.action === "get_entranthub_cookies") {
-    chrome.cookies.getAll({ domain: "entranthub.com" }, (cookies) => {
-      chrome.cookies.getAll({ domain: "api.entranthub.com" }, (cookiesApi) => {
-        const formatCookies = (list: chrome.cookies.Cookie[]) =>
-          (list || []).map(c => ({
-            name: c.name,
-            valueLength: c.value ? c.value.length : 0,
-            domain: c.domain,
-            path: c.path,
-            httpOnly: c.httpOnly,
-            secure: c.secure,
-            sameSite: c.sameSite,
-            session: c.session,
-            expirationDate: c.expirationDate
-          }))
-
-        sendResponse({
-          ok: true,
-          cookies: formatCookies(cookies),
-          cookiesApi: formatCookies(cookiesApi)
-        })
-      })
-    })
     return true
   }
 
@@ -714,48 +634,5 @@ async function getCachedZerotracRatings() {
   if (!Array.isArray(data)) throw new Error("ZeroTrac returned an invalid payload")
   await setZerotracData(data)
   return data
-}
-
-/**
- * Utility to query partitioned cookies and duplicate them into standard, non-partitioned storage.
- * Resolves issues arising from Cloudflare introducing the Partitioned (CHIPS) cookie attribute.
- */
-async function departitionCookies(): Promise<void> {
-  try {
-    const domains = ["entranthub.com", "api.entranthub.com", ".entranthub.com"]
-    for (const domain of domains) {
-      const cookies = await new Promise<chrome.cookies.Cookie[]>((resolve) => {
-        chrome.cookies.getAll({ name: "cf_clearance", domain, partitionKey: {} } as any, (list) => {
-          resolve(list || [])
-        })
-      })
-
-      if (cookies && cookies.length > 0) {
-        for (const cookie of cookies) {
-          // If this is a partitioned cookie, clone it as a non-partitioned one
-          if (cookie.partitionKey) {
-            console.log(`background/index.ts: Cloning partitioned cookie ${cookie.name} from ${cookie.domain} as non-partitioned...`)
-            const secure = cookie.secure ?? true
-            const url = `http${secure ? "s" : ""}://${cookie.domain.startsWith(".") ? cookie.domain.substring(1) : cookie.domain}${cookie.path}`
-            
-            await new Promise<void>((resolveSet) => {
-              chrome.cookies.set({
-                url,
-                name: cookie.name,
-                value: cookie.value,
-                domain: cookie.domain,
-                path: cookie.path,
-                secure,
-                httpOnly: cookie.httpOnly,
-                expirationDate: cookie.expirationDate
-              }, () => resolveSet())
-            })
-          }
-        }
-      }
-    }
-  } catch (err) {
-    console.error("background/index.ts: Failed to departition cookies:", err)
-  }
 }
 

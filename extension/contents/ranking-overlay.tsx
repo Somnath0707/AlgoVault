@@ -1,31 +1,31 @@
 import { useEffect } from "react"
 import type { PlasmoCSConfig } from "plasmo"
-import { summarizeRealtimePrediction } from "../lib/api/entranthub"
+import type { EntrantHubRankingItem } from "../lib/api/entranthub"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://leetcode.com/contest/*/ranking/*"]
 }
 
-const predictionCache = new Map<string, any>()
+const predictionCache = new Map<string, EntrantHubRankingItem>()
 
 export default function RankingOverlay() {
   useEffect(() => {
     let disposed = false
 
-    const injectPrediction = (container: Element, data: any) => {
-      const prediction = summarizeRealtimePrediction(data)
+    const injectPrediction = (container: Element, prediction: EntrantHubRankingItem) => {
       if (!prediction || container.querySelector(".av-prediction")) return
       const badge = document.createElement("span")
       badge.className = "av-prediction"
-      badge.title = "EntrantHub realtime estimate"
+      badge.title = "EntrantHub estimate"
       badge.style.display = "block"
       badge.style.marginTop = "2px"
       badge.style.fontSize = "11px"
       badge.style.fontWeight = "600"
-      badge.style.color = prediction.predictedDelta >= 0 ? "#10b981" : "#ef4444"
-      badge.textContent = `${Math.round(prediction.predictedRating)} (${prediction.predictedDelta >= 0 ? "+" : ""}${Math.round(prediction.predictedDelta)})`
+      badge.style.color = prediction.deltaRating >= 0 ? "#10b981" : "#ef4444"
+      badge.textContent = `${Math.round(prediction.newRating)} (${prediction.deltaRating >= 0 ? "+" : ""}${Math.round(prediction.deltaRating)})`
       container.appendChild(badge)
     }
+
 
     const injectUnavailable = (container: Element, message: string) => {
       if (container.querySelector(".av-prediction")) return

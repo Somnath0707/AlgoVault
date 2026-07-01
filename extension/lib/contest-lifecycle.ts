@@ -1,5 +1,5 @@
 import type { EntrantHubHistoryItem } from "./api/entranthub"
-import { summarizeRealtimePrediction } from "./api/entranthub"
+import { fetchEntrantHubHistoryBackend } from "./api/backend"
 
 export type ContestRatingStatus = "PREDICTING" | "PREDICTED" | "FINALIZED" | "UNRATED"
 
@@ -54,10 +54,10 @@ function finite(value: unknown): value is number {
 
 export async function loadContestLifecycle(username: string): Promise<ContestLifecycleItem[]> {
   const refreshedAt = new Date().toISOString()
-  const [officialResponse, entrantHubResponse, pastResponse] = await Promise.all([
+  const [officialResponse, entrantHubRes, pastResponse] = await Promise.all([
     sendMessage<any>({ action: "get_user_contest_history", payload: { username } }).catch(() => null),
-    sendMessage<any>({ action: "get_entranthub_history", payload: { username, region: "US" } }).catch(() => null),
-    sendMessage<any>({ action: "get_entranthub_past" }).catch(() => null)
+    fetchEntrantHubHistoryBackend(username, "US").catch(() => []),
+    sendMessage<any>({ action: "get_leetcode_past_contests" }).catch(() => null)
   ])
 
   const officialRows: OfficialContestRow[] = officialResponse?.ok
@@ -66,9 +66,7 @@ export async function loadContestLifecycle(username: string): Promise<ContestLif
   const official = officialRows
     .filter((row) => row.attended && row.contest?.titleSlug)
     .sort((left, right) => (left.contest?.startTime ?? 0) - (right.contest?.startTime ?? 0))
-  const entrantHub: EntrantHubHistoryItem[] = entrantHubResponse?.ok && Array.isArray(entrantHubResponse.data)
-    ? entrantHubResponse.data
-    : []
+  const entrantHub = (entrantHubRes || []) as EntrantHubHistoryItem[]
   const entrantHubBySlug = new Map(entrantHub.map((item) => [item.titleSlug.toLowerCase(), item]))
   const result = new Map<string, ContestLifecycleItem>()
 
@@ -104,7 +102,7 @@ export async function loadContestLifecycle(username: string): Promise<ContestLif
     })
   })
 
-  entrantHub.forEach((history) => {
+  entrantHub.forEach((history: EntrantHubHistoryItem) => {
     const slug = history.titleSlug.toLowerCase()
     if (result.has(slug)) return
     const hasRating = finite(history.oldRating) && finite(history.newRating)
@@ -170,19 +168,17 @@ export async function loadContestLifecycle(username: string): Promise<ContestLif
       try {
         const response = await sendMessage<any>({
           action: "get_entranthub_prediction",
-          payload: { contestSlug: contest.contestSlug, username, region: "US" }
+          payload: { contestSlug: contest.contestSlug, username }
         })
         if (response?.ok && response.data) {
-          const prediction = summarizeRealtimePrediction(response.data)
-          if (prediction && prediction.predictedRank != null) {
-            contest.attended = true
-            contest.ratingBefore = prediction.oldRating
-            contest.predictedRating = prediction.predictedRating
-            contest.predictedDelta = prediction.predictedDelta
-            contest.predictedRank = prediction.predictedRank
-            contest.status = "PREDICTED"
-            contest.source = "ENTRANTHUB"
-          }
+          const ranking = response.data
+          contest.attended = true
+          contest.ratingBefore = ranking.oldRating
+          contest.predictedRating = ranking.newRating
+          contest.predictedDelta = ranking.deltaRating
+          contest.predictedRank = ranking.rank
+          contest.status = "PREDICTED"
+          contest.source = "ENTRANTHUB"
         } else if (response?.fallback?.attended) {
           contest.attended = true
           contest.rank = response.fallback.rank ?? contest.rank

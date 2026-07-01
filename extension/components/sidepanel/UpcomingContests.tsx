@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react"
 import { Card } from "../ui/Card"
+import { fetchEntrantHubUpcomingBackend } from "../../lib/api/backend"
 import type { EntrantHubContest } from "../../lib/api/entranthub"
+
 
 export const UpcomingContests = () => {
   const [contests, setContests] = useState<EntrantHubContest[]>([])
@@ -10,11 +12,17 @@ export const UpcomingContests = () => {
 
   useEffect(() => {
     // Fetch upcoming contests
-    chrome.runtime.sendMessage({ action: "get_entranthub_upcoming" }, (response) => {
-      if (response?.ok && Array.isArray(response.data)) setContests(response.data)
-      else setError(response?.error || "Upcoming contests are temporarily unavailable")
-      setLoading(false)
-    })
+    fetchEntrantHubUpcomingBackend()
+      .then((data) => {
+        if (Array.isArray(data)) setContests(data)
+        else setError("Upcoming contests are temporarily unavailable")
+        setLoading(false)
+      })
+      .catch((err) => {
+        setError(err.message || "Upcoming contests are temporarily unavailable")
+        setLoading(false)
+      })
+
 
     // Load registered contests
     chrome.storage.local.get(["algovault.registeredContests"], (res) => {
