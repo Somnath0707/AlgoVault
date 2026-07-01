@@ -30,6 +30,7 @@ export interface EntrantHubContest {
 
 async function entrantHubFetch<T>(path: string): Promise<T> {
   const response = await fetch(`${ENTRANTHUB_BASE_URL}${path}`, {
+    credentials: "include",
     headers: {
       Accept: "application/json"
     }
@@ -74,6 +75,7 @@ export async function fetchEntrantHubRankingPrediction(
   console.log("entranthub.ts: fetchEntrantHubRankingPrediction requesting URL:", url)
 
   const response = await fetch(url, {
+    credentials: "include",
     headers: {
       Accept: "application/json"
     }
