@@ -87,13 +87,13 @@ export const Heatmap = () => {
   const sortedData = [...data].sort((a, b) => a.bucketRating - b.bucketRating);
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-4 font-sans">
       <Card>
         <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-1.5">Solve vs Attempted Heatmap</h3>
         <p className="text-[11px] text-zinc-500 mb-4 font-mono leading-relaxed">
           Compare unique solved count against overall attempted problems across rating categories.
         </p>
-        <div className="h-[400px] w-full">
+        <div className="h-[260px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={sortedData} layout="vertical" margin={{ top: 0, right: 10, left: -25, bottom: 0 }}>
               <XAxis type="number" hide />
@@ -106,6 +106,156 @@ export const Heatmap = () => {
           </ResponsiveContainer>
         </div>
       </Card>
+
+      {/* 🏆 PS5-Style Trophy Cabinet */}
+      <div className="flex flex-col gap-3 mt-1">
+        <div className="flex justify-between items-center px-1">
+          <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest font-mono flex items-center gap-1.5">
+            <span>🏆</span> Trophy Cabinet
+          </h3>
+          <span className="text-[9px] text-zinc-500 font-mono">Progress: 60% (3/5 Trophies)</span>
+        </div>
+
+        {/* Trophies List */}
+        <div className="flex flex-col gap-2.5">
+          {/* Trophy 1: Masters of the Multiverse (Platinum) */}
+          <div className="flex justify-between items-center p-3.5 rounded-xl bg-[#0e0e11]/80 border border-zinc-900 hover:border-zinc-800 transition-all duration-200">
+            <div className="flex items-center gap-3.5 min-w-0">
+              {/* Platinum Badge */}
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600/10 to-indigo-600/10 flex items-center justify-center border border-indigo-500/20 shrink-0">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="1.5">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  <path d="M12 6l3.5 7h-7L12 6z" />
+                  <circle cx="12" cy="15" r="2" fill="#818cf8" fillOpacity="0.3" />
+                </svg>
+              </div>
+              {/* Title & Info */}
+              <div>
+                <h4 className="font-bold text-xs text-zinc-100 tracking-tight">Masters of the Multiverse</h4>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[9px] font-bold text-indigo-400">💍 Platinum</span>
+                  <span className="text-zinc-700 text-[9px] font-mono">|</span>
+                  <span className="text-[9px] font-mono text-zinc-500">▲ Ultra Rare | 4.2% earned</span>
+                </div>
+              </div>
+            </div>
+            {/* Req & Date */}
+            <div className="text-right shrink-0 min-w-[100px]">
+              <span className="text-[9px] text-zinc-550 font-mono block">LOCKED</span>
+              <span className="text-[10px] text-zinc-450 mt-1 block">Master all 17 topics</span>
+            </div>
+          </div>
+
+          {/* Trophy 2: The Knight's Gambit (Gold) */}
+          <div className="flex justify-between items-center p-3.5 rounded-xl bg-[#0e0e11]/80 border border-zinc-900 hover:border-zinc-800 transition-all duration-200">
+            <div className="flex items-center gap-3.5 min-w-0">
+              {/* Gold Badge */}
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-600/10 to-[#dfa054]/10 flex items-center justify-center border border-[#dfa054]/35 shrink-0 shadow-[0_0_12px_rgba(223,160,84,0.08)]">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#dfa054" strokeWidth="1.5">
+                  <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5" />
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M12 5v4M12 15v4" />
+                </svg>
+              </div>
+              {/* Title & Info */}
+              <div>
+                <h4 className="font-bold text-xs text-zinc-100 tracking-tight">The Knight's Gambit</h4>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[9px] font-bold text-[#dfa054]">🥇 Gold</span>
+                  <span className="text-zinc-700 text-[9px] font-mono">|</span>
+                  <span className="text-[9px] font-mono text-zinc-500">▲ Rare | 12.4% earned</span>
+                </div>
+              </div>
+            </div>
+            {/* Req & Date */}
+            <div className="text-right shrink-0 min-w-[100px]">
+              <span className="text-[9px] text-zinc-550 font-mono block">📅 05/14/2026 14:15</span>
+              <span className="text-[10px] text-zinc-450 mt-1 block">Reach Knight rating</span>
+            </div>
+          </div>
+
+          {/* Trophy 3: Pure Intention (Silver) */}
+          <div className="flex justify-between items-center p-3.5 rounded-xl bg-[#0e0e11]/80 border border-zinc-900 hover:border-zinc-800 transition-all duration-200">
+            <div className="flex items-center gap-3.5 min-w-0">
+              {/* Silver Badge */}
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-zinc-500/10 to-zinc-400/10 flex items-center justify-center border border-zinc-500/30 shrink-0">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="1.5">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 8v8M8 12h8" />
+                </svg>
+              </div>
+              {/* Title & Info */}
+              <div>
+                <h4 className="font-bold text-xs text-zinc-100 tracking-tight">Pure Intention</h4>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[9px] font-bold text-zinc-400">🥈 Silver</span>
+                  <span className="text-zinc-700 text-[9px] font-mono">|</span>
+                  <span className="text-[9px] font-mono text-zinc-500">▲ Rare | 22.1% earned</span>
+                </div>
+              </div>
+            </div>
+            {/* Req & Date */}
+            <div className="text-right shrink-0 min-w-[100px]">
+              <span className="text-[9px] text-zinc-550 font-mono block">📅 06/11/2026 09:22</span>
+              <span className="text-[10px] text-zinc-450 mt-1 block">Solve with zero hints</span>
+            </div>
+          </div>
+
+          {/* Trophy 4: Out of the Mud (Bronze) */}
+          <div className="flex justify-between items-center p-3.5 rounded-xl bg-[#0e0e11]/80 border border-zinc-900 hover:border-zinc-800 transition-all duration-200">
+            <div className="flex items-center gap-3.5 min-w-0">
+              {/* Bronze Badge */}
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-800/10 to-orange-800/10 flex items-center justify-center border border-amber-800/35 shrink-0">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#b45309" strokeWidth="1.5">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                  <path d="M2 17l10 5 10-5" />
+                </svg>
+              </div>
+              {/* Title & Info */}
+              <div>
+                <h4 className="font-bold text-xs text-zinc-100 tracking-tight">Out of the Mud</h4>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[9px] font-bold text-amber-700">🥉 Bronze</span>
+                  <span className="text-zinc-700 text-[9px] font-mono">|</span>
+                  <span className="text-[9px] font-mono text-zinc-500">▲ Common | 90.4% earned</span>
+                </div>
+              </div>
+            </div>
+            {/* Req & Date */}
+            <div className="text-right shrink-0 min-w-[100px]">
+              <span className="text-[9px] text-zinc-550 font-mono block">📅 03/01/2026 18:30</span>
+              <span className="text-[10px] text-zinc-450 mt-1 block">Solve first 10 cases</span>
+            </div>
+          </div>
+
+          {/* Trophy 5: The Compiler Blinked First (Gold - Locked) */}
+          <div className="flex justify-between items-center p-3.5 rounded-xl bg-[#0e0e11]/40 border border-zinc-950 opacity-60 transition-all duration-200 hover:opacity-80">
+            <div className="flex items-center gap-3.5 min-w-0">
+              {/* Locked Gold Badge */}
+              <div className="w-12 h-12 rounded-xl bg-zinc-900 flex items-center justify-center border border-zinc-800 shrink-0 relative">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#52525b" strokeWidth="1.5">
+                  <rect x="5" y="11" width="14" height="10" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              </div>
+              {/* Title & Info */}
+              <div>
+                <h4 className="font-bold text-xs text-zinc-400 tracking-tight">The Compiler Blinked First</h4>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[9px] font-bold text-zinc-500">🥇 Gold</span>
+                  <span className="text-zinc-700 text-[9px] font-mono">|</span>
+                  <span className="text-[9px] font-mono text-zinc-550">▲ Ultra Rare | 1.8% earned</span>
+                </div>
+              </div>
+            </div>
+            {/* Req & Date */}
+            <div className="text-right shrink-0 min-w-[100px]">
+              <span className="text-[9px] text-zinc-650 font-mono block">LOCKED</span>
+              <span className="text-[10px] text-zinc-550 mt-1 block">Solve Hard under 15m</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
