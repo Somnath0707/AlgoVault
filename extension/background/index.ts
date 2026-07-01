@@ -207,60 +207,73 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               const resCode = await commitToGithub(pat, repo, codePath, commitMessageCode, payload.code);
               if (!resCode.ok) {
                 console.error("GitHub code sync failed:", resCode.message);
+                await storage.set("algovault.gitSyncStatus", {
+                  success: false,
+                  message: resCode.message,
+                  timestamp: Date.now(),
+                  problem: payload.title || payload.titleSlug
+                });
               } else {
                 console.log(`Successfully synced solution code for ${payload.titleSlug} to GitHub.`);
-              }
+                
+                // 3. Construct and commit the README.md file
+                const readmePath = `problems/${payload.titleSlug}/README.md`;
+                const qId = meta?.frontendQuestionId ? `${meta.frontendQuestionId}. ` : "";
+                const qTitle = meta?.title || payload.title || payload.titleSlug;
+                const difficulty = meta?.difficulty || "Unknown";
+                const tags = meta?.topicTags ? meta.topicTags.map((t: any) => `\`${t.name}\``).join(", ") : "None";
 
-              // 3. Construct and commit the README.md file
-              const readmePath = `problems/${payload.titleSlug}/README.md`;
-              const qId = meta?.frontendQuestionId ? `${meta.frontendQuestionId}. ` : "";
-              const qTitle = meta?.title || payload.title || payload.titleSlug;
-              const difficulty = meta?.difficulty || "Unknown";
-              const tags = meta?.topicTags ? meta.topicTags.map((t: any) => `\`${t.name}\``).join(", ") : "None";
+                // Map difficulty to color for shields.io badges
+                let difficultyColor = "gray";
+                if (difficulty.toLowerCase() === "easy") difficultyColor = "10b981";
+                else if (difficulty.toLowerCase() === "medium") difficultyColor = "dfa054";
+                else if (difficulty.toLowerCase() === "hard") difficultyColor = "ef4444";
 
-              // Map difficulty to color for shields.io badges
-              let difficultyColor = "gray";
-              if (difficulty.toLowerCase() === "easy") difficultyColor = "10b981";
-              else if (difficulty.toLowerCase() === "medium") difficultyColor = "dfa054";
-              else if (difficulty.toLowerCase() === "hard") difficultyColor = "ef4444";
+                const langRaw = payload.codeLang || payload.language || "Unknown";
+                const langBadge = encodeURIComponent(langRaw);
+                const langMarkdown = langRaw.toLowerCase();
 
-              const langRaw = payload.codeLang || payload.language || "Unknown";
-              const langBadge = encodeURIComponent(langRaw);
-              const langMarkdown = langRaw.toLowerCase();
+                const readmeContent = [
+                  `# ⚡ LeetCode Solution: ${qId}${qTitle}`,
+                  "",
+                  `[![Difficulty](https://img.shields.io/badge/Difficulty-${difficulty}-${difficultyColor}?style=for-the-badge)](#)`,
+                  `[![Language](https://img.shields.io/badge/Language-${langBadge}-2563eb?style=for-the-badge)](#)`,
+                  "",
+                  `## 📝 Problem Metadata`,
+                  `- **Problem Link**: [LeetCode Link](https://leetcode.com/problems/${payload.titleSlug}/)`,
+                  `- **Difficulty**: ${difficulty}`,
+                  `- **Topics**: ${tags}`,
+                  "",
+                  `## 📊 Performance Telemetry`,
+                  `| Metric | Value | Performance Status |`,
+                  `| :--- | :--- | :--- |`,
+                  `| **Runtime Speed** | \`${payload.runtimeMs != null ? `${payload.runtimeMs} ms` : "N/A"}\` | Optimized execution |`,
+                  `| **Memory Allocation** | \`${payload.memoryKb != null ? `${Math.round(payload.memoryKb / 10.24) / 100} MB` : "N/A"}\` | Braced space allocation |`,
+                  `| **Date Solved** | \`${new Date(payload.submittedAt).toLocaleString()}\` | Completed successfully |`,
+                  "",
+                  `## 💻 Implementation Source Code`,
+                  "```" + (langMarkdown.includes("c++") ? "cpp" : langMarkdown),
+                  payload.code,
+                  "```",
+                  "",
+                  `---`,
+                  `*Generated and synchronized automatically by [AlgoVault](https://github.com/Somnath0707/AlgoVault) - Your competitive programming operating system.*`
+                ].join("\n");
 
-              const readmeContent = [
-                `# ⚡ LeetCode Solution: ${qId}${qTitle}`,
-                "",
-                `[![Difficulty](https://img.shields.io/badge/Difficulty-${difficulty}-${difficultyColor}?style=for-the-badge)](#)`,
-                `[![Language](https://img.shields.io/badge/Language-${langBadge}-2563eb?style=for-the-badge)](#)`,
-                "",
-                `## 📝 Problem Metadata`,
-                `- **Problem Link**: [LeetCode Link](https://leetcode.com/problems/${payload.titleSlug}/)`,
-                `- **Difficulty**: ${difficulty}`,
-                `- **Topics**: ${tags}`,
-                "",
-                `## 📊 Performance Telemetry`,
-                `| Metric | Value | Performance Status |`,
-                `| :--- | :--- | :--- |`,
-                `| **Runtime Speed** | \`${payload.runtimeMs != null ? `${payload.runtimeMs} ms` : "N/A"}\` | Optimized execution |`,
-                `| **Memory Allocation** | \`${payload.memoryKb != null ? `${Math.round(payload.memoryKb / 10.24) / 100} MB` : "N/A"}\` | Braced space allocation |`,
-                `| **Date Solved** | \`${new Date(payload.submittedAt).toLocaleString()}\` | Completed successfully |`,
-                "",
-                `## 💻 Implementation Source Code`,
-                "```" + (langMarkdown.includes("c++") ? "cpp" : langMarkdown),
-                payload.code,
-                "```",
-                "",
-                `---`,
-                `*Generated and synchronized automatically by [AlgoVault](https://github.com/Somnath0707/AlgoVault) - Your competitive programming operating system.*`
-              ].join("\n");
+                const commitMessageReadme = `Generate README for ${payload.title || payload.titleSlug}`;
+                const resReadme = await commitToGithub(pat, repo, readmePath, commitMessageReadme, readmeContent);
+                if (!resReadme.ok) {
+                  console.error("GitHub README sync failed:", resReadme.message);
+                } else {
+                  console.log(`Successfully synced README for ${payload.titleSlug} to GitHub.`);
+                }
 
-              const commitMessageReadme = `Generate README for ${payload.title || payload.titleSlug}`;
-              const resReadme = await commitToGithub(pat, repo, readmePath, commitMessageReadme, readmeContent);
-              if (!resReadme.ok) {
-                console.error("GitHub README sync failed:", resReadme.message);
-              } else {
-                console.log(`Successfully synced README for ${payload.titleSlug} to GitHub.`);
+                await storage.set("algovault.gitSyncStatus", {
+                  success: true,
+                  message: "Success",
+                  timestamp: Date.now(),
+                  problem: payload.title || payload.titleSlug
+                });
               }
             } catch (gitErr) {
               console.error("Error during GitHub sync operation:", gitErr);

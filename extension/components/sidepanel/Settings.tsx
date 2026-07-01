@@ -22,6 +22,7 @@ export const Settings = () => {
   const [githubPat, setGithubPat] = useState<string>('');
   const [githubRepo, setGithubRepo] = useState<string>('');
   const [githubSaved, setGithubSaved] = useState<boolean>(false);
+  const [gitSyncStatus, setGitSyncStatus] = useState<any>(null);
   const [syncHasMore, setSyncHasMore] = useState<any>(null);
 
   useEffect(() => {
@@ -34,6 +35,17 @@ export const Settings = () => {
     getUsername().then((value) => setUsername(value || ""));
     getGithubPat().then((value) => setGithubPat(value || ""));
     getGithubRepo().then((value) => setGithubRepo(value || ""));
+    
+    chrome.storage.local.get("algovault.gitSyncStatus", (res) => {
+      setGitSyncStatus(res["algovault.gitSyncStatus"] || null);
+    });
+
+    const gitListener = (changes: any) => {
+      if (changes["algovault.gitSyncStatus"]?.newValue) {
+        setGitSyncStatus(changes["algovault.gitSyncStatus"].newValue);
+      }
+    };
+    chrome.storage.onChanged.addListener(gitListener);
 
     fetchUserStatus()
       .then((res) => {
@@ -68,7 +80,10 @@ export const Settings = () => {
     };
     checkSync();
     const interval = setInterval(checkSync, 1000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      chrome.storage.onChanged.removeListener(gitListener);
+    };
   }, []);
 
   const toggleAccRate = () => {
@@ -314,6 +329,25 @@ export const Settings = () => {
           >
             {githubSaved ? "Saved ✔" : "Save Credentials"}
           </button>
+
+          {gitSyncStatus && (
+            <div className={`mt-3 p-3 rounded-lg border text-[10px] font-mono leading-relaxed ${
+              gitSyncStatus.success 
+                ? 'bg-emerald-950/20 border-emerald-900/30 text-emerald-450' 
+                : 'bg-red-950/20 border-red-900/30 text-red-400'
+            }`}>
+              <div className="font-bold uppercase mb-0.5">
+                {gitSyncStatus.success ? "Last Sync Succeeded ✓" : "Sync Failed ✗"}
+              </div>
+              <div className="truncate">Problem: {gitSyncStatus.problem}</div>
+              {gitSyncStatus.message && gitSyncStatus.message !== "Success" && (
+                <div className="mt-0.5 text-zinc-400 break-all">Error: {gitSyncStatus.message}</div>
+              )}
+              <div className="text-zinc-650 mt-1.5 text-[8px] text-right">
+                {new Date(gitSyncStatus.timestamp).toLocaleTimeString()}
+              </div>
+            </div>
+          )}
         </div>
       </Card>
     </div>

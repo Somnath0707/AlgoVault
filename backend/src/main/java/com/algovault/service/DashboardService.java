@@ -51,6 +51,24 @@ public class DashboardService {
             .count();
 
         Optional<Session> currentSession = sessionRepository.findFirstByUserIdAndEndedAtIsNullOrderByStartedAtDesc(userId);
+        int sessionTime = 0;
+        int focus = 100;
+        int switches = 0;
+        int pastes = 0;
+        if (currentSession.isPresent()) {
+            Session s = currentSession.get();
+            if (ChronoUnit.HOURS.between(s.getStartedAt(), LocalDateTime.now()) < 12) {
+                sessionTime = (int) ChronoUnit.SECONDS.between(s.getStartedAt(), LocalDateTime.now());
+                focus = s.getFocusScore() != null ? s.getFocusScore() : 100;
+                switches = s.getTabSwitches() != null ? s.getTabSwitches() : 0;
+                pastes = s.getPasteCount() != null ? s.getPasteCount() : 0;
+            } else {
+                try {
+                    s.setEndedAt(s.getStartedAt().plusHours(1));
+                    sessionRepository.save(s);
+                } catch (Exception e) {}
+            }
+        }
 
         List<DashboardResponse.RecentSolve> recentSolves = recentSubs.stream()
             .map(s -> DashboardResponse.RecentSolve.builder()
@@ -68,12 +86,10 @@ public class DashboardService {
             .totalSubmissions((int) submissionRepository.countByUserId(userId))
             .todaySolves(todaySolves)
             .todaySubmissions(todaySubmissions)
-            .sessionTimeSeconds(currentSession
-                .map(s -> (int) ChronoUnit.SECONDS.between(s.getStartedAt(), LocalDateTime.now()))
-                .orElse(0))
-            .focusScore(currentSession.map(Session::getFocusScore).orElse(100))
-            .tabSwitches(currentSession.map(Session::getTabSwitches).orElse(0))
-            .pasteCount(currentSession.map(Session::getPasteCount).orElse(0))
+            .sessionTimeSeconds(sessionTime)
+            .focusScore(focus)
+            .tabSwitches(switches)
+            .pasteCount(pastes)
             .currentMode(currentSession.map(Session::getMode).orElse("PRACTICE"))
             .currentStreak(computeCurrentStreak(submissions))
             .recentSolves(recentSolves)

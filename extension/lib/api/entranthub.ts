@@ -39,8 +39,9 @@ export function fetchEntrantHubRealtime(
   username: string,
   region: LeetCodeRegion = "US"
 ): Promise<EntrantHubRealtimeData> {
+  const cleanUsername = username.trim().toLowerCase();
   return entrantHubFetch(
-    `/leetcode/contests/${encodeURIComponent(contestSlug)}/users/${region}/${encodeURIComponent(username)}/realtime`
+    `/leetcode/contests/${encodeURIComponent(contestSlug)}/users/${region}/${encodeURIComponent(cleanUsername)}/realtime`
   )
 }
 
@@ -48,7 +49,8 @@ export function fetchEntrantHubHistory(
   username: string,
   region: LeetCodeRegion = "US"
 ): Promise<EntrantHubHistoryItem[]> {
-  return entrantHubFetch(`/leetcode/users/${region}/${encodeURIComponent(username)}/history`)
+  const cleanUsername = username.trim().toLowerCase();
+  return entrantHubFetch(`/leetcode/users/${region}/${encodeURIComponent(cleanUsername)}/history`)
 }
 
 export function fetchEntrantHubUpcoming(): Promise<EntrantHubContest[]> {

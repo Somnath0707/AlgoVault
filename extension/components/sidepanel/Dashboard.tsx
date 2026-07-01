@@ -4,6 +4,7 @@ import { Card } from "../ui/Card"
 import { Skeleton } from "../ui/Skeleton"
 import { fetchDashboard, fetchHeatmap, fetchPotd, fetchRevisionQueue, fetchWeakness } from "../../lib/api/backend"
 import { STUDY_LISTS } from "../../lib/study-lists"
+import { getUsername } from "../../lib/storage"
 
 function message<T>(payload: Record<string, unknown>): Promise<T> {
   return new Promise((resolve) => chrome.runtime.sendMessage(payload, resolve))
@@ -17,36 +18,64 @@ export const Dashboard = () => {
   const [weakness, setWeakness] = useState<any>(null)
   const [solved, setSolved] = useState<Set<string>>(new Set())
   const [manual, setManual] = useState<Record<string, boolean>>({})
+  const [profile, setProfile] = useState<any>(null)
+  const [zerotrac, setZerotrac] = useState<any[] | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([
-      fetchDashboard().catch(() => null),
-      fetchHeatmap().catch(() => []),
-      fetchPotd().catch(() => []),
-      fetchRevisionQueue().catch(() => []),
-      fetchWeakness().catch(() => null),
-      message<any>({ action: "get_solved_problem_slugs" }).catch(() => null),
-      new Promise<any>((resolve) => chrome.storage.local.get("algovault.study.manual.v1", resolve))
-    ]).then(([dashboard, buckets, daily, reviews, weak, solvedResponse, manualResult]) => {
-      setData(dashboard)
-      setHeatmap(buckets)
-      setPotd(daily)
-      setQueue(reviews)
-      setWeakness(weak)
-      setSolved(new Set(solvedResponse?.ok ? solvedResponse.data : []))
-      setManual(manualResult?.["algovault.study.manual.v1"] || {})
-    }).finally(() => setLoading(false))
+    getUsername().then((username) => {
+      Promise.all([
+        fetchDashboard().catch(() => null),
+        fetchHeatmap().catch(() => []),
+        fetchPotd().catch(() => []),
+        fetchRevisionQueue().catch(() => []),
+        fetchWeakness().catch(() => null),
+        message<any>({ action: "get_solved_problem_slugs" }).catch(() => null),
+        new Promise<any>((resolve) => chrome.storage.local.get("algovault.study.manual.v1", resolve)),
+        username ? message<any>({ action: "get_user_profile", payload: { username } }).catch(() => null) : null,
+        message<any>({ action: "get_zerotrac" }).catch(() => null)
+      ]).then(([dashboard, buckets, daily, reviews, weak, solvedResponse, manualResult, profileRes, zerotracRes]) => {
+        setData(dashboard)
+        setHeatmap(buckets)
+        setPotd(daily)
+        setQueue(reviews)
+        setWeakness(weak)
+        setSolved(new Set(solvedResponse?.ok ? solvedResponse.data : []))
+        setManual(manualResult?.["algovault.study.manual.v1"] || {})
+        if (profileRes?.ok) {
+          setProfile(profileRes.data?.matchedUser || null)
+        }
+        if (Array.isArray(zerotracRes)) {
+          setZerotrac(zerotracRes)
+        }
+      }).finally(() => setLoading(false))
+    })
   }, [])
 
   const range = useMemo(() => {
-    const qualified = heatmap
-      .filter((bucket) => bucket.attempted >= 3 && bucket.solved / bucket.attempted >= 0.6)
-      .sort((left, right) => left.bucketRating - right.bucketRating)
-    if (!qualified.length) return null
-    const comfort = qualified[qualified.length - 1]
-    return { low: comfort.bucketRating, high: comfort.bucketRating + 99, challengeLow: comfort.bucketRating + 100, challengeHigh: comfort.bucketRating + 249, evidence: comfort.attempted, solveRate: Math.round(comfort.solved / comfort.attempted * 100), attempts: comfort.avgAttempts }
-  }, [heatmap])
+    if (!zerotrac || !solved.size) return null
+    const ratings: number[] = []
+    for (const p of zerotrac) {
+      const slug = p.TitleSlug || p.title_slug
+      const rating = p.Rating || p.rating
+      if (slug && solved.has(slug) && typeof rating === "number") {
+        ratings.push(rating)
+      }
+    }
+    if (!ratings.length) return null
+    ratings.sort((a, b) => a - b)
+    const mid = Math.floor(ratings.length / 2)
+    const median = ratings.length % 2 !== 0 ? ratings[mid] : (ratings[mid - 1] + ratings[mid]) / 2
+    const low = Math.round(median)
+    const high = low + 100
+    return {
+      low,
+      high,
+      challengeLow: high,
+      challengeHigh: high + 150,
+      evidence: ratings.length
+    }
+  }, [zerotrac, solved])
 
   if (loading) return <div className="grid gap-3"><Skeleton className="h-28" /><Skeleton className="h-20" /><Skeleton className="h-48" /></div>
   if (!data) return <Card className="py-8 text-center"><div className="text-sm font-semibold text-zinc-200">Sync required</div><div className="mt-1 text-xs text-zinc-500">Run LeetCode history sync in Settings to build your dashboard.</div></Card>
@@ -62,15 +91,28 @@ export const Dashboard = () => {
     weakest && { type: "Weak topic", title: weakest.tag, reason: `${Math.round(weakest.successRate ?? weakest.masteryScore ?? 0)}% current evidence score` }
   ].filter(Boolean) as any[]
 
+  const allSolvedStat = profile?.submitStats?.acSubmissionNum?.find((item: any) => item.difficulty === "All")
+  const officialTotalSolved = allSolvedStat ? allSolvedStat.count : data.totalSolved
+
   return (
     <div className="grid gap-3.5">
       <Card className="p-4">
         <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-zinc-500"><Target size={13} />Evidence-based solve range</div>
-        {range ? <><div className="mt-2 text-3xl font-extrabold font-mono text-zinc-100">{range.low}-{range.high}</div><div className="mt-1 text-[10px] text-zinc-500">{range.solveRate}% solve rate across {range.evidence} attempted problems in this band</div><div className="mt-3 border-t border-zinc-800 pt-2 text-[11px] text-zinc-400">Challenge next: <span className="font-mono text-[#dfa054]">{range.challengeLow}-{range.challengeHigh}</span>{range.attempts ? ` · ${Number(range.attempts).toFixed(1)} average attempts` : ""}</div></> : <div className="mt-3 text-xs text-zinc-400">Solve at least three rated problems in a band to establish a reliable range.</div>}
+        {range ? (
+          <>
+            <div className="mt-2 text-3xl font-extrabold font-mono text-zinc-100">{range.low}-{range.high}</div>
+            <div className="mt-1 text-[10px] text-zinc-500">Based on median rating of {range.evidence} solved problems (+100 offset)</div>
+            <div className="mt-3 border-t border-zinc-800 pt-2 text-[11px] text-zinc-400">
+              Challenge next: <span className="font-mono text-[#dfa054]">{range.challengeLow}-{range.challengeHigh}</span>
+            </div>
+          </>
+        ) : (
+          <div className="mt-3 text-xs text-zinc-400">Establish a range by syncing your solved problems history.</div>
+        )}
       </Card>
 
       <div className="grid grid-cols-3 gap-2">
-        <Card className="p-2.5"><div className="text-[9px] uppercase text-zinc-500">Solved</div><div className="mt-1 text-lg font-bold font-mono">{data.totalSolved}</div></Card>
+        <Card className="p-2.5"><div className="text-[9px] uppercase text-zinc-500">Solved</div><div className="mt-1 text-lg font-bold font-mono">{officialTotalSolved}</div></Card>
         <Card className="p-2.5"><div className="text-[9px] uppercase text-zinc-500">Reviews</div><div className="mt-1 text-lg font-bold font-mono text-amber-400">{queue.length}</div></Card>
         <Card className="p-2.5"><div className="text-[9px] uppercase text-zinc-500">Streak</div><div className="mt-1 text-lg font-bold font-mono">{data.currentStreak}d</div></Card>
       </div>

@@ -25,7 +25,12 @@ export default function SidePanel() {
     })
     getUsername().then((value) => setUsername(value || "Set username"))
     const loadSession = () => {
-      storage.get("algovault.currentSession").then((value) => setSession(value || null))
+      storage.get("algovault.currentSession").then((value) => {
+        setSession((prev: any) => {
+          if (JSON.stringify(prev) === JSON.stringify(value)) return prev
+          return value || null
+        })
+      })
     }
     loadSession()
     const interval = window.setInterval(loadSession, 2000)
