@@ -1,5 +1,7 @@
 package com.algovault.config;
 
+import com.algovault.model.User;
+import com.algovault.repository.UserRepository;
 import com.algovault.service.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -14,18 +16,37 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         String authHeader = request.getHeader("Authorization");
         
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            String username = request.getHeader("X-Leetcode-Username");
+            if (username != null && !username.trim().isEmpty()) {
+                String normalized = username.trim();
+                User user = userRepository.findByLcUsernameIgnoreCase(normalized)
+                    .orElseGet(() -> userRepository.save(User.builder()
+                        .githubId("leetcode:" + normalized.toLowerCase())
+                        .username(normalized)
+                        .lcUsername(normalized)
+                        .virtualRating(1500)
+                        .build()));
+
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                    user.getId(), null, new ArrayList<>()
+                );
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+            }
             filterChain.doFilter(request, response);
             return;
         }
@@ -34,7 +55,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (jwtService.validateToken(token)) {
             Long userId = jwtService.extractUserId(token);
             
-            // To be secure, we set the authentication context
             UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                 userId, null, new ArrayList<>()
             );
