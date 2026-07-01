@@ -64,8 +64,7 @@ public class DashboardService {
             .collect(Collectors.toList());
 
         return DashboardResponse.builder()
-            .virtualRating(user.getVirtualRating() != null ? user.getVirtualRating() : 1500)
-            .lcRating(user.getLcRating() != null ? user.getLcRating() : 1500)
+            .lcRating(user.getLcRating())
             .lastSyncTime(meta.getLastSyncTime())
             .totalSolved((int) submissionRepository.countSolvedProblems(userId))
             .totalSubmissions((int) submissionRepository.countByUserId(userId))

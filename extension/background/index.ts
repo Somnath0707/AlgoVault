@@ -101,7 +101,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "sync_history") {
-    runSync(message.username).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }))
+    runSync(message.username, message.startOffset || 0).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }))
     return true
   }
 
@@ -112,13 +112,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true
   }
 
+  if (message.action === "get_solved_problem_slugs") {
+    getSolvedProblemSlugs()
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }))
+    return true
+  }
+
   if (message.action === "session_start") {
     getUserSettings()
       .then(async (settings) => {
         const current = await fetchCurrentSession()
         return current || startSession(message.mode || settings.sessionMode || "PRACTICE")
       })
-      .then((data) => sendResponse({ ok: true, data }))
+      .then(async (data) => {
+        await storage.set("algovault.currentSession", data)
+        sendResponse({ ok: true, data })
+      })
       .catch((err) => sendResponse({ ok: false, error: err.message }))
     return true
   }
@@ -247,7 +257,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 })
 
-async function runSync(username: string) {
+async function runSync(username: string, startOffset = 0) {
   if (!username || !username.trim()) {
     throw new Error("LeetCode username is required")
   }
@@ -259,7 +269,7 @@ async function runSync(username: string) {
   }
 
   try {
-    updateStatus("RUNNING", "Verifying LeetCode session...")
+    updateStatus("RUNNING", startOffset === 0 ? "Verifying LeetCode session..." : "Resuming sync session...")
     const statusRes = await fetchUserStatus()
     const sessionUser = statusRes.data?.userStatus?.username
     if (!sessionUser || sessionUser.toLowerCase() !== normalizedUsername.toLowerCase()) {
@@ -271,32 +281,62 @@ async function runSync(username: string) {
     if (!profileRes.data?.matchedUser) throw new Error("User not found on LeetCode")
     const profile = profileRes.data.matchedUser
 
-    updateStatus("RUNNING", "Fetching solved problems...", 0, 0)
     const problems: any[] = []
-    let problemOffset = 0
-    const problemPageSize = 100
-    let totalSolved = Number.POSITIVE_INFINITY
-    while (problems.length < totalSolved) {
-      const problemsRes = await fetchSolvedProblems(problemOffset, problemPageSize)
-      const page = problemsRes.data?.problemsetQuestionList
-      if (!page) throw new Error("LeetCode did not return solved-problem data")
-      totalSolved = page.totalNum || 0
-      const questions = page.questions || []
-      if (questions.length === 0) break
-      problems.push(...questions)
-      problemOffset += questions.length
-      updateStatus("RUNNING", "Fetching solved problems...", problems.length, 0)
-      await new Promise((resolve) => setTimeout(resolve, 150))
+    if (startOffset === 0) {
+      updateStatus("RUNNING", "Fetching solved problems...", 0, 0)
+      let problemOffset = 0
+      const problemPageSize = 100
+      let totalSolved = Number.POSITIVE_INFINITY
+      while (problems.length < totalSolved) {
+        const problemsRes = await fetchSolvedProblems(problemOffset, problemPageSize)
+        const page = problemsRes.data?.problemsetQuestionList
+        if (!page) throw new Error("LeetCode did not return solved-problem data")
+        totalSolved = page.totalNum || 0
+        const questions = page.questions || []
+        if (questions.length === 0) break
+        problems.push(...questions)
+        problemOffset += questions.length
+        updateStatus("RUNNING", "Fetching solved problems...", problems.length, 0)
+        await new Promise((resolve) => setTimeout(resolve, 150))
+      }
+      await storage.set("algovault.solvedSlugs", {
+        fetchedAt: Date.now(),
+        slugs: problems.map((problem: any) => problem.titleSlug).filter(Boolean),
+        rawProblems: problems
+      })
+    } else {
+      const cached = await storage.get<any>("algovault.solvedSlugs")
+      if (cached && Array.isArray(cached.rawProblems)) {
+        problems.push(...cached.rawProblems)
+      } else {
+        updateStatus("RUNNING", "Fetching solved problems...", 0, 0)
+        let problemOffset = 0
+        const problemPageSize = 100
+        let totalSolved = Number.POSITIVE_INFINITY
+        while (problems.length < totalSolved) {
+          const problemsRes = await fetchSolvedProblems(problemOffset, problemPageSize)
+          const page = problemsRes.data?.problemsetQuestionList
+          if (!page) throw new Error("LeetCode did not return solved-problem data")
+          totalSolved = page.totalNum || 0
+          const questions = page.questions || []
+          if (questions.length === 0) break
+          problems.push(...questions)
+          problemOffset += questions.length
+          updateStatus("RUNNING", "Fetching solved problems...", problems.length, 0)
+          await new Promise((resolve) => setTimeout(resolve, 150))
+        }
+      }
     }
 
     updateStatus("RUNNING", "Fetching submissions...", problems.length, 0)
 
     const rawSubs: any[] = []
-    let offset = 0
+    let offset = startOffset
     const limit = 100
     let hasNext = true
+    const maxSubmissionsToSync = 600
 
-    while (hasNext && rawSubs.length < 600) {
+    while (hasNext && rawSubs.length < maxSubmissionsToSync) {
       const subsRes = await fetchSubmissionPage(offset, limit)
       const pageSubs = subsRes.submissions_dump || []
       if (pageSubs.length === 0) {
@@ -307,12 +347,18 @@ async function runSync(username: string) {
       hasNext = Boolean(subsRes.has_next)
       offset += pageSubs.length
       
-      updateStatus("RUNNING", "Fetching submissions...", problems.length, rawSubs.length)
+      updateStatus("RUNNING", "Fetching submissions...", problems.length, startOffset + rawSubs.length)
       
       await new Promise((resolve) => setTimeout(resolve, 300))
     }
 
-    // Deduplicate submissions by ID to handle any list shifting during pagination
+    // Save status to chrome storage for settings view
+    await storage.set("algovault.syncHasMore", {
+      hasMore: hasNext,
+      nextOffset: offset,
+      username: normalizedUsername
+    })
+
     const uniqueRawSubs = Array.from(new Map(rawSubs.map(s => [s.id, s])).values())
 
     const submissions = uniqueRawSubs.map((s: any) => ({
@@ -335,16 +381,16 @@ async function runSync(username: string) {
     for (let index = 0; index < attemptedOnlySlugs.length; index += 40) {
       const metadata = await fetchProblemMetadata(attemptedOnlySlugs.slice(index, index + 40))
       problems.push(...metadata)
-      updateStatus("RUNNING", "Enriching attempted problems...", problems.length, submissions.length)
+      updateStatus("RUNNING", "Enriching attempted problems...", problems.length, startOffset + submissions.length)
       await new Promise((resolve) => setTimeout(resolve, 150))
     }
 
-    updateStatus("RUNNING", "Fetching contest history...", problems.length, submissions.length)
+    updateStatus("RUNNING", "Fetching contest history...", problems.length, startOffset + submissions.length)
     const contestRes = await fetchContestHistory(normalizedUsername)
     const contestHistory = contestRes.data?.userContestRankingHistory || []
     const contestRanking = contestRes.data?.userContestRanking || null
 
-    updateStatus("RUNNING", "Pushing to AlgoVault backend...", problems.length, submissions.length)
+    updateStatus("RUNNING", "Pushing to AlgoVault backend...", problems.length, startOffset + submissions.length)
 
     await syncLeetcode({
       username: normalizedUsername,
@@ -356,13 +402,39 @@ async function runSync(username: string) {
     })
 
     await setLastSync(Date.now())
-    updateStatus("SUCCESS", "Sync completed successfully!", problems.length, submissions.length)
+    updateStatus("SUCCESS", "Sync completed successfully!", problems.length, startOffset + submissions.length)
     return { ok: true }
   } catch (e: any) {
     console.error("Sync Error:", e)
     updateStatus("ERROR", e.message || "An unknown error occurred during sync")
     return { ok: false, error: e.message }
   }
+}
+
+async function getSolvedProblemSlugs(): Promise<string[]> {
+  const cached = await storage.get<any>("algovault.solvedSlugs")
+  if (cached?.fetchedAt && Date.now() - cached.fetchedAt < 5 * 60 * 1000 && Array.isArray(cached.slugs)) {
+    return cached.slugs
+  }
+
+  const slugs: string[] = []
+  let offset = 0
+  const limit = 100
+  let total = Number.POSITIVE_INFINITY
+  while (slugs.length < total) {
+    const response = await fetchSolvedProblems(offset, limit)
+    const page = response.data?.problemsetQuestionList
+    if (!page) throw new Error("LeetCode did not return accepted problems. Sign in and try again.")
+    total = page.totalNum || 0
+    const questions = page.questions || []
+    if (!questions.length) break
+    slugs.push(...questions.map((question: any) => question.titleSlug).filter(Boolean))
+    offset += questions.length
+  }
+
+  const unique = Array.from(new Set(slugs))
+  await storage.set("algovault.solvedSlugs", { fetchedAt: Date.now(), slugs: unique })
+  return unique
 }
 
 async function fetchSubmissionPage(offset: number, limit: number) {

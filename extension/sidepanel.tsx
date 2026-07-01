@@ -6,7 +6,7 @@ import { Heatmap } from "./components/sidepanel/Heatmap"
 import { Mastery } from "./components/sidepanel/Mastery"
 import { Weakness } from "./components/sidepanel/Weakness"
 import { Contest } from "./components/sidepanel/Contest"
-import { Vault } from "./components/sidepanel/Vault"
+import { Lists } from "./components/sidepanel/Lists"
 import { Settings } from "./components/sidepanel/Settings"
 import { getUsername, storage } from "./lib/storage"
 
@@ -16,6 +16,12 @@ export default function SidePanel() {
   const [session, setSession] = useState<any>(null)
 
   useEffect(() => {
+    chrome.storage.local.get("algovault.requestedTab", (result) => {
+      if (result["algovault.requestedTab"] === "Lists") {
+        setActiveTab("Lists")
+        chrome.storage.local.remove("algovault.requestedTab")
+      }
+    })
     getUsername().then((value) => setUsername(value || "Set username"))
     const loadSession = () => {
       storage.get("algovault.currentSession").then((value) => setSession(value || null))
@@ -26,6 +32,10 @@ export default function SidePanel() {
     const handleStorageChange = (changes: any, areaName: string) => {
       if (areaName === "local" && changes["algovault.username"]) {
         setUsername(changes["algovault.username"].newValue || "Set username");
+      }
+      if (areaName === "local" && changes["algovault.requestedTab"]?.newValue === "Lists") {
+        setActiveTab("Lists")
+        chrome.storage.local.remove("algovault.requestedTab")
       }
     };
     chrome.storage.onChanged.addListener(handleStorageChange);
@@ -87,7 +97,7 @@ export default function SidePanel() {
         {activeTab === 'Mastery' && <Mastery />}
         {activeTab === 'Weakness' && <Weakness />}
         {activeTab === 'Contest' && <Contest />}
-        {activeTab === 'Vault' && <Vault />}
+        {activeTab === 'Lists' && <Lists />}
         {activeTab === 'Settings' && <Settings />}
       </div>
     </div>

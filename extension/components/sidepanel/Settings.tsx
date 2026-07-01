@@ -22,6 +22,7 @@ export const Settings = () => {
   const [githubPat, setGithubPat] = useState<string>('');
   const [githubRepo, setGithubRepo] = useState<string>('');
   const [githubSaved, setGithubSaved] = useState<boolean>(false);
+  const [syncHasMore, setSyncHasMore] = useState<any>(null);
 
   useEffect(() => {
     chrome.storage.sync.get(['hideAcceptanceRate', 'celebrationOverlay', 'celebrationSound', 'celebrationTheme'], (res) => {
@@ -56,8 +57,13 @@ export const Settings = () => {
       });
 
     const checkSync = () => {
-      chrome.storage.local.get(['syncStatus'], (res) => {
+      chrome.storage.local.get(['syncStatus', 'algovault.syncHasMore'], (res) => {
         if (res.syncStatus) setSyncStatus(res.syncStatus);
+        let hasMoreVal = res['algovault.syncHasMore'];
+        if (typeof hasMoreVal === 'string') {
+          try { hasMoreVal = JSON.parse(hasMoreVal) } catch (e) {}
+        }
+        setSyncHasMore(hasMoreVal || null);
       });
     };
     checkSync();
@@ -241,8 +247,28 @@ export const Settings = () => {
 
         {syncStatus?.status === 'SUCCESS' && (
             <div className="mt-3 text-[10px] text-[#10b981] font-mono text-center flex items-center justify-center gap-1.5 bg-[#10b981]/5 border border-[#10b981]/15 py-1.5 rounded-lg">
-                <span className="w-1 h-1 rounded-full bg-[#10b981] animate-pulse"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse"></span>
                 SYNC COMPLETED SUCCESSFULLY
+            </div>
+        )}
+        {syncStatus?.status !== 'RUNNING' && syncHasMore?.hasMore && (
+            <div className="mt-3 p-3 bg-zinc-950 border border-zinc-800 rounded-lg flex flex-col gap-2">
+                <div className="text-[10px] text-zinc-400 font-mono leading-relaxed">
+                    Additional older submissions are available. Syncing in chunks of 600 prevents LeetCode rate limits.
+                </div>
+                <button
+                    onClick={() => {
+                        chrome.runtime.sendMessage({ 
+                            action: "sync_history", 
+                            username: username, 
+                            startOffset: syncHasMore.nextOffset 
+                        });
+                        setSyncStatus({ status: 'RUNNING', message: 'Resuming older sync...', count: 0, subCount: 0 });
+                    }}
+                    className="w-full bg-zinc-850 hover:bg-zinc-800 text-zinc-200 hover:text-white font-semibold text-[10px] py-1.5 px-3 rounded border border-zinc-750 font-mono tracking-wider uppercase"
+                >
+                    Sync Older Submissions (Offset: {syncHasMore.nextOffset})
+                </button>
             </div>
         )}
         {syncStatus?.status === 'ERROR' && (

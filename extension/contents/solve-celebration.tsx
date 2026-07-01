@@ -3,8 +3,7 @@ import cssText from "data-text:~style.css"
 import { useState, useEffect } from "react"
 
 export const config: PlasmoCSConfig = {
-  matches: ["https://leetcode.com/problems/*"],
-  all_frames: true
+  matches: ["https://leetcode.com/problems/*"]
 }
 
 export const getStyle = () => {
@@ -123,6 +122,7 @@ export default function SolveCelebration() {
   const currentTheme = THEMES[themeName] || THEMES.gta
 
   useEffect(() => {
+    const handledSubmissionIds = new Set<string>()
     // 1. Fetch settings from storage
     chrome.storage.sync.get(["celebrationTheme"], (res) => {
       if (res.celebrationTheme !== undefined) setThemeName(res.celebrationTheme)
@@ -131,6 +131,11 @@ export default function SolveCelebration() {
     const handleSubmission = (event: MessageEvent) => {
       if (event.data?.type !== "AV_SUBMISSION_RESULT") return
       const detail = event.data.detail || {}
+      if (detail.submissionId) {
+        const submissionId = String(detail.submissionId)
+        if (handledSubmissionIds.has(submissionId)) return
+        handledSubmissionIds.add(submissionId)
+      }
       const status = detail.statusCode
 
       let newType: "VICTORY" | "DEFEAT" | null = null

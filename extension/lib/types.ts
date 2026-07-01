@@ -20,8 +20,7 @@ export interface PredictionResult {
 }
 
 export interface DashboardData {
-  virtualRating: number;
-  lcRating: number;
+  lcRating?: number | null;
   lastSyncTime?: string;
   totalSolved: number;
   totalSubmissions: number;
@@ -61,6 +60,7 @@ export interface TagMastery {
 }
 
 export interface ContestResult {
+  contestSlug?: string;
   contestTitle: string;
   contestDate: string;
   rank?: number;
@@ -69,6 +69,13 @@ export interface ContestResult {
   ratingDelta?: number;
   problemsSolved?: number;
   totalProblems?: number;
+  finishTimeMinutes?: number;
+  predictedRating?: number | null;
+  predictedDelta?: number | null;
+  predictedRank?: number | null;
+  status?: 'PREDICTING' | 'PREDICTED' | 'FINALIZED' | 'UNRATED';
+  source?: 'LEETCODE' | 'ENTRANTHUB' | 'LEETCODE_AND_ENTRANTHUB';
+  refreshedAt?: string;
 }
 
 export interface UserSettings {

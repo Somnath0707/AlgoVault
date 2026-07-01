@@ -260,7 +260,7 @@ export function analyzeEvents(events: any[]): CheatReport {
 
   let status: AnalysisStatus = 'CLEAN';
   let label = 'Manual Typing';
-  let color = 'text-emerald-500';
+  let color = 'text-green-450';
   const details: string[] = [];
 
   const hasHeavyPaste = detectedPastes.some(d => d.includes('Large Ext. Paste'));
@@ -283,7 +283,7 @@ export function analyzeEvents(events: any[]): CheatReport {
   }
 
   if (status === 'CLEAN') {
-    details.push(`Natural typing`);
+    details.push(`No external paste event was recorded`);
   }
 
   return { status, label, color, details, pasteCount, focusLoss };
@@ -315,4 +315,3 @@ export const fetchUpcomingContests = async () => {
     return [];
   }
 };
-

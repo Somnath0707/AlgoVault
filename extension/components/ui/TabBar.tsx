@@ -1,9 +1,9 @@
 import React from "react"
 
-export type Tab = 'Dashboard' | 'Heatmap' | 'Mastery' | 'Weakness' | 'Contest' | 'Vault' | 'Settings'
+export type Tab = 'Dashboard' | 'Heatmap' | 'Mastery' | 'Weakness' | 'Contest' | 'Lists' | 'Settings'
 
 export const TabBar = ({ activeTab, setActiveTab }: { activeTab: Tab, setActiveTab: (t: Tab) => void }) => {
-  const tabs: Tab[] = ['Dashboard', 'Heatmap', 'Mastery', 'Weakness', 'Contest', 'Vault', 'Settings']
+  const tabs: Tab[] = ['Dashboard', 'Heatmap', 'Mastery', 'Weakness', 'Contest', 'Lists', 'Settings']
   
   return (
     <div className="flex flex-wrap gap-1 bg-zinc-900/60 p-1 rounded-lg mb-4 border border-zinc-800/80">

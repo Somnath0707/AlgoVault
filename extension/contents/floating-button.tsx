@@ -21,8 +21,16 @@ const FloatingButton = () => {
   useEffect(() => {
     const load = () => {
       chrome.storage.local.get(["algovault.currentSession", "algovault.sessionState"], (result) => {
-        setSession(result["algovault.currentSession"] || null)
-        setSessionState(result["algovault.sessionState"] || null)
+        let sess = result["algovault.currentSession"]
+        if (typeof sess === "string") {
+          try { sess = JSON.parse(sess) } catch (e) {}
+        }
+        let state = result["algovault.sessionState"]
+        if (typeof state === "string") {
+          try { state = JSON.parse(state) } catch (e) {}
+        }
+        setSession(sess || null)
+        setSessionState(state || null)
       })
     }
     load()
@@ -45,7 +53,7 @@ const FloatingButton = () => {
     chrome.runtime.sendMessage({ action: "open_side_panel" })
   }
 
-  let seconds = elapsed
+  let seconds = 0
   if (sessionState?.isSolved) {
     seconds = sessionState.finalSeconds
   } else if (session?.startedAt) {

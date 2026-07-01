@@ -21,6 +21,8 @@ type SubmissionPayload = {
   codeLang?: string
 }
 
+const relayedSubmissionIds = new Set<string>()
+
 function currentSlug() {
   return window.location.pathname.split("/")[2]
 }
@@ -153,6 +155,12 @@ window.addEventListener("message", ((event: MessageEvent) => {
   const slug = currentSlug()
   if (!slug) return
   const detail = event.data.detail || {}
+  if (detail.submissionId) {
+    const submissionId = String(detail.submissionId)
+    if (relayedSubmissionIds.has(submissionId)) return
+    relayedSubmissionIds.add(submissionId)
+    if (relayedSubmissionIds.size > 100) relayedSubmissionIds.delete(relayedSubmissionIds.values().next().value!)
+  }
   const payload: SubmissionPayload = {
     submissionId: detail.submissionId,
     titleSlug: slug,
@@ -171,6 +179,12 @@ window.addEventListener("message", ((event: MessageEvent) => {
 
   chrome.runtime.sendMessage({ action: "submission_result", payload })
   if (payload.statusDisplay === "Accepted") {
+    chrome.storage.local.get("algovault.solvedSlugs", (result) => {
+      const cached = result["algovault.solvedSlugs"]
+      const slugs = new Set<string>(Array.isArray(cached?.slugs) ? cached.slugs : [])
+      slugs.add(slug)
+      chrome.storage.local.set({ "algovault.solvedSlugs": { fetchedAt: Date.now(), slugs: Array.from(slugs) } })
+    })
     showPostSolveDialog(slug)
   }
 }))

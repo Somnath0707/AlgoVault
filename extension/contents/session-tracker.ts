@@ -165,7 +165,10 @@ window.addEventListener("message", ((event: MessageEvent) => {
 
     // Save solving time to local storage so floating-button and overlay panel stop the timer
     chrome.storage.local.get("algovault.currentSession", (result) => {
-      const session = result["algovault.currentSession"]
+      let session = result["algovault.currentSession"]
+      if (typeof session === "string") {
+        try { session = JSON.parse(session) } catch (e) {}
+      }
       const startTime = session?.startedAt ? new Date(session.startedAt).getTime() : openedAt.getTime()
       const finalSeconds = Math.max(0, Math.floor((Date.now() - startTime) / 1000))
       chrome.storage.local.set({ 

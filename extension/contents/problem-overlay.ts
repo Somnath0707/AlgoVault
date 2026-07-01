@@ -1,4 +1,5 @@
 import type { PlasmoCSConfig } from "plasmo"
+import { STUDY_LISTS } from "../lib/study-lists"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://leetcode.com/problems/*"],
@@ -138,102 +139,91 @@ const injectAlgoVaultOverlay = () => {
     });
   }
 
-  // 2.5 Add to Vault Button
+  // Compact study-list membership entry point.
   const titleH1 = document.querySelector('a[href*="/problems/"]')?.parentElement;
-  if (titleH1 && !document.getElementById('av-vault-btn')) {
-    const vaultBtn = document.createElement('button');
-    vaultBtn.id = 'av-vault-btn';
-    vaultBtn.textContent = '🔒 Vault';
-    vaultBtn.className = 'ml-3 text-xs px-2 py-1 rounded bg-[#00d4aa]/10 text-[#00d4aa] border border-[#00d4aa]/20 hover:bg-[#00d4aa]/20 transition-colors font-medium';
-    vaultBtn.onclick = () => {
-      const note = window.prompt("Add a note to your AlgoVault for this problem:");
-      if (note) {
-        const titleSlug = window.location.pathname.split('/')[2];
-        const heading = document.querySelector("a[href*='/problems/']")?.textContent || titleSlug;
-
-        chrome.runtime.sendMessage({
-          action: "add_to_vault",
-          payload: {
-            title: heading.replace(/^\d+\.\s*/, "").trim(),
-            content: note,
-            entryType: "NOTE",
-            tags: "manual",
-            problem: {
-              titleSlug
-            }
-          }
-        }, (res) => {
-          if (res && res.ok) {
-            vaultBtn.textContent = '✅ Saved';
-            setTimeout(() => vaultBtn.textContent = '🔒 Vault', 2000);
-          } else {
-            alert("Failed to save to Vault");
-          }
-        });
-      }
+  if (titleH1 && !document.getElementById('av-lists-btn')) {
+    const slug = window.location.pathname.split('/')[2];
+    const memberships = STUDY_LISTS.filter((list) => list.problems.some((problem) => problem.slug === slug));
+    const listsBtn = document.createElement('button');
+    listsBtn.id = 'av-lists-btn';
+    listsBtn.textContent = memberships.length ? memberships.map((list) => list.name.replace("NeetCode ", "NC ").replace("Striver ", "Striver ")).join(" · ") : 'Study Lists';
+    listsBtn.title = memberships.length ? `Included in ${memberships.map((list) => list.name).join(" and ")}` : "Open study lists";
+    listsBtn.className = 'ml-3 text-xs px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors font-medium';
+    listsBtn.onclick = () => {
+      chrome.storage.local.set({ "algovault.requestedTab": "Lists" }, () => {
+        chrome.runtime.sendMessage({ action: "open_side_panel" });
+      });
     };
-    titleH1.appendChild(vaultBtn);
+    titleH1.appendChild(listsBtn);
   }
 
   // Early return if we don't have prediction data yet
   if (!predictionData || predictionData.error) return;
 
-  // 3. Solve Probability
-  if (!predictionInjected) {
-    const titleArea = document.querySelector('a[href*="/problems/"]')?.parentElement?.parentElement;
- 
-    if (titleArea && !document.getElementById('av-prediction-line')) {
-      const predLine = document.createElement('div');
-      predLine.id = 'av-prediction-line';
-      predLine.style.marginTop = '16px';
-      predLine.style.marginBottom = '16px';
-      predLine.style.padding = '12px 16px';
-      predLine.style.backgroundColor = '#141416';
-      predLine.style.border = '1px solid #27272a';
-      predLine.style.borderRadius = '8px';
-      predLine.style.fontFamily = 'monospace, sans-serif';
-      predLine.style.fontSize = '12px';
-      predLine.style.color = '#a1a1aa';
-      predLine.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
- 
-      const { solveChance, expectedTimeMinutes, confidence, breakdown = {} } = predictionData;
+  // 3. Solve Probability (Injected as Inline Bubbles/Pills next to difficulty tag)
+  if (!predictionInjected && diffTag && diffTag.parentElement) {
+    const container = diffTag.parentElement;
+    if (!document.getElementById('av-solve-chance-bubble')) {
+      const { solveChance, expectedTimeMinutes, confidence } = predictionData;
       const roundedSolveChance = typeof solveChance === 'number' ? Math.round(solveChance) : 0;
       
       let assessment = "No chance";
+      let assessmentBg = "rgba(239, 68, 68, 0.08)";
+      let assessmentBorder = "rgba(239, 68, 68, 0.2)";
       let assessmentColor = "#ef4444";
+      
       if (roundedSolveChance >= 80) {
         assessment = "Will get it";
-        assessmentColor = "#00d4aa";
+        assessmentBg = "rgba(16, 185, 129, 0.08)";
+        assessmentBorder = "rgba(16, 185, 129, 0.2)";
+        assessmentColor = "#10b981";
       } else if (roundedSolveChance >= 40) {
         assessment = "Try try try";
-        assessmentColor = "#ff9800";
+        assessmentBg = "rgba(245, 158, 11, 0.08)";
+        assessmentBorder = "rgba(245, 158, 11, 0.2)";
+        assessmentColor = "#f59e0b";
       }
 
-      const similarSolved = breakdown.similarSolvedCount ?? breakdown.similarSolved ?? "0";
-      const tagStrength = breakdown.tagStrengthPercent ?? breakdown.tagStrength ?? 0;
-      const ratingSuccess = breakdown.ratingBucketSuccessPercent ?? breakdown.historicalSuccessRate ?? 0;
-
-      const roundedTagStrength = typeof tagStrength === 'number' ? Math.round(tagStrength) : tagStrength;
-      const roundedRatingSuccess = typeof ratingSuccess === 'number' ? Math.round(ratingSuccess) : ratingSuccess;
       const displayConfidence = confidence ? confidence.charAt(0).toUpperCase() + confidence.slice(1).toLowerCase() : "Medium";
 
-      predLine.innerHTML = `
-        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:8px;font-weight:600;color:#f4f4f5;font-size:12px;">
-          <span>⚡ Solve Chance: <strong style="color:${assessmentColor}; font-weight:700;">${assessment}</strong> <span style="color:#71717a; font-weight:normal; font-size:11px;">(${roundedSolveChance}%)</span></span>
-          <span style="color:#27272a;">|</span>
-          <span>Target: <span style="font-family:monospace; font-weight:bold;">~${Math.round(expectedTimeMinutes)}m</span></span>
-          <span style="color:#27272a;">|</span>
-          <span>Confidence: <span style="font-family:monospace; font-weight:bold;">${displayConfidence}</span></span>
-        </div>
-        <div style="font-size:11px;color:#71717a;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px;font-family:monospace;">
-          <span>Based on:</span>
-          <span style="border:1px solid #27272a;background:rgba(255,255,255,0.02);padding:1px 6px;border-radius:4px;color:#a1a1aa;">${similarSolved} solved</span>
-          <span style="border:1px solid #27272a;background:rgba(255,255,255,0.02);padding:1px 6px;border-radius:4px;color:#a1a1aa;">Tag Str: ${roundedTagStrength}%</span>
-          <span style="border:1px solid #27272a;background:rgba(255,255,255,0.02);padding:1px 6px;border-radius:4px;color:#a1a1aa;">Success: ${roundedRatingSuccess}%</span>
-        </div>
-      `;
- 
-      titleArea.insertAdjacentElement('afterend', predLine);
+      // 1. Solve Chance Bubble
+      const chanceBubble = document.createElement('div');
+      chanceBubble.id = 'av-solve-chance-bubble';
+      chanceBubble.className = 'flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full';
+      chanceBubble.style.display = 'inline-flex';
+      chanceBubble.style.backgroundColor = assessmentBg;
+      chanceBubble.style.border = `1px solid ${assessmentBorder}`;
+      chanceBubble.style.color = assessmentColor;
+      chanceBubble.style.marginLeft = '8px';
+      chanceBubble.innerHTML = `⚡ Solve Chance: <strong style="font-weight:700; margin-left:2px; margin-right:2px;">${assessment}</strong> (${roundedSolveChance}%)`;
+      container.appendChild(chanceBubble);
+
+      // 2. Target Bubble
+      if (expectedTimeMinutes) {
+        const targetBubble = document.createElement('div');
+        targetBubble.id = 'av-target-bubble';
+        targetBubble.className = 'flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full';
+        targetBubble.style.display = 'inline-flex';
+        targetBubble.style.backgroundColor = 'rgba(255, 255, 255, 0.03)';
+        targetBubble.style.border = '1px solid rgba(255, 255, 255, 0.08)';
+        targetBubble.style.color = '#c2c2c2';
+        targetBubble.style.marginLeft = '8px';
+        targetBubble.innerHTML = `⏱ Target: <strong style="font-weight:700; margin-left:2px;">~${Math.round(expectedTimeMinutes)}m</strong>`;
+        container.appendChild(targetBubble);
+      }
+
+      // 3. Confidence Bubble
+      const confBubble = document.createElement('div');
+      confBubble.id = 'av-confidence-bubble';
+      confBubble.className = 'flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full';
+      confBubble.style.display = 'inline-flex';
+      confBubble.style.backgroundColor = 'rgba(255, 255, 255, 0.03)';
+      confBubble.style.border = '1px solid rgba(255, 255, 255, 0.08)';
+      confBubble.style.color = '#c2c2c2';
+      confBubble.style.marginLeft = '8px';
+      confBubble.innerHTML = `🎯 Confidence: <strong style="font-weight:700; margin-left:2px;">${displayConfidence}</strong>`;
+      container.appendChild(confBubble);
+
       predictionInjected = true;
     }
   }
@@ -241,7 +231,7 @@ const injectAlgoVaultOverlay = () => {
 
 const observer = new MutationObserver(() => {
   if (ratingInjected && !document.querySelector('div[class*="text-difficulty"] span')) ratingInjected = false;
-  if (predictionInjected && !document.getElementById('av-prediction-line')) predictionInjected = false;
+  if (predictionInjected && !document.getElementById('av-solve-chance-bubble')) predictionInjected = false;
   injectAlgoVaultOverlay();
 });
 
