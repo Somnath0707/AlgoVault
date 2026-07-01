@@ -168,43 +168,35 @@ export const Lists = () => {
   }
 
   return (
-    <div className="grid gap-3.5">
+    <div className="grid gap-4 font-sans select-none">
       {/* List Type Switcher */}
-      <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-850 shadow-inner">
-        <button
-          onClick={() => setActiveList("neetcode")}
-          className={`flex-1 text-[10px] font-bold py-1.5 rounded-md transition-all uppercase tracking-wider ${
-            activeList === "neetcode" ? "bg-zinc-800 text-[#dfa054] shadow-sm" : "text-zinc-500 hover:text-zinc-300"
-          }`}
-        >
-          NeetCode 150
-        </button>
-        <button
-          onClick={() => setActiveList("striver")}
-          className={`flex-1 text-[10px] font-bold py-1.5 rounded-md transition-all uppercase tracking-wider ${
-            activeList === "striver" ? "bg-zinc-800 text-[#dfa054] shadow-sm" : "text-zinc-500 hover:text-zinc-300"
-          }`}
-        >
-          Striver SDE
-        </button>
-        <button
-          onClick={() => setActiveList("zerotrac")}
-          className={`flex-1 text-[10px] font-bold py-1.5 rounded-md transition-all uppercase tracking-wider ${
-            activeList === "zerotrac" ? "bg-zinc-800 text-[#dfa054] shadow-sm" : "text-zinc-500 hover:text-zinc-300"
-          }`}
-        >
-          ZeroTrac
-        </button>
+      <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-900 shadow-inner">
+        {(["neetcode", "striver", "zerotrac"] as const).map((opt) => (
+          <button
+            key={opt}
+            onClick={() => {
+              setActiveList(opt)
+              setCurrentPage(1)
+            }}
+            className={`flex-1 text-[10px] font-bold py-2 rounded-md transition-all uppercase tracking-wider font-mono ${
+              activeList === opt 
+                ? "bg-zinc-900 text-[#dfa054] border border-zinc-800/80 shadow" 
+                : "text-zinc-500 hover:text-zinc-350"
+            }`}
+          >
+            {opt === "neetcode" ? "NeetCode 150" : opt === "striver" ? "Striver SDE" : "ZeroTrac"}
+          </button>
+        ))}
       </div>
 
       {activeList !== "zerotrac" ? (
         // NeetCode & Striver Lists Rendering
-        <div className="grid gap-3.5">
+        <div className="grid gap-4">
           {/* Progress Header */}
-          <Card className="p-3.5 flex flex-col gap-2 bg-zinc-900/10">
-            <div className="flex justify-between items-center text-xs">
-              <span className="font-semibold text-zinc-200">{currentStudyList?.name} Progress</span>
-              <span className="font-mono text-zinc-100 font-bold tabular-nums">
+          <Card className="p-3.5 bg-zinc-900/10 border-zinc-800/80">
+            <div className="flex justify-between items-center text-xs mb-2">
+              <span className="font-semibold text-zinc-300">{currentStudyList?.name} Progress</span>
+              <span className="font-mono text-[#dfa054] font-bold tabular-nums">
                 {listStats.solved} / {listStats.total} <span className="text-zinc-500 font-normal">({listStats.percent}%)</span>
               </span>
             </div>
@@ -220,57 +212,81 @@ export const Lists = () => {
               const isTopicComplete = topicSolved === topicTotal
 
               return (
-                <Card key={topic} className={`overflow-hidden border transition-all ${isTopicComplete ? 'border-emerald-500/20 bg-emerald-950/5' : 'border-zinc-800/85 bg-zinc-900/10'}`}>
+                <Card 
+                  key={topic} 
+                  className={`overflow-hidden border transition-all duration-300 relative ${
+                    isTopicComplete 
+                      ? 'border-emerald-500/25 bg-emerald-950/5 shadow-[0_2px_12px_rgba(16,185,129,0.02)]' 
+                      : isExpanded 
+                      ? 'border-zinc-800 bg-zinc-900/10'
+                      : 'border-zinc-900 bg-zinc-950/20 hover:border-zinc-850'
+                  }`}
+                >
+                  {/* Left Complete Indicator Line */}
+                  {isTopicComplete && (
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500" />
+                  )}
+
                   {/* Topic Header Toggle */}
                   <button
                     onClick={() => toggleTopic(topic)}
-                    className="w-full px-4 py-3 flex justify-between items-center hover:bg-zinc-900/30 transition-colors border-b border-zinc-900/20"
+                    className="w-full px-4 py-3.5 flex justify-between items-center hover:bg-zinc-900/20 transition-colors border-b border-zinc-900/10"
                   >
                     <div className="flex items-center gap-2">
-                      <span className={`text-[9px] transition-transform duration-200 ${isExpanded ? "rotate-90 text-[#dfa054]" : "rotate-0 text-zinc-500"}`}>▶</span>
-                      <span className={`text-xs font-bold ${isTopicComplete ? "text-[#10b981]" : "text-zinc-205"}`}>{topic}</span>
+                      <span className={`text-[8px] transition-transform duration-200 ${isExpanded ? "rotate-90 text-[#dfa054]" : "rotate-0 text-zinc-550"}`}>▶</span>
+                      <span className={`text-xs font-bold ${isTopicComplete ? "text-emerald-400 pl-1" : "text-zinc-250"}`}>{topic}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-[10px] font-mono text-zinc-400 tabular-nums">
+                      <span className="text-[10px] font-mono text-zinc-500 tabular-nums">
                         {topicSolved}/{topicTotal} solved
                       </span>
                       {isTopicComplete && (
-                        <span className="text-[10px] text-emerald-450 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded font-mono font-semibold">Done</span>
+                        <span className="text-[8px] text-emerald-450 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider">Complete</span>
                       )}
                     </div>
                   </button>
 
                   {/* Topic Problems List */}
                   {isExpanded && (
-                    <div className="px-4 pb-3.5 pt-1.5 flex flex-col gap-2">
+                    <div className="px-4 pb-3.5 pt-2 flex flex-col gap-2 bg-zinc-950/15">
                       {problems.map((p, idx) => {
                         const isSolved = solvedSlugs.has(p.slug)
+                        const difficulty = (p.difficulty || "medium").toLowerCase()
+                        
+                        let diffColor = "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                        if (difficulty === "easy") {
+                          diffColor = "text-emerald-450 bg-emerald-500/10 border-emerald-500/20"
+                        } else if (difficulty === "hard") {
+                          diffColor = "text-red-400 bg-red-500/10 border-red-500/20"
+                        }
+
                         return (
-                          <div key={idx} className="flex items-center justify-between text-xs py-1 hover:bg-zinc-900/10 rounded px-1 group">
-                            <div className="flex items-center gap-2.5 min-w-0">
+                          <div key={idx} className="flex items-center justify-between text-xs py-1.5 hover:bg-zinc-900/30 rounded-lg px-2 group transition-colors">
+                            <div className="flex items-center gap-3 min-w-0">
+                              {/* Round Checkbox */}
                               <span 
-                                className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                                className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
                                   isSolved 
-                                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
-                                    : "border-zinc-800 bg-zinc-950/20 text-transparent"
+                                    ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-450 scale-105" 
+                                    : "border-zinc-800 bg-zinc-950/30 text-transparent group-hover:border-zinc-700"
                                 }`}
                               >
-                                {isSolved && <span className="text-[8px] leading-none">✔</span>}
+                                {isSolved && <span className="text-[9px] leading-none">✔</span>}
                               </span>
                               <a
                                 href={`https://leetcode.com/problems/${p.slug}/`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className={`hover:text-[#dfa054] transition-colors truncate font-sans ${
-                                  isSolved ? "text-zinc-500 line-through" : "text-zinc-300 font-medium"
+                                className={`hover:text-[#dfa054] transition-colors truncate font-sans text-xs ${
+                                  isSolved ? "text-zinc-550 line-through" : "text-zinc-300 font-medium"
                                 }`}
                                 title={`Open ${p.title} on LeetCode`}
                               >
                                 {p.title}
                               </a>
                             </div>
-                            <span className="text-[9px] font-mono text-zinc-550 group-hover:text-zinc-400 capitalize bg-zinc-950 border border-zinc-850 px-1.5 py-0.5 rounded select-none">
-                              {p.difficulty || "medium"}
+                            <span className={`text-[8px] font-mono shrink-0 px-2 py-0.5 rounded border uppercase tracking-wider font-bold ${diffColor}`}>
+                              {difficulty}
                             </span>
                           </div>
                         )
@@ -286,14 +302,14 @@ export const Lists = () => {
         // ZeroTrac Interactive List Rendering
         <div className="grid gap-3.5">
           {/* ZeroTrac Advanced Filters Form */}
-          <Card className="p-4 flex flex-col gap-3.5 font-sans border-zinc-800 bg-zinc-900/10">
+          <Card className="p-4 flex flex-col gap-3.5 font-sans border-zinc-850 bg-zinc-900/10">
             <div className="grid grid-cols-2 gap-3.5">
               <div>
-                <label className="text-[9px] font-bold text-zinc-450 block mb-1.5 font-mono uppercase tracking-wider">Keyword</label>
+                <label className="text-[9px] font-bold text-zinc-500 block mb-1.5 font-mono uppercase tracking-wider">Keyword</label>
                 <input 
                   type="text" 
-                  placeholder="type a keyword" 
-                  className="w-full bg-zinc-950 border border-zinc-850 rounded px-2.5 py-2 text-xs text-zinc-200 placeholder-zinc-650 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/20 transition-all font-mono"
+                  placeholder="e.g. sum" 
+                  className="w-full bg-zinc-950 border border-zinc-850 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/10 transition-all font-mono"
                   value={keyword}
                   onChange={(e) => {
                     setKeyword(e.target.value)
@@ -302,11 +318,11 @@ export const Lists = () => {
                 />
               </div>
               <div>
-                <label className="text-[9px] font-bold text-zinc-450 block mb-1.5 font-mono uppercase tracking-wider">Contest number</label>
+                <label className="text-[9px] font-bold text-zinc-500 block mb-1.5 font-mono uppercase tracking-wider">Contest number</label>
                 <input 
                   type="text" 
                   placeholder="e.g. 408" 
-                  className="w-full bg-zinc-950 border border-zinc-850 rounded px-2.5 py-2 text-xs text-zinc-200 placeholder-zinc-650 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/20 transition-all font-mono"
+                  className="w-full bg-zinc-950 border border-zinc-850 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/10 transition-all font-mono"
                   value={contestNumber}
                   onChange={(e) => {
                     setContestNumber(e.target.value)
@@ -316,9 +332,9 @@ export const Lists = () => {
               </div>
             </div>
 
-            <div className="flex justify-between items-end gap-3.5">
+            <div className="flex justify-between items-end gap-3.5 border-t border-zinc-900/60 pt-3.5">
               <div className="flex-1">
-                <label className="text-[9px] font-bold text-zinc-450 block mb-1.5 font-mono uppercase tracking-wider">Rating interval</label>
+                <label className="text-[9px] font-bold text-zinc-500 block mb-1.5 font-mono uppercase tracking-wider">Rating interval</label>
                 <div className="flex items-center gap-2">
                   <input 
                     type="number"
@@ -327,9 +343,9 @@ export const Lists = () => {
                       setRatingMin(parseInt(e.target.value) || 0)
                       setCurrentPage(1)
                     }}
-                    className="w-20 bg-zinc-950 border border-zinc-850 rounded px-2 py-1.5 text-xs text-center text-zinc-250 focus:outline-none focus:border-[#dfa054] font-mono"
+                    className="w-20 bg-zinc-950 border border-zinc-850 rounded-lg px-2.5 py-1.5 text-xs text-center text-zinc-250 focus:outline-none focus:border-[#dfa054] font-mono"
                   />
-                  <span className="text-zinc-600 font-mono">-</span>
+                  <span className="text-zinc-650 font-mono">-</span>
                   <input 
                     type="number"
                     value={ratingMax}
@@ -337,22 +353,22 @@ export const Lists = () => {
                       setRatingMax(parseInt(e.target.value) || 0)
                       setCurrentPage(1)
                     }}
-                    className="w-20 bg-zinc-950 border border-zinc-850 rounded px-2 py-1.5 text-xs text-center text-zinc-250 focus:outline-none focus:border-[#dfa054] font-mono"
+                    className="w-20 bg-zinc-950 border border-zinc-850 rounded-lg px-2.5 py-1.5 text-xs text-center text-zinc-250 focus:outline-none focus:border-[#dfa054] font-mono"
                   />
                 </div>
               </div>
 
               <button 
                 onClick={handleResetFilters}
-                className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded px-4 py-2 text-[10px] font-bold font-mono tracking-wider uppercase transition-colors"
+                className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 rounded-lg px-4 py-2 text-[10px] font-bold font-mono tracking-wider uppercase transition-all"
               >
                 Reset
               </button>
             </div>
 
             {/* Status Pills Selector */}
-            <div className="border-t border-zinc-850 pt-3 flex items-center justify-between">
-              <span className="text-[10px] text-zinc-400 font-mono">Status Filter:</span>
+            <div className="border-t border-zinc-900 pt-3.5 flex items-center justify-between">
+              <span className="text-[10px] text-zinc-500 font-mono">Status Filter:</span>
               <div className="flex bg-zinc-950 p-0.5 rounded border border-zinc-850">
                 {(["all", "open", "done"] as const).map((filter) => (
                   <button
@@ -361,8 +377,8 @@ export const Lists = () => {
                       setStatusFilter(filter)
                       setCurrentPage(1)
                     }}
-                    className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase font-mono transition-colors ${
-                      statusFilter === filter ? "bg-zinc-800 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
+                    className={`text-[9px] font-bold px-3 py-1 rounded uppercase font-mono transition-colors ${
+                      statusFilter === filter ? "bg-zinc-800 text-zinc-100" : "text-zinc-550 hover:text-zinc-350"
                     }`}
                   >
                     {filter}
@@ -374,45 +390,45 @@ export const Lists = () => {
 
           {/* ZeroTrac Matching Results List */}
           <div className="flex flex-col gap-2.5">
-            <div className="flex justify-between items-center text-[10px] text-zinc-500 font-mono px-1">
+            <div className="flex justify-between items-center text-[10px] text-zinc-550 font-mono px-1">
               <span>Matching Problems</span>
-              <span>Count: <span className="text-zinc-300">{filteredZerotrac.length}</span></span>
+              <span>Count: <span className="text-zinc-350">{filteredZerotrac.length}</span></span>
             </div>
 
             {filteredZerotrac.length === 0 ? (
-              <div className="text-center py-8 text-xs text-zinc-600 font-mono bg-zinc-900/5 rounded-lg border border-dashed border-zinc-850">
+              <div className="text-center py-8 text-xs text-zinc-650 font-mono bg-zinc-950/10 rounded-xl border border-dashed border-zinc-850">
                 No matching ZeroTrac problems found.
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                <div className="overflow-x-auto border border-zinc-800 rounded-lg bg-zinc-950/20 p-2.5">
+                <div className="overflow-x-auto border border-zinc-900 rounded-xl bg-zinc-950/20 p-2.5">
                   <table className="w-full text-left border-collapse text-[10px] font-mono">
                     <thead>
-                      <tr className="border-b border-zinc-800 text-zinc-500 font-semibold">
-                        <th className="py-2 px-1 text-center w-[45px]">ID</th>
-                        <th className="py-2 px-2">Title</th>
-                        <th className="py-2 px-2">Contest</th>
-                        <th className="py-2 px-1 text-center w-[45px]">Index</th>
-                        <th className="py-2 px-2 text-right w-[60px]">Rating</th>
+                      <tr className="border-b border-zinc-900 text-zinc-500 font-semibold">
+                        <th className="py-2.5 px-1 text-center w-[45px]">ID</th>
+                        <th className="py-2.5 px-2">Title</th>
+                        <th className="py-2.5 px-2">Contest</th>
+                        <th className="py-2.5 px-1 text-center w-[45px]">Index</th>
+                        <th className="py-2.5 px-2 text-right w-[60px]">Rating</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-900/40">
                       {paginatedItems.map((p, idx) => {
                         const isSolved = solvedSlugs.has(p.TitleSlug)
                         return (
-                          <tr key={idx} className="hover:bg-zinc-900/20 transition-colors">
+                          <tr key={idx} className="hover:bg-zinc-900/20 transition-all duration-150">
                             {/* Problem ID */}
-                            <td className="py-2.5 px-1 text-center text-zinc-500 font-mono select-none">
+                            <td className="py-3 px-1 text-center text-zinc-550 font-mono select-none">
                               {p.ID || p.QuestionID || ""}
                             </td>
                             {/* Problem Title (with solved checkbox indicator) */}
-                            <td className="py-2.5 px-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
+                            <td className="py-3 px-2">
+                              <div className="flex items-center gap-2 min-w-0">
                                 <span 
                                   className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
                                     isSolved 
                                       ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-450" 
-                                      : "border-zinc-850 bg-zinc-950/20 text-transparent"
+                                      : "border-zinc-850 bg-zinc-950/30 text-transparent"
                                   }`}
                                   title={isSolved ? "Solved" : "Unsolved"}
                                 >
@@ -432,15 +448,15 @@ export const Lists = () => {
                               </div>
                             </td>
                             {/* Contest Name */}
-                            <td className="py-2.5 px-2 text-zinc-400 truncate max-w-[120px]" title={p.ContestID_en}>
+                            <td className="py-3 px-2 text-zinc-400 truncate max-w-[110px]" title={p.ContestID_en}>
                               {p.ContestID_en || p.ContestSlug || "LeetCode Contest"}
                             </td>
                             {/* Problem Index (Q1-Q4) */}
-                            <td className="py-2.5 px-1 text-center font-bold text-zinc-400 font-mono">
+                            <td className="py-3 px-1 text-center font-bold text-zinc-500 font-mono">
                               {p.ProblemIndex || "Q?"}
                             </td>
                             {/* Elo Rating */}
-                            <td className="py-2.5 px-2 text-right font-bold text-zinc-355 font-mono">
+                            <td className="py-3 px-2 text-right font-bold text-zinc-300 font-mono">
                               {Math.round(p.Rating)}
                             </td>
                           </tr>
@@ -451,7 +467,7 @@ export const Lists = () => {
                 </div>
 
                 {/* ZeroTrac style Pagination UI */}
-                <div className="flex flex-wrap items-center justify-between gap-2.5 bg-zinc-950/40 border border-zinc-850 p-2 px-3 rounded-lg font-mono text-[10px] text-zinc-500">
+                <div className="flex flex-wrap items-center justify-between gap-2.5 bg-zinc-950/40 border border-zinc-900 p-2.5 px-3.5 rounded-xl font-mono text-[10px] text-zinc-500">
                   <div className="flex items-center gap-1 shrink-0 select-none">
                     <span>Total {totalItems}</span>
                   </div>
@@ -462,7 +478,7 @@ export const Lists = () => {
                     <button 
                       onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                       disabled={activePage === 1}
-                      className="px-1.5 py-0.5 rounded text-zinc-400 hover:text-zinc-100 disabled:opacity-40 disabled:hover:text-zinc-400"
+                      className="px-2 py-0.5 rounded-md text-zinc-450 hover:text-zinc-200 disabled:opacity-40"
                     >
                       &lt;
                     </button>
@@ -476,10 +492,10 @@ export const Lists = () => {
                         <button
                           key={idx}
                           onClick={() => setCurrentPage(Number(page))}
-                          className={`px-2 py-0.5 rounded font-bold transition-colors ${
+                          className={`px-2 py-0.5 rounded-md font-bold transition-colors ${
                             isCurrent 
-                              ? "bg-zinc-800 text-[#dfa054]" 
-                              : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+                              ? "bg-zinc-800 text-[#dfa054] border border-zinc-700/60" 
+                              : "text-zinc-500 hover:bg-zinc-900/60 hover:text-zinc-300"
                           }`}
                         >
                           {page}
@@ -491,7 +507,7 @@ export const Lists = () => {
                     <button 
                       onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                       disabled={activePage === totalPages}
-                      className="px-1.5 py-0.5 rounded text-zinc-400 hover:text-zinc-100 disabled:opacity-40 disabled:hover:text-zinc-400"
+                      className="px-2 py-0.5 rounded-md text-zinc-450 hover:text-zinc-200 disabled:opacity-40"
                     >
                       &gt;
                     </button>
@@ -504,7 +520,7 @@ export const Lists = () => {
                       type="text" 
                       defaultValue={activePage}
                       key={activePage} // Reset value on page change
-                      className="w-8 bg-zinc-900 border border-zinc-800 rounded text-center text-[10px] text-zinc-350 font-mono py-0.5 ml-1.5 focus:outline-none focus:border-[#dfa054]"
+                      className="w-8 bg-zinc-900 border border-zinc-800 rounded-md text-center text-[10px] text-zinc-350 font-mono py-0.5 ml-1.5 focus:outline-none focus:border-[#dfa054]"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           const val = parseInt((e.target as HTMLInputElement).value)

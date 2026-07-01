@@ -121,15 +121,11 @@ export const Heatmap = () => {
           {/* Trophy 1: Masters of the Multiverse (Platinum) */}
           <div className="flex justify-between items-center p-3.5 rounded-xl bg-[#0e0e11]/80 border border-zinc-900 hover:border-zinc-800 transition-all duration-200">
             <div className="flex items-center gap-3.5 min-w-0">
-              {/* Platinum Badge */}
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600/10 to-indigo-600/10 flex items-center justify-center border border-indigo-500/20 shrink-0">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="1.5">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                  <path d="M12 6l3.5 7h-7L12 6z" />
-                  <circle cx="12" cy="15" r="2" fill="#818cf8" fillOpacity="0.3" />
-                </svg>
-              </div>
-              {/* Title & Info */}
+              <img 
+                src={chrome.runtime.getURL("assets/masters_multiverse.jpg")} 
+                className="w-11 h-11 rounded-lg object-cover border border-indigo-500/20 shrink-0" 
+                alt="Masters of the Multiverse"
+              />
               <div>
                 <h4 className="font-bold text-xs text-zinc-100 tracking-tight">Masters of the Multiverse</h4>
                 <div className="flex items-center gap-1.5 mt-0.5">
@@ -139,9 +135,8 @@ export const Heatmap = () => {
                 </div>
               </div>
             </div>
-            {/* Req & Date */}
             <div className="text-right shrink-0 min-w-[100px]">
-              <span className="text-[9px] text-zinc-550 font-mono block">LOCKED</span>
+              <span className="text-[9px] text-zinc-555 font-mono block">LOCKED</span>
               <span className="text-[10px] text-zinc-450 mt-1 block">Master all 17 topics</span>
             </div>
           </div>
@@ -149,15 +144,11 @@ export const Heatmap = () => {
           {/* Trophy 2: The Knight's Gambit (Gold) */}
           <div className="flex justify-between items-center p-3.5 rounded-xl bg-[#0e0e11]/80 border border-zinc-900 hover:border-zinc-800 transition-all duration-200">
             <div className="flex items-center gap-3.5 min-w-0">
-              {/* Gold Badge */}
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-600/10 to-[#dfa054]/10 flex items-center justify-center border border-[#dfa054]/35 shrink-0 shadow-[0_0_12px_rgba(223,160,84,0.08)]">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#dfa054" strokeWidth="1.5">
-                  <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5" />
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M12 5v4M12 15v4" />
-                </svg>
-              </div>
-              {/* Title & Info */}
+              <img 
+                src={chrome.runtime.getURL("assets/knights_gambit.jpg")} 
+                className="w-11 h-11 rounded-lg object-cover border border-[#dfa054]/30 shrink-0 shadow-[0_0_8px_rgba(223,160,84,0.15)]" 
+                alt="The Knight's Gambit"
+              />
               <div>
                 <h4 className="font-bold text-xs text-zinc-100 tracking-tight">The Knight's Gambit</h4>
                 <div className="flex items-center gap-1.5 mt-0.5">
@@ -167,9 +158,8 @@ export const Heatmap = () => {
                 </div>
               </div>
             </div>
-            {/* Req & Date */}
             <div className="text-right shrink-0 min-w-[100px]">
-              <span className="text-[9px] text-zinc-550 font-mono block">📅 05/14/2026 14:15</span>
+              <span className="text-[9px] text-zinc-555 font-mono block">📅 05/14/2026 14:15</span>
               <span className="text-[10px] text-zinc-450 mt-1 block">Reach Knight rating</span>
             </div>
           </div>
@@ -177,14 +167,11 @@ export const Heatmap = () => {
           {/* Trophy 3: Pure Intention (Silver) */}
           <div className="flex justify-between items-center p-3.5 rounded-xl bg-[#0e0e11]/80 border border-zinc-900 hover:border-zinc-800 transition-all duration-200">
             <div className="flex items-center gap-3.5 min-w-0">
-              {/* Silver Badge */}
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-zinc-500/10 to-zinc-400/10 flex items-center justify-center border border-zinc-500/30 shrink-0">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="1.5">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M12 8v8M8 12h8" />
-                </svg>
-              </div>
-              {/* Title & Info */}
+              <img 
+                src={chrome.runtime.getURL("assets/pure_intention.jpg")} 
+                className="w-11 h-11 rounded-lg object-cover border border-zinc-500/20 shrink-0" 
+                alt="Pure Intention"
+              />
               <div>
                 <h4 className="font-bold text-xs text-zinc-100 tracking-tight">Pure Intention</h4>
                 <div className="flex items-center gap-1.5 mt-0.5">
@@ -194,9 +181,8 @@ export const Heatmap = () => {
                 </div>
               </div>
             </div>
-            {/* Req & Date */}
             <div className="text-right shrink-0 min-w-[100px]">
-              <span className="text-[9px] text-zinc-550 font-mono block">📅 06/11/2026 09:22</span>
+              <span className="text-[9px] text-zinc-555 font-mono block">📅 06/11/2026 09:22</span>
               <span className="text-[10px] text-zinc-450 mt-1 block">Solve with zero hints</span>
             </div>
           </div>
@@ -204,14 +190,11 @@ export const Heatmap = () => {
           {/* Trophy 4: Out of the Mud (Bronze) */}
           <div className="flex justify-between items-center p-3.5 rounded-xl bg-[#0e0e11]/80 border border-zinc-900 hover:border-zinc-800 transition-all duration-200">
             <div className="flex items-center gap-3.5 min-w-0">
-              {/* Bronze Badge */}
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-800/10 to-orange-800/10 flex items-center justify-center border border-amber-800/35 shrink-0">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#b45309" strokeWidth="1.5">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                  <path d="M2 17l10 5 10-5" />
-                </svg>
-              </div>
-              {/* Title & Info */}
+              <img 
+                src={chrome.runtime.getURL("assets/out_of_mud.jpg")} 
+                className="w-11 h-11 rounded-lg object-cover border border-amber-800/25 shrink-0" 
+                alt="Out of the Mud"
+              />
               <div>
                 <h4 className="font-bold text-xs text-zinc-100 tracking-tight">Out of the Mud</h4>
                 <div className="flex items-center gap-1.5 mt-0.5">
@@ -221,9 +204,8 @@ export const Heatmap = () => {
                 </div>
               </div>
             </div>
-            {/* Req & Date */}
             <div className="text-right shrink-0 min-w-[100px]">
-              <span className="text-[9px] text-zinc-550 font-mono block">📅 03/01/2026 18:30</span>
+              <span className="text-[9px] text-zinc-555 font-mono block">📅 03/01/2026 18:30</span>
               <span className="text-[10px] text-zinc-450 mt-1 block">Solve first 10 cases</span>
             </div>
           </div>
