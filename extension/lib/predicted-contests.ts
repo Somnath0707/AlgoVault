@@ -2,6 +2,7 @@ import {
   summarizeRealtimePrediction,
   type LeetCodeRegion
 } from "./api/entranthub"
+import { withTimeout } from "./utils/network"
 
 // Constants
 export const MAX_RECENT_CONTESTS = 5
@@ -28,12 +29,17 @@ export interface PredictedContestResult {
 
 export interface GetPredictedContestsConfig {
   username: string
-  region?: string
+  region?: LeetCodeRegion
   forceRefresh?: boolean
 }
 
-// In-memory Cache
-let cache: { data: PredictedContestResult; timestamp: number } | null = null
+// In-memory Cache Structure (stores user-specific context to prevent cross-leakage)
+let cache: {
+  username: string
+  region: LeetCodeRegion
+  data: PredictedContestResult
+  timestamp: number
+} | null = null
 
 /**
  * Message sending helper to delegate fetches to background script to bypass CORS.
@@ -49,18 +55,6 @@ function sendMessage<T>(message: Record<string, unknown>): Promise<T> {
 }
 
 /**
- * Helper to race a promise against a timeout.
- */
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Request timeout")), timeoutMs)
-    )
-  ])
-}
-
-/**
  * Fetches and resolves predicted ratings for unfinalized contests.
  */
 export async function getPredictedContests(
@@ -71,8 +65,14 @@ export async function getPredictedContests(
 
   const now = Date.now()
   
-  // 1. Check in-memory cache
-  if (!forceRefresh && cache && now - cache.timestamp < CACHE_TTL_MS) {
+  // 1. Verify User-Specific cache validation to avoid returning cached predictions from another account
+  if (
+    !forceRefresh &&
+    cache &&
+    cache.username === username &&
+    cache.region === normalizedRegion &&
+    now - cache.timestamp < CACHE_TTL_MS
+  ) {
     return cache.data
   }
 
@@ -133,9 +133,19 @@ export async function getPredictedContests(
 
         if (realtimeData) {
           const summary = summarizeRealtimePrediction(realtimeData)
+          
+          // Debug Logging Groups for Development diagnostics
+          console.group(`AlgoVault EntrantHub Prediction: ${contest.id}`)
+          console.log("Contest ID/Slug:", contest.id)
+          console.log("Realtime Data:", realtimeData)
+          console.log("Summary:", summary)
+          console.groupEnd()
+
           if (summary) {
+            // Resolve using canonical slug returned from EntrantHub or fallback to contest.id
+            const canonicalSlug = (realtimeData.contestTitleSlug || contest.id).toLowerCase().trim()
             predictedContests.push({
-              titleSlug: contestSlug,
+              titleSlug: canonicalSlug,
               contestName: contest.name,
               oldRating: summary.oldRating,
               predictedRating: summary.predictedRating,
@@ -160,8 +170,10 @@ export async function getPredictedContests(
       source: "EntrantHub"
     }
 
-    // Update in-memory cache
+    // Update in-memory cache with context key parameters
     cache = {
+      username,
+      region: normalizedRegion,
       data: result,
       timestamp: Date.now()
     }
