@@ -8,7 +8,14 @@ export const config: PlasmoCSConfig = {
 
 export const getStyle = () => {
   const style = document.createElement("style")
-  style.textContent = cssText
+  style.textContent = `
+    :host(plasmo-csui) {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2147483647;
+    }
+  ` + cssText.replaceAll(':root', ':host(plasmo-csui)')
   return style
 }
 
@@ -66,15 +73,15 @@ const THEMES: Record<string, ThemeAssets> = {
       defeat: "YOU DIED"
     },
     titleColor: {
-      victory: "text-[#dfa054] drop-shadow-[0_4px_16px_rgba(223,160,84,0.35)]",
-      defeat: "text-red-600 drop-shadow-[0_4px_16px_rgba(220,38,38,0.35)]"
+      victory: "text-[#dfa054] drop-shadow-[0_4px_16px_rgba(223,160,84,0.45)]",
+      defeat: "text-red-650 drop-shadow-[0_4px_16px_rgba(220,38,38,0.45)]"
     },
     subColor: {
       victory: "text-zinc-100",
       defeat: "text-zinc-300"
     },
-    titleClass: "font-serif tracking-[0.25em]",
-    subClass: "font-mono tracking-widest"
+    titleClass: "font-serif tracking-[0.22em] font-extrabold uppercase",
+    subClass: "font-mono tracking-widest uppercase font-semibold"
   },
   minecraft: {
     name: "Minecraft",
@@ -95,8 +102,8 @@ const THEMES: Record<string, ThemeAssets> = {
       defeat: "Score: &e0"
     },
     titleColor: {
-      victory: "text-green-500 drop-shadow-[0_4px_16px_rgba(34,197,94,0.35)]",
-      defeat: "text-red-500 drop-shadow-[0_4px_16px_rgba(239,68,68,0.35)]"
+      victory: "text-green-500 drop-shadow-[0_4px_16px_rgba(34,197,94,0.45)]",
+      defeat: "text-red-500 drop-shadow-[0_4px_16px_rgba(239,68,68,0.45)]"
     },
     subColor: {
       victory: "text-yellow-400",
@@ -108,13 +115,18 @@ const THEMES: Record<string, ThemeAssets> = {
 }
 
 const playSound = (soundUrl: string) => {
-  const audio = new Audio(soundUrl)
-  audio.volume = 0.4
-  audio.play().catch(e => console.error("AlgoVault failed to play celebration sound", e))
+  try {
+    const audio = new Audio(soundUrl)
+    audio.volume = 0.5
+    audio.play().catch(e => console.error("AlgoVault failed to play celebration sound", e))
+  } catch (err) {
+    console.error("AlgoVault audio player error", err)
+  }
 }
 
 export default function SolveCelebration() {
-  const [isOpen, setIsOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [visible, setVisible] = useState(false)
   const [problemTitle, setProblemTitle] = useState("")
   const [type, setType] = useState<"VICTORY" | "DEFEAT" | null>(null)
   const [themeName, setThemeName] = useState("gta")
@@ -123,7 +135,7 @@ export default function SolveCelebration() {
 
   useEffect(() => {
     const handledSubmissionIds = new Set<string>()
-    // 1. Fetch settings from storage
+
     chrome.storage.sync.get(["celebrationTheme"], (res) => {
       if (res.celebrationTheme !== undefined) setThemeName(res.celebrationTheme)
     })
@@ -143,7 +155,6 @@ export default function SolveCelebration() {
       else if (status !== undefined && status !== null) newType = "DEFEAT"
 
       if (newType) {
-        // Extract problem title
         const heading = document.querySelector("a[href*='/problems/']")?.textContent
         const title = heading?.replace(/^\d+\.\s*/, "").trim() || "Problem"
         setProblemTitle(title)
@@ -158,21 +169,30 @@ export default function SolveCelebration() {
           const activeTheme = THEMES[theme] || THEMES.gta
 
           if (isOverlay) {
-            setIsOpen(true)
+            setMounted(true)
+            setTimeout(() => setVisible(true), 50)
           }
 
           if (isSound) {
             playSound(newType === "VICTORY" ? activeTheme.audio.victory : activeTheme.audio.defeat)
           }
+
+          // Auto-close overlay after 5 seconds
+          setTimeout(() => {
+            setVisible(false)
+            setTimeout(() => setMounted(false), 500)
+          }, 4500)
         })
       }
     }
 
     window.addEventListener("message", handleSubmission)
 
-    // Esc to close
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsOpen(false)
+      if (e.key === "Escape") {
+        setVisible(false)
+        setTimeout(() => setMounted(false), 500)
+      }
     }
     window.addEventListener("keydown", handleKeyDown)
 
@@ -182,55 +202,54 @@ export default function SolveCelebration() {
     }
   }, [])
 
-  // Auto close after 5 seconds
-  useEffect(() => {
-    if (isOpen) {
-      const timer = setTimeout(() => {
-        setIsOpen(false)
-      }, 5000)
-      return () => clearTimeout(timer)
-    }
-  }, [isOpen])
-
-  if (!isOpen || !type) return null
+  if (!mounted || !type) return null
 
   const key = type.toLowerCase() as "victory" | "defeat"
 
   return (
     <div
-      className="fixed inset-0 bg-zinc-950/85 backdrop-blur-md z-[999999] flex flex-col items-center justify-center font-sans select-none animate-fade-in"
-      onClick={() => setIsOpen(false)}
+      className={`fixed inset-0 bg-zinc-950/85 backdrop-blur-md z-[999999] flex flex-col items-center justify-center font-sans select-none pointer-events-auto transition-opacity duration-500 ease-in-out ${
+        visible ? "opacity-100" : "opacity-0"
+      }`}
+      onClick={() => {
+        setVisible(false)
+        setTimeout(() => setMounted(false), 500)
+      }}
     >
       <div
-        className="flex flex-col items-center text-center p-6 max-w-lg scale-in"
+        className={`flex flex-col items-center text-center p-6 max-w-lg transition-transform duration-500 ${
+          visible ? "scale-100" : "scale-90"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
-        <h1 className={`text-5xl md:text-6xl mb-2 animate-bounce-slow ${currentTheme.titleClass} ${currentTheme.titleColor[key]}`}>
+        <h1 className={`text-4xl md:text-5xl mb-2 ${currentTheme.titleClass} ${currentTheme.titleColor[key]}`}>
           {currentTheme.title[key]}
         </h1>
 
-        <h2 className={`text-2xl md:text-3xl font-extrabold mb-6 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] ${currentTheme.subClass} ${currentTheme.subColor[key]}`}>
+        <h2 className={`text-xl md:text-2xl mb-5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] ${currentTheme.subClass} ${currentTheme.subColor[key]}`}>
           {currentTheme.subtitle[key]}
         </h2>
 
-        {/* Celebration Meme Image */}
-        <div className="my-5 border border-zinc-800/85 rounded-xl overflow-hidden bg-zinc-900/30 p-2 shadow-2xl transition-colors hover:border-[#dfa054]/30 max-w-[360px]">
+        {/* Themed Banner Image */}
+        <div className="my-3.5 border-4 border-white/10 rounded-2xl overflow-hidden bg-zinc-900/50 shadow-2xl max-w-[480px] w-full">
           <img 
             src={type === "VICTORY" ? currentTheme.images.victory : currentTheme.images.defeat} 
-            className="w-full h-auto object-cover rounded-lg" 
+            className="w-full h-auto object-cover" 
             alt={type}
           /> 
         </div>
 
-        {/* Problem details badge */}
-        <div className="bg-zinc-900/60 border border-zinc-800 px-4 py-2 rounded-full text-xs text-zinc-400 font-mono tracking-wide mb-6">
-          {type === "VICTORY" ? "🏆 SOLVED" : "❌ FAILED"}: <span className="text-zinc-200 font-semibold">{problemTitle}</span>
+        {/* Problem metadata details banner */}
+        <div className="bg-zinc-900/70 border border-zinc-800/80 px-4.5 py-2 rounded-full text-[10px] text-zinc-400 font-mono tracking-wide mb-6 mt-4 select-text">
+          {type === "VICTORY" ? "🏆 ACCEPTED" : "❌ ATTEMPT FAILED"}: <span className="text-zinc-200 font-semibold">{problemTitle}</span>
         </div>
 
-        {/* Quiet ESC guide */}
         <button
-          onClick={() => setIsOpen(false)}
-          className="text-[10px] text-zinc-500 font-mono hover:text-[#dfa054] transition-colors uppercase tracking-widest outline-none"
+          onClick={() => {
+            setVisible(false)
+            setTimeout(() => setMounted(false), 500)
+          }}
+          className="text-[9px] text-zinc-550 font-mono hover:text-[#dfa054] transition-colors uppercase tracking-widest outline-none cursor-pointer"
         >
           [ Click anywhere or press ESC to dismiss ]
         </button>

@@ -3,7 +3,6 @@ import com.algovault.dto.ContestAnalysisResponse;
 import com.algovault.model.ContestResult;
 import com.algovault.repository.ContestResultRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Map;
@@ -14,7 +13,6 @@ import java.util.stream.Collectors;
 public class ContestAnalyzerService {
     private final ContestResultRepository repository;
 
-    @Cacheable(value = "contests", key = "#userId")
     public List<ContestAnalysisResponse> getContestHistory(Long userId) {
         List<ContestResult> results = repository.findByUserIdOrderByContestDateDesc(userId);
 

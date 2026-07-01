@@ -9,7 +9,6 @@ import com.algovault.repository.RevisionCardRepository;
 import com.algovault.model.TagMastery;
 import com.algovault.model.RevisionCard;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -23,7 +22,6 @@ public class PotdService {
     private final TagMasteryRepository tagMasteryRepository;
     private final RevisionCardRepository revisionCardRepository;
 
-    @Cacheable(value = "potd", key = "#userId")
     public List<PotdResponse> getPotd(Long userId) {
         User user = userRepository.findById(userId).orElseThrow();
         int ceiling = user.getVirtualRating() != null ? user.getVirtualRating() : 1500;

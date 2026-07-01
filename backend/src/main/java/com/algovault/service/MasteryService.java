@@ -10,7 +10,6 @@ import com.algovault.engine.Glicko2MasteryEngine;
 import com.algovault.repository.ProblemOpenEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,7 +26,6 @@ public class MasteryService {
     private final ProblemOpenEventRepository problemOpenEventRepository;
     private final Glicko2MasteryEngine glickoEngine;
 
-    @Cacheable(value = "mastery", key = "#userId")
     public List<TagMastery> getMastery(Long userId) {
         return tagMasteryRepository.findByUserIdOrderByMasteryScoreDesc(userId);
     }

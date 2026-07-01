@@ -11,21 +11,35 @@
     return '';
   }
 
+  // 1. Monkey-patch window.fetch
   window.fetch = async function() {
     var args = Array.from(arguments);
     var url = normalizeUrl(args[0]);
+    var isSubmit = /\/submit\/?$/.test(url) || /\/problems\/[^\/]+\/submit\/?/.test(url);
 
-    // Capture the submitted code so we can relay it later
-    if (/\/submit\/?$/.test(url) || /\/problems\/[^\/]+\/submit\/?/.test(url)) {
+    if (isSubmit) {
       try {
         var init = args[1];
         if (init && init.body) {
-          var body = JSON.parse(init.body);
+          var body = typeof init.body === 'string' ? JSON.parse(init.body) : init.body;
           if (body && body.typed_code) {
             window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = { code: body.typed_code, lang: body.lang };
           }
+        } else if (args[0] && typeof args[0] === 'object' && args[0].clone) {
+          // If first argument is a Request object, clone it to read body asynchronously without consuming original stream
+          var clonedReq = args[0].clone();
+          clonedReq.text().then(function(text) {
+            try {
+              var body = JSON.parse(text);
+              if (body && body.typed_code) {
+                window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = { code: body.typed_code, lang: body.lang };
+              }
+            } catch (e) {}
+          }).catch(function() {});
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn("AlgoVault: Failed to extract fetch submission code", e);
+      }
     }
 
     var response = await originalFetch.apply(this, args);
@@ -58,5 +72,31 @@
     }
 
     return response;
+  };
+
+  // 2. Monkey-patch XMLHttpRequest (fallback/redundancy for older or localized clients)
+  var originalXhrOpen = XMLHttpRequest.prototype.open;
+  var originalXhrSend = XMLHttpRequest.prototype.send;
+
+  XMLHttpRequest.prototype.open = function(method, url) {
+    this._url = url;
+    this._method = method;
+    return originalXhrOpen.apply(this, arguments);
+  };
+
+  XMLHttpRequest.prototype.send = function(body) {
+    var url = this._url || '';
+    var isSubmit = /\/submit\/?$/.test(url) || /\/problems\/[^\/]+\/submit\/?/.test(url);
+    if (isSubmit && body) {
+      try {
+        var payload = typeof body === 'string' ? JSON.parse(body) : body;
+        if (payload && payload.typed_code) {
+          window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = { code: payload.typed_code, lang: payload.lang };
+        }
+      } catch (e) {
+        console.warn("AlgoVault: Failed to extract XHR submission code", e);
+      }
+    }
+    return originalXhrSend.apply(this, arguments);
   };
 })();

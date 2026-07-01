@@ -6,8 +6,6 @@ import com.algovault.repository.UserRepository;
 import com.algovault.repository.ProblemRepository;
 import com.algovault.model.Problem;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import java.util.List;
 
@@ -18,7 +16,6 @@ public class VaultService {
     private final UserRepository userRepository;
     private final ProblemRepository problemRepository;
 
-    @Cacheable(value = "vault", key = "#userId + '-' + #query")
     public List<VaultEntry> searchVault(Long userId, String query) {
         if (query == null || query.isBlank()) {
             return repository.findByUserIdOrderByUpdatedAtDesc(userId);
@@ -26,7 +23,6 @@ public class VaultService {
         return repository.searchForUser(userId, query);
     }
 
-    @CacheEvict(value = "vault", allEntries = true)
     public VaultEntry saveEntry(Long userId, VaultEntry entry) {
         User user = userRepository.findById(userId).orElseThrow();
         entry.setUser(user);
@@ -43,7 +39,6 @@ public class VaultService {
         return repository.save(entry);
     }
 
-    @CacheEvict(value = "vault", allEntries = true)
     public void deleteEntry(Long userId, Long entryId) {
         VaultEntry entry = repository.findById(entryId).orElseThrow();
         if (entry.getUser().getId().equals(userId)) {

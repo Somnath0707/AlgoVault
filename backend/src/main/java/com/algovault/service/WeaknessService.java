@@ -8,7 +8,6 @@ import com.algovault.repository.ProblemRepository;
 import com.algovault.repository.TagMasteryRepository;
 import com.algovault.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -23,7 +22,6 @@ public class WeaknessService {
     private final ProblemRepository problemRepository;
     private final UserRepository userRepository;
 
-    @Cacheable(value = "weakness", key = "#userId")
     public WeaknessResponse getWeakness(Long userId) {
         List<TagMastery> masteries = tagMasteryRepository.findByUserIdOrderByMasteryScoreDesc(userId);
         

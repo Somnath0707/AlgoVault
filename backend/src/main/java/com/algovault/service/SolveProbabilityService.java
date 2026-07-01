@@ -11,7 +11,6 @@ import com.algovault.repository.SubmissionRepository;
 import com.algovault.repository.TagMasteryRepository;
 import com.algovault.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -27,7 +26,6 @@ public class SolveProbabilityService {
     private final com.algovault.repository.ContestResultRepository contestResultRepository;
     private final com.algovault.repository.ProblemOpenEventRepository problemOpenEventRepository;
 
-    @Cacheable(value = "predictions", key = "#userId + '-' + #titleSlug")
     public PredictionResponse predict(Long userId, String titleSlug) {
         User user = userRepository.findById(userId).orElseThrow();
         Problem problem = problemRepository.findByTitleSlug(titleSlug).orElseThrow(() -> new RuntimeException("Problem not found"));

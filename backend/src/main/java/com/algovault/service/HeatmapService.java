@@ -7,7 +7,6 @@ import com.algovault.repository.UserRatingBucketRepository;
 import com.algovault.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,7 +20,6 @@ public class HeatmapService {
     private final UserRatingBucketRepository userRatingBucketRepository;
     private final UserRepository userRepository;
 
-    @Cacheable(value = "heatmap", key = "#userId")
     public List<UserRatingBucket> getHeatmap(Long userId) {
         List<UserRatingBucket> buckets = userRatingBucketRepository.findByUserId(userId);
         buckets.sort(Comparator.comparing(UserRatingBucket::getBucketRating));
