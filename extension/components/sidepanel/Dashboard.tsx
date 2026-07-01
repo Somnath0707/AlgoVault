@@ -4,7 +4,15 @@ import { Card } from "../ui/Card"
 import { Skeleton } from "../ui/Skeleton"
 import { fetchDashboard, fetchHeatmap, fetchPotd, fetchRevisionQueue, fetchWeakness } from "../../lib/api/backend"
 import { STUDY_LISTS } from "../../lib/study-lists"
-import { getUsername } from "../../lib/storage"
+import { 
+  getUsername,
+  getCachedDashboard,
+  setCachedDashboard,
+  getCachedHeatmap,
+  setCachedHeatmap,
+  getCachedWeakness,
+  setCachedWeakness
+} from "../../lib/storage"
 
 function message<T>(payload: Record<string, unknown>): Promise<T> {
   return new Promise((resolve) => chrome.runtime.sendMessage(payload, resolve))
@@ -24,36 +32,73 @@ export const Dashboard = () => {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    // 1. Immediately load from cache to populate UI instantly
+    Promise.all([
+      getCachedDashboard().catch(() => null),
+      getCachedHeatmap().catch(() => []),
+      getCachedWeakness().catch(() => null),
+      new Promise<any>((resolve) => chrome.storage.local.get("algovault.solvedSlugs", (res) => {
+        resolve(res?.["algovault.solvedSlugs"]?.slugs || [])
+      })),
+      new Promise<any>((resolve) => chrome.storage.local.get("algovault.study.manual.v1", resolve))
+    ]).then(([cachedDashboard, cachedHeatmap, cachedWeakness, solvedSlugs, manualResult]) => {
+      if (cachedDashboard) {
+        setData(cachedDashboard)
+      }
+      if (cachedHeatmap && cachedHeatmap.length) {
+        setHeatmap(cachedHeatmap)
+      }
+      if (cachedWeakness) {
+        setWeakness(cachedWeakness)
+      }
+      setSolved(new Set(solvedSlugs))
+      setManual(manualResult?.["algovault.study.manual.v1"] || {})
+      setLoading(false)
+    })
+
+    // 2. Fetch fresh data in the background and update caches
     getUsername().then((username) => {
       Promise.all([
-        fetchDashboard().catch((err) => {
-          console.error("Dashboard fetch error:", err);
-          setError(err.message || "Failed to fetch dashboard data");
-          return null;
-        }),
-        fetchHeatmap().catch(() => []),
+        fetchDashboard(),
+        fetchHeatmap(),
         fetchPotd().catch(() => []),
         fetchRevisionQueue().catch(() => []),
-        fetchWeakness().catch(() => null),
+        fetchWeakness(),
         message<any>({ action: "get_solved_problem_slugs" }).catch(() => null),
-        new Promise<any>((resolve) => chrome.storage.local.get("algovault.study.manual.v1", resolve)),
         username ? message<any>({ action: "get_user_profile", payload: { username } }).catch(() => null) : null,
         message<any>({ action: "get_zerotrac" }).catch(() => null)
-      ]).then(([dashboard, buckets, daily, reviews, weak, solvedResponse, manualResult, profileRes, zerotracRes]) => {
-        setData(dashboard)
-        setHeatmap(buckets)
+      ]).then(([dashboard, buckets, daily, reviews, weak, solvedResponse, profileRes, zerotracRes]) => {
+        if (dashboard) {
+          setData(dashboard)
+          setCachedDashboard(dashboard)
+        }
+        if (buckets && buckets.length) {
+          setHeatmap(buckets)
+          setCachedHeatmap(buckets)
+        }
+        if (weak) {
+          setWeakness(weak)
+          setCachedWeakness(weak)
+        }
         setPotd(daily)
         setQueue(reviews)
-        setWeakness(weak)
         setSolved(new Set(solvedResponse?.ok ? solvedResponse.data : []))
-        setManual(manualResult?.["algovault.study.manual.v1"] || {})
         if (profileRes?.ok) {
           setProfile(profileRes.data?.matchedUser || null)
         }
         if (Array.isArray(zerotracRes)) {
           setZerotrac(zerotracRes)
         }
-      }).finally(() => setLoading(false))
+        setError(null)
+      }).catch((err) => {
+        console.error("Dashboard background fetch failed:", err)
+        setData((prev: any) => {
+          if (!prev) {
+            setError(err.message || "Failed to fetch dashboard data")
+          }
+          return prev
+        })
+      })
     })
   }, [])
 
