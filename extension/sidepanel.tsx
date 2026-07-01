@@ -7,6 +7,7 @@ import { Mastery } from "./components/sidepanel/Mastery"
 import { Weakness } from "./components/sidepanel/Weakness"
 import { Contest } from "./components/sidepanel/Contest"
 import { Lists } from "./components/sidepanel/Lists"
+import { Resources } from "./components/sidepanel/Resources"
 import { Settings } from "./components/sidepanel/Settings"
 import { getUsername, storage } from "./lib/storage"
 
@@ -98,6 +99,7 @@ export default function SidePanel() {
         {activeTab === 'Weakness' && <Weakness />}
         {activeTab === 'Contest' && <Contest />}
         {activeTab === 'Lists' && <Lists />}
+        {activeTab === 'Resources' && <Resources />}
         {activeTab === 'Settings' && <Settings />}
       </div>
     </div>

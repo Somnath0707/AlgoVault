@@ -10,7 +10,6 @@ import com.algovault.repository.SubmissionRepository;
 import com.algovault.repository.SyncMetadataRepository;
 import com.algovault.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -30,7 +29,6 @@ public class DashboardService {
     private final SubmissionRepository submissionRepository;
     private final SessionRepository sessionRepository;
 
-    @Cacheable(value = "dashboard", key = "#userId")
     public DashboardResponse getDashboard(Long userId) {
         User user = userRepository.findById(userId).orElseThrow();
         SyncMetadata meta = syncMetadataRepository.findByUserId(userId).orElse(new SyncMetadata());

@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo } from "react"
-import { RefreshCw } from "lucide-react"
+import { RefreshCw, ExternalLink } from "lucide-react"
 import { Card } from "../ui/Card"
 import { fetchContests } from "../../lib/api/backend"
 import { getUsername, setCachedContests } from "../../lib/storage"
 import { loadContestLifecycle, type ContestLifecycleItem } from "../../lib/contest-lifecycle"
 import { UpcomingContests } from "./UpcomingContests"
+import { AreaChart, Area, XAxis, YAxis, Tooltip as ChartTooltip, ResponsiveContainer } from "recharts"
 
 function deltaText(contest: ContestLifecycleItem) {
   if (contest.attended === false) return "Unchanged"
@@ -17,9 +18,12 @@ function deltaText(contest: ContestLifecycleItem) {
 export const Contest = () => {
   const [activeTab, setActiveTab] = useState<"history" | "predicted" | "upcoming">("history")
   const [data, setData] = useState<ContestLifecycleItem[]>([])
+  const [profile, setProfile] = useState<any>(null)
+  const [rankingInfo, setRankingInfo] = useState<any>(null)
   const [analytics, setAnalytics] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [username, setUsernameState] = useState("")
 
   const refresh = async () => {
     setLoading(true)
@@ -27,11 +31,22 @@ export const Contest = () => {
     try {
       const username = await getUsername()
       if (!username) throw new Error("Set your LeetCode username in Settings")
-      const [lifecycle, localAnalytics] = await Promise.all([
+      setUsernameState(username)
+
+      const [lifecycle, profileRes, rankingRes, localAnalytics] = await Promise.all([
         loadContestLifecycle(username),
+        new Promise<any>((resolve) => chrome.runtime.sendMessage({ action: "get_user_profile", payload: { username } }, resolve)),
+        new Promise<any>((resolve) => chrome.runtime.sendMessage({ action: "get_user_contest_history", payload: { username } }, resolve)),
         fetchContests().catch(() => [])
       ])
+
       setData(lifecycle)
+      if (profileRes?.ok) {
+        setProfile(profileRes.data?.matchedUser?.profile || null)
+      }
+      if (rankingRes?.ok) {
+        setRankingInfo(rankingRes.data?.userContestRanking || null)
+      }
       setAnalytics(localAnalytics)
       await setCachedContests(lifecycle as any)
     } catch (cause) {
@@ -54,6 +69,40 @@ export const Contest = () => {
   const pendingCount = data.filter((contest) => contest.status === "PREDICTED" || contest.status === "PREDICTING").length
   const latestAnalytics = analytics[0]
 
+  // Statistics & chart memoized calculations
+  const peakRating = useMemo(() => {
+    if (!data.length) return 1500
+    const ratings = data.map((c) => c.ratingAfter || 0).filter(Boolean)
+    return ratings.length ? Math.max(...ratings) : 1500
+  }, [data])
+
+  const avgDelta = useMemo(() => {
+    if (!rankingInfo || !rankingInfo.attendedContestsCount) return 0
+    return (rankingInfo.rating - 1500) / rankingInfo.attendedContestsCount
+  }, [rankingInfo])
+
+  const medianDisplay = useMemo(() => {
+    const times = data
+      .map((c) => c.finishTimeMinutes)
+      .filter((t): t is number => typeof t === "number")
+      .sort((a, b) => a - b)
+    if (!times.length) return "n/a"
+    const mid = Math.floor(times.length / 2)
+    const medianMinutes = times.length % 2 !== 0 ? times[mid] : (times[mid - 1] + times[mid]) / 2
+    const totalSecs = Math.round(medianMinutes * 60)
+    return `${Math.floor(totalSecs / 60)}m ${totalSecs % 60}s`
+  }, [data])
+
+  const chartData = useMemo(() => {
+    return data
+      .filter((c) => c.status === "FINALIZED" && c.ratingAfter != null)
+      .map((c) => ({
+        name: c.contestTitle.replace("Weekly Contest ", "W").replace("Biweekly Contest ", "B"),
+        rating: Math.round(c.ratingAfter!)
+      }))
+      .reverse() // Chronological order
+  }, [data])
+
   // Filter display list
   const filteredContests = useMemo(() => {
     if (activeTab === "history") {
@@ -74,19 +123,100 @@ export const Contest = () => {
       </div>
 
       {activeTab === "upcoming" ? <UpcomingContests /> : <>
-        <div className="flex justify-end">
+        <div className="flex justify-end -mb-2">
           <button onClick={() => void refresh()} disabled={loading} title="Refresh contest data" className="p-1.5 text-zinc-500 hover:text-zinc-200 disabled:opacity-40">
             <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
           </button>
         </div>
         {error && <div className="text-xs text-red-400 border border-red-900/50 bg-red-950/20 p-3 rounded-md">{error}</div>}
-        
-        {activeTab === "history" ? (
-          <div className="grid grid-cols-2 gap-3">
-            <Card className="p-3"><div className="text-[10px] text-zinc-500 uppercase">Average finish</div><div className="text-lg font-bold font-mono text-zinc-100">{avgFinish == null ? "n/a" : `${avgFinish}m`}</div></Card>
-            <Card className="p-3"><div className="text-[10px] text-zinc-500 uppercase">Awaiting official</div><div className="text-lg font-bold font-mono text-amber-400">{pendingCount}</div></Card>
+
+        {activeTab === "history" && (
+          <div className="grid gap-3.5">
+            {/* Avatar / Profile Info header */}
+            <div className="flex items-center gap-3.5 bg-zinc-900/40 p-4 border border-zinc-800 rounded-lg">
+              <img 
+                src={profile?.userAvatar || "https://assets.leetcode.com/users/default_avatar.jpg"} 
+                className="w-12 h-12 rounded-lg border border-zinc-800 bg-zinc-950" 
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "https://assets.leetcode.com/users/default_avatar.jpg"
+                }}
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-sm text-zinc-150 truncate">{profile?.realName || username || "Som 07"}</span>
+                  <span className="text-[8px] bg-emerald-950/30 text-emerald-400 border border-emerald-500/20 px-1 py-0.2 rounded font-mono font-bold uppercase">{profile?.countryCode || "US"}</span>
+                  <a href={`https://leetcode.com/${username || "som_07"}/`} target="_blank" rel="noreferrer" className="text-zinc-500 hover:text-zinc-300">
+                    <ExternalLink size={12} />
+                  </a>
+                </div>
+                <div className="text-[10px] text-zinc-500 font-mono mt-0.5">@{username || "som_07"}</div>
+              </div>
+            </div>
+
+            {/* Custom LeetCode Profile Statistics Grid */}
+            <div className="grid grid-cols-2 gap-2">
+              <Card className="p-3 bg-zinc-950/25 border-zinc-900">
+                <div className="text-[9px] uppercase text-zinc-500 font-bold font-mono">Rating</div>
+                <div className="text-lg font-extrabold text-blue-400 font-mono mt-1">{Math.round(rankingInfo?.rating || 1500)}</div>
+              </Card>
+              <Card className="p-3 bg-zinc-950/25 border-zinc-900">
+                <div className="text-[9px] uppercase text-zinc-500 font-bold font-mono">Rank</div>
+                <div className="text-lg font-extrabold text-zinc-200 font-mono mt-1">#{rankingInfo?.globalRanking?.toLocaleString() || "n/a"}</div>
+              </Card>
+              <Card className="p-3 bg-zinc-950/25 border-zinc-900">
+                <div className="text-[9px] uppercase text-zinc-500 font-bold font-mono">Contests</div>
+                <div className="text-lg font-extrabold text-zinc-200 font-mono mt-1">{rankingInfo?.attendedContestsCount || 0}</div>
+              </Card>
+              <Card className="p-3 bg-zinc-950/25 border-zinc-900">
+                <div className="text-[9px] uppercase text-zinc-500 font-bold font-mono">Peak Rating</div>
+                <div className="text-lg font-extrabold text-blue-400 font-mono mt-1">{peakRating}</div>
+              </Card>
+              <Card className="p-3 bg-zinc-950/25 border-zinc-900">
+                <div className="text-[9px] uppercase text-zinc-500 font-bold font-mono">Avg Δ</div>
+                <div className={`text-lg font-extrabold font-mono mt-1 ${avgDelta >= 0 ? "text-emerald-450" : "text-red-400"}`}>
+                  {avgDelta >= 0 ? "+" : ""}{avgDelta.toFixed(1)}
+                </div>
+              </Card>
+              <Card className="p-3 bg-zinc-950/25 border-zinc-900">
+                <div className="text-[9px] uppercase text-zinc-500 font-bold font-mono">Median Time</div>
+                <div className="text-lg font-extrabold text-zinc-200 font-mono mt-1">{medianDisplay}</div>
+              </Card>
+            </div>
+
+            {/* Area Chart: Rating History */}
+            <Card className="p-4 bg-zinc-950/15 border-zinc-900">
+              <div className="text-[9px] uppercase font-bold text-zinc-400 font-mono mb-2">Rating History</div>
+              <div className="text-[9px] text-zinc-650 font-sans mb-3 -mt-1">Rating progression across contests. Hover for details.</div>
+              <div className="h-[150px] w-full">
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
+                      <defs>
+                        <linearGradient id="colorRating" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25}/>
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="name" stroke="#27272a" fontSize={7} tickLine={false} />
+                      <YAxis domain={['dataMin - 100', 'dataMax + 100']} stroke="#27272a" fontSize={7} tickLine={false} />
+                      <ChartTooltip 
+                        contentStyle={{ backgroundColor: "#09090b", borderColor: "#18181b", fontSize: "9px", fontFamily: "monospace", color: "#d4d4d8" }}
+                        labelStyle={{ color: "#71717a" }}
+                      />
+                      <Area type="monotone" dataKey="rating" stroke="#3b82f6" strokeWidth={1.5} fillOpacity={1} fill="url(#colorRating)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-xs text-zinc-600 font-mono">No historical contest rating data available.</div>
+                )}
+              </div>
+            </Card>
+
+            <h3 className="text-[10px] uppercase font-bold text-zinc-500 font-mono tracking-wider mt-2.5">All Finalized Contests</h3>
           </div>
-        ) : (
+        )}
+
+        {activeTab === "predicted" && (
           <div className="grid grid-cols-1">
             <Card className="p-3.5 flex justify-between items-center bg-[#dfa054]/5 border border-[#dfa054]/25">
               <div>
@@ -99,11 +229,12 @@ export const Contest = () => {
         )}
 
         {activeTab === "history" && latestAnalytics && (
-          <div className="text-[10px] text-zinc-500 font-mono">
+          <div className="text-[10px] text-zinc-500 font-mono mt-1">
             Latest behavioral signals: panic {latestAnalytics.panicIndex || "n/a"}, choking {latestAnalytics.chokingIndex || "n/a"}
           </div>
         )}
-        <div className="flex flex-col gap-2">
+
+        <div className="flex flex-col gap-2 mt-2">
           {!loading && filteredContests.length === 0 && <div className="text-xs text-zinc-500 py-4 text-center">No contests found for this view.</div>}
           {filteredContests.map((contest) => {
             const delta = contest.status === "FINALIZED" ? contest.ratingDelta : contest.predictedDelta
@@ -122,10 +253,10 @@ export const Contest = () => {
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className={`font-bold text-xs font-mono ${!attended ? "text-zinc-500" : delta == null ? "text-zinc-500" : delta >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    <div className={`font-bold text-xs font-mono ${!attended ? "text-zinc-500" : delta == null ? "text-zinc-500" : delta >= 0 ? "text-emerald-450" : "text-red-400"}`}>
                       {attended ? deltaText(contest) : "0 (Unchanged)"}
                     </div>
-                    <div className={`text-[9px] mt-1 font-semibold ${!attended ? "text-zinc-500" : contest.status === "FINALIZED" ? "text-emerald-500" : contest.status === "PREDICTED" ? "text-amber-400" : "text-zinc-500"}`}>
+                    <div className={`text-[9px] mt-1 font-semibold ${!attended ? "text-zinc-500" : contest.status === "FINALIZED" ? "text-emerald-550" : contest.status === "PREDICTED" ? "text-amber-450" : "text-zinc-500"}`}>
                       {!attended ? "DID NOT ATTEND" : contest.status === "FINALIZED" ? "OFFICIAL" : contest.status === "PREDICTED" ? "ENTRANTHUB PREDICTION" : "PREDICTION PENDING"}
                     </div>
                   </div>
@@ -134,7 +265,7 @@ export const Contest = () => {
             )
           })}
         </div>
-        {data[0]?.refreshedAt && <div className="text-[9px] text-zinc-600 text-right">Refreshed {new Date(data[0].refreshedAt).toLocaleString()}</div>}
+        {data[0]?.refreshedAt && <div className="text-[9px] text-zinc-650 text-right mt-1.5">Refreshed {new Date(data[0].refreshedAt).toLocaleString()}</div>}
       </>}
     </div>
   )

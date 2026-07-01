@@ -98,6 +98,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true
   }
 
+  if (message.action === "get_user_profile") {
+    fetchUserProfile(message.payload.username)
+      .then((data) => sendResponse({ ok: true, data: data.data || {} }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }))
+    return true
+  }
+
   if (message.action === "get_leetcode_contest_ranking") {
     const { contestSlug, username, page = 1 } = message.payload;
     fetch(`https://leetcode.com/contest/api/ranking/${contestSlug}/?pagination=${page}&region=global&username=${username}`)
@@ -175,9 +182,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         // Try syncing code and generating structured docs on GitHub if Accepted and credentials exist
         if (payload.statusDisplay === "Accepted" && payload.code) {
-          const pat = await getGithubPat();
-          const repo = await getGithubRepo();
+          let pat = await getGithubPat();
+          let repo = await getGithubRepo();
           if (pat && repo) {
+            pat = pat.trim();
+            if (pat.startsWith('"') && pat.endsWith('"')) {
+              pat = pat.slice(1, -1);
+            }
+            repo = repo.trim();
+            if (repo.startsWith('"') && repo.endsWith('"')) {
+              repo = repo.slice(1, -1);
+            }
+
             try {
               // 1. Fetch LeetCode problem metadata
               const metaList = await fetchProblemMetadata([payload.titleSlug]);
@@ -188,7 +204,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               // 2. Commit the solution code file
               const codePath = `problems/${payload.titleSlug}/Solution.${ext}`;
               const commitMessageCode = `Add solution for ${payload.title || payload.titleSlug} [Accepted]`;
-              await commitToGithub(pat, repo, codePath, commitMessageCode, payload.code);
+              const resCode = await commitToGithub(pat, repo, codePath, commitMessageCode, payload.code);
+              if (!resCode.ok) {
+                console.error("GitHub code sync failed:", resCode.message);
+              } else {
+                console.log(`Successfully synced solution code for ${payload.titleSlug} to GitHub.`);
+              }
 
               // 3. Construct and commit the README.md file
               const readmePath = `problems/${payload.titleSlug}/README.md`;
@@ -235,8 +256,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               ].join("\n");
 
               const commitMessageReadme = `Generate README for ${payload.title || payload.titleSlug}`;
-              await commitToGithub(pat, repo, readmePath, commitMessageReadme, readmeContent);
-              console.log(`Successfully synced solution and README for ${payload.titleSlug} to GitHub.`);
+              const resReadme = await commitToGithub(pat, repo, readmePath, commitMessageReadme, readmeContent);
+              if (!resReadme.ok) {
+                console.error("GitHub README sync failed:", resReadme.message);
+              } else {
+                console.log(`Successfully synced README for ${payload.titleSlug} to GitHub.`);
+              }
             } catch (gitErr) {
               console.error("Error during GitHub sync operation:", gitErr);
             }

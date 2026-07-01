@@ -160,21 +160,32 @@ export async function loadContestLifecycle(username: string): Promise<ContestLif
     return right.contestSlug.localeCompare(left.contestSlug, undefined, { numeric: true })
   })
 
-  const pending = ordered.filter((contest) => contest.status === "PREDICTING" && contest.attended !== false).slice(0, 5)
-  await Promise.all(pending.map(async (contest) => {
-    const response = await sendMessage<any>({
-      action: "get_entranthub_prediction",
-      payload: { contestSlug: contest.contestSlug, username, region: "US" }
-    }).catch(() => null)
-    const prediction = response?.ok ? summarizeRealtimePrediction(response.data) : null
-    if (!prediction) return
-    contest.ratingBefore = prediction.oldRating
-    contest.predictedRating = prediction.predictedRating
-    contest.predictedDelta = prediction.predictedDelta
-    contest.predictedRank = prediction.predictedRank
-    contest.status = "PREDICTED"
-    contest.source = contest.source === "LEETCODE" ? "LEETCODE_AND_ENTRANTHUB" : "ENTRANTHUB"
-  }))
+  // Query EntrantHub predictions for the most recent unfinalized contests to check if user attended
+  const recentUnfinalized = ordered.filter((c) => c.status === "UNRATED" || c.status === "PREDICTING").slice(0, 3)
+  await Promise.all(
+    recentUnfinalized.map(async (contest) => {
+      try {
+        const response = await sendMessage<any>({
+          action: "get_entranthub_prediction",
+          payload: { contestSlug: contest.contestSlug, username, region: "US" }
+        })
+        if (response?.ok && response.data) {
+          const prediction = summarizeRealtimePrediction(response.data)
+          if (prediction && prediction.predictedRank != null) {
+            contest.attended = true
+            contest.ratingBefore = prediction.oldRating
+            contest.predictedRating = prediction.predictedRating
+            contest.predictedDelta = prediction.predictedDelta
+            contest.predictedRank = prediction.predictedRank
+            contest.status = "PREDICTED"
+            contest.source = "ENTRANTHUB"
+          }
+        }
+      } catch (err) {
+        console.warn(`Failed to check prediction for ${contest.contestSlug}:`, err)
+      }
+    })
+  )
 
   return ordered
 }

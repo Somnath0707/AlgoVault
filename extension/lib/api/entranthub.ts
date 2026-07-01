@@ -1,4 +1,4 @@
-const ENTRANTHUB_BASE_URL = "https://api.entranthub.com/api/v1/contests"
+const ENTRANTHUB_BASE_URL = "https://api.entranthub.com/api/v1"
 
 export type LeetCodeRegion = "US" | "CN"
 
@@ -52,11 +52,11 @@ export function fetchEntrantHubHistory(
 }
 
 export function fetchEntrantHubUpcoming(): Promise<EntrantHubContest[]> {
-  return entrantHubFetch("?status=upcoming")
+  return entrantHubFetch("/contests?status=upcoming")
 }
 
 export function fetchEntrantHubPast(): Promise<EntrantHubContest[]> {
-  return entrantHubFetch("?status=past")
+  return entrantHubFetch("/contests?status=past")
 }
 
 export function summarizeRealtimePrediction(data: EntrantHubRealtimeData | null | undefined) {
