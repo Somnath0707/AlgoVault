@@ -219,7 +219,7 @@ export const Lists = () => {
                       ? 'border-emerald-500/25 bg-emerald-950/5 shadow-[0_2px_12px_rgba(16,185,129,0.02)]' 
                       : isExpanded 
                       ? 'border-zinc-800 bg-zinc-900/10'
-                      : 'border-zinc-900 bg-zinc-950/20 hover:border-zinc-850'
+                      : 'border-zinc-900 bg-zinc-950/20 hover:border-zinc-800'
                   }`}
                 >
                   {/* Left Complete Indicator Line */}
@@ -233,7 +233,7 @@ export const Lists = () => {
                     className="w-full px-4 py-3.5 flex justify-between items-center hover:bg-zinc-900/20 transition-colors border-b border-zinc-900/10"
                   >
                     <div className="flex items-center gap-2">
-                      <span className={`text-[8px] transition-transform duration-200 ${isExpanded ? "rotate-90 text-[#dfa054]" : "rotate-0 text-zinc-550"}`}>▶</span>
+                      <span className={`text-[8px] transition-transform duration-200 ${isExpanded ? "rotate-90 text-[#dfa054]" : "rotate-0 text-zinc-500"}`}>▶</span>
                       <span className={`text-xs font-bold ${isTopicComplete ? "text-emerald-400 pl-1" : "text-zinc-250"}`}>{topic}</span>
                     </div>
                     <div className="flex items-center gap-3">
@@ -241,7 +241,7 @@ export const Lists = () => {
                         {topicSolved}/{topicTotal} solved
                       </span>
                       {isTopicComplete && (
-                        <span className="text-[8px] text-emerald-450 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider">Complete</span>
+                        <span className="text-[8px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider">Complete</span>
                       )}
                     </div>
                   </button>
@@ -255,7 +255,7 @@ export const Lists = () => {
                         
                         let diffColor = "text-amber-400 bg-amber-500/10 border-amber-500/20"
                         if (difficulty === "easy") {
-                          diffColor = "text-emerald-450 bg-emerald-500/10 border-emerald-500/20"
+                          diffColor = "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
                         } else if (difficulty === "hard") {
                           diffColor = "text-red-400 bg-red-500/10 border-red-500/20"
                         }
@@ -267,7 +267,7 @@ export const Lists = () => {
                               <span 
                                 className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
                                   isSolved 
-                                    ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-450 scale-105" 
+                                    ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 scale-105" 
                                     : "border-zinc-800 bg-zinc-950/30 text-transparent group-hover:border-zinc-700"
                                 }`}
                               >
@@ -278,7 +278,7 @@ export const Lists = () => {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className={`hover:text-[#dfa054] transition-colors truncate font-sans text-xs ${
-                                  isSolved ? "text-zinc-550 line-through" : "text-zinc-300 font-medium"
+                                  isSolved ? "text-zinc-500 line-through" : "text-zinc-300 font-medium"
                                 }`}
                                 title={`Open ${p.title} on LeetCode`}
                               >
@@ -302,14 +302,14 @@ export const Lists = () => {
         // ZeroTrac Interactive List Rendering
         <div className="grid gap-3.5">
           {/* ZeroTrac Advanced Filters Form */}
-          <Card className="p-4 flex flex-col gap-3.5 font-sans border-zinc-850 bg-zinc-900/10">
+          <Card className="p-4 flex flex-col gap-3.5 font-sans border-zinc-800 bg-zinc-900/10">
             <div className="grid grid-cols-2 gap-3.5">
               <div>
                 <label className="text-[9px] font-bold text-zinc-500 block mb-1.5 font-mono uppercase tracking-wider">Keyword</label>
                 <input 
                   type="text" 
                   placeholder="e.g. sum" 
-                  className="w-full bg-zinc-950 border border-zinc-850 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/10 transition-all font-mono"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/10 transition-all font-mono"
                   value={keyword}
                   onChange={(e) => {
                     setKeyword(e.target.value)
@@ -322,7 +322,7 @@ export const Lists = () => {
                 <input 
                   type="text" 
                   placeholder="e.g. 408" 
-                  className="w-full bg-zinc-950 border border-zinc-850 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/10 transition-all font-mono"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/10 transition-all font-mono"
                   value={contestNumber}
                   onChange={(e) => {
                     setContestNumber(e.target.value)
@@ -343,9 +343,9 @@ export const Lists = () => {
                       setRatingMin(parseInt(e.target.value) || 0)
                       setCurrentPage(1)
                     }}
-                    className="w-20 bg-zinc-950 border border-zinc-850 rounded-lg px-2.5 py-1.5 text-xs text-center text-zinc-250 focus:outline-none focus:border-[#dfa054] font-mono"
+                    className="w-20 bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-center text-zinc-300 focus:outline-none focus:border-[#dfa054] font-mono"
                   />
-                  <span className="text-zinc-650 font-mono">-</span>
+                  <span className="text-zinc-600 font-mono">-</span>
                   <input 
                     type="number"
                     value={ratingMax}
@@ -353,7 +353,7 @@ export const Lists = () => {
                       setRatingMax(parseInt(e.target.value) || 0)
                       setCurrentPage(1)
                     }}
-                    className="w-20 bg-zinc-950 border border-zinc-850 rounded-lg px-2.5 py-1.5 text-xs text-center text-zinc-250 focus:outline-none focus:border-[#dfa054] font-mono"
+                    className="w-20 bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-center text-zinc-300 focus:outline-none focus:border-[#dfa054] font-mono"
                   />
                 </div>
               </div>
@@ -369,7 +369,7 @@ export const Lists = () => {
             {/* Status Pills Selector */}
             <div className="border-t border-zinc-900 pt-3.5 flex items-center justify-between">
               <span className="text-[10px] text-zinc-500 font-mono">Status Filter:</span>
-              <div className="flex bg-zinc-950 p-0.5 rounded border border-zinc-850">
+              <div className="flex bg-zinc-950 p-0.5 rounded border border-zinc-800">
                 {(["all", "open", "done"] as const).map((filter) => (
                   <button
                     key={filter}
@@ -378,7 +378,7 @@ export const Lists = () => {
                       setCurrentPage(1)
                     }}
                     className={`text-[9px] font-bold px-3 py-1 rounded uppercase font-mono transition-colors ${
-                      statusFilter === filter ? "bg-zinc-800 text-zinc-100" : "text-zinc-550 hover:text-zinc-350"
+                      statusFilter === filter ? "bg-zinc-800 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
                     }`}
                   >
                     {filter}
@@ -396,7 +396,7 @@ export const Lists = () => {
             </div>
 
             {filteredZerotrac.length === 0 ? (
-              <div className="text-center py-8 text-xs text-zinc-650 font-mono bg-zinc-950/10 rounded-xl border border-dashed border-zinc-850">
+              <div className="text-center py-8 text-xs text-zinc-600 font-mono bg-zinc-950/10 rounded-xl border border-dashed border-zinc-800">
                 No matching ZeroTrac problems found.
               </div>
             ) : (
@@ -418,7 +418,7 @@ export const Lists = () => {
                         return (
                           <tr key={idx} className="hover:bg-zinc-900/20 transition-all duration-150">
                             {/* Problem ID */}
-                            <td className="py-3 px-1 text-center text-zinc-550 font-mono select-none">
+                            <td className="py-3 px-1 text-center text-zinc-500 font-mono select-none">
                               {p.ID || p.QuestionID || ""}
                             </td>
                             {/* Problem Title (with solved checkbox indicator) */}
@@ -427,8 +427,8 @@ export const Lists = () => {
                                 <span 
                                   className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
                                     isSolved 
-                                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-450" 
-                                      : "border-zinc-850 bg-zinc-950/30 text-transparent"
+                                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
+                                      : "border-zinc-800 bg-zinc-950/30 text-transparent"
                                   }`}
                                   title={isSolved ? "Solved" : "Unsolved"}
                                 >
@@ -478,7 +478,7 @@ export const Lists = () => {
                     <button 
                       onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                       disabled={activePage === 1}
-                      className="px-2 py-0.5 rounded-md text-zinc-450 hover:text-zinc-200 disabled:opacity-40"
+                      className="px-2 py-0.5 rounded-md text-zinc-400 hover:text-zinc-200 disabled:opacity-40"
                     >
                       &lt;
                     </button>
@@ -507,7 +507,7 @@ export const Lists = () => {
                     <button 
                       onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                       disabled={activePage === totalPages}
-                      className="px-2 py-0.5 rounded-md text-zinc-450 hover:text-zinc-200 disabled:opacity-40"
+                      className="px-2 py-0.5 rounded-md text-zinc-400 hover:text-zinc-200 disabled:opacity-40"
                     >
                       &gt;
                     </button>
