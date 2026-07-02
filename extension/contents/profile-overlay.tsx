@@ -90,8 +90,12 @@ export default function ProfileOverlay() {
     }
   }
 
-  const latest = contests[0]
-  const evidenceCount = Object.values(replays).reduce((count, summary) => count + summary.reports.filter(({ report }) => report.pasteCount > 0 || report.focusLoss > 10).length, 0)
+  const filteredContests = useMemo(() => {
+    return contests.filter((c) => c.attended !== false)
+  }, [contests])
+
+  const latest = filteredContests[0]
+  const evidenceCount = Object.values(replays).reduce((count, summary) => count + summary.reports.filter(({ report }) => report.focusLoss > 10 || report.pasteCount > 0).length, 0)
 
   return (
     <div className="fixed right-5 top-24 z-[2147483646] font-sans text-zinc-200">
@@ -123,26 +127,29 @@ export default function ProfileOverlay() {
             {error && <div className="rounded border border-red-900/60 bg-red-950/20 p-2 text-xs text-red-400">{error}</div>}
             {tab === "contests" && (
               <div className="grid gap-2">
-                {contests.slice(0, 12).map((contest) => {
-                  const delta = contest.status === "FINALIZED" ? contest.ratingDelta : contest.predictedDelta
-                  const rating = contest.status === "FINALIZED" ? contest.ratingAfter : contest.predictedRating
-                  return (
-                    <div key={contest.contestSlug} className="rounded-md border border-zinc-800 bg-zinc-900/60 p-2.5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0"><div className="truncate text-xs font-semibold">{contest.contestTitle}</div><div className="mt-1 text-[10px] text-zinc-500">Rank {contest.rank ?? contest.predictedRank ?? "n/a"} · {contest.problemsSolved ?? "?"}/{contest.totalProblems ?? "?"}</div></div>
-                        <div className="shrink-0 text-right"><div className={`text-xs font-bold ${delta == null ? "text-zinc-500" : delta >= 0 ? "text-emerald-400" : "text-red-400"}`}>{delta == null ? (contest.status === "FINALIZED" && rating != null ? `${Math.round(rating)} official` : contest.predictionError ? "Unavailable" : "Pending") : `${rating == null ? "" : `${Math.round(rating)} `}${delta >= 0 ? "+" : ""}${Math.round(delta)}`}</div><div className={`text-[9px] ${contest.status === "FINALIZED" ? "text-emerald-500" : contest.predictionError ? "text-zinc-500" : "text-amber-400"}`}>{contest.status === "FINALIZED" ? "OFFICIAL" : contest.predictionError ? "SOURCE BLOCKED" : contest.status}</div></div>
+                {filteredContests
+                  .filter((c) => c.status === "FINALIZED")
+                  .slice(0, 12)
+                  .map((contest) => {
+                    const delta = contest.status === "FINALIZED" ? contest.ratingDelta : contest.predictedDelta
+                    const rating = contest.status === "FINALIZED" ? contest.ratingAfter : contest.predictedRating
+                    return (
+                      <div key={contest.contestSlug} className="rounded-md border border-zinc-800 bg-zinc-900/60 p-2.5">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0"><div className="truncate text-xs font-semibold">{contest.contestTitle}</div><div className="mt-1 text-[10px] text-zinc-500">Rank {contest.rank ?? contest.predictedRank ?? "n/a"} · {contest.problemsSolved ?? "?"}/{contest.totalProblems ?? "?"}</div></div>
+                          <div className="shrink-0 text-right"><div className={`text-xs font-bold ${delta == null ? "text-zinc-500" : delta >= 0 ? "text-emerald-400" : "text-red-400"}`}>{delta == null ? (contest.status === "FINALIZED" && rating != null ? `${Math.round(rating)} official` : contest.predictionError ? "Unavailable" : "Pending") : `${rating == null ? "" : `${Math.round(rating)} `}${delta >= 0 ? "+" : ""}${Math.round(delta)}`}</div><div className={`text-[9px] ${contest.status === "FINALIZED" ? "text-emerald-500" : contest.predictionError ? "text-zinc-500" : "text-amber-400"}`}>{contest.status === "FINALIZED" ? "OFFICIAL" : contest.predictionError ? "SOURCE BLOCKED" : contest.status}</div></div>
+                        </div>
                       </div>
-                    </div>
-                  )
-                })}
-                {!loading && contests.length === 0 && <div className="py-6 text-center text-xs text-zinc-500">No attended contests returned.</div>}
+                    )
+                  })}
+                {!loading && filteredContests.filter((c) => c.status === "FINALIZED").length === 0 && <div className="py-6 text-center text-xs text-zinc-500">No attended contests returned.</div>}
               </div>
             )}
 
             {tab === "replay" && (
               <div className="grid gap-2">
                 <div className="mb-1 flex gap-2 rounded-md border border-amber-900/40 bg-amber-950/15 p-2 text-[10px] leading-relaxed text-amber-200/80"><ShieldCheck size={14} className="shrink-0" />Replay events are behavioral evidence, not proof of cheating.</div>
-                {contests.slice(0, 5).map((contest) => {
+                {filteredContests.slice(0, 5).map((contest) => {
                   const summary = replays[contest.contestSlug]
                   const replayPage = contest.rank ? Math.max(1, Math.ceil(contest.rank / 25)) : 1
                   return (
