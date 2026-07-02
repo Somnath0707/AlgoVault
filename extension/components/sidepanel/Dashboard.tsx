@@ -35,6 +35,7 @@ export const Dashboard = () => {
   const [sessions, setSessions] = useState<any[]>([])
   const [liveSession, setLiveSession] = useState<any>(null)
   const [sessionSeconds, setSessionSeconds] = useState<number>(0)
+  const [rankingInfo, setRankingInfo] = useState<any>(null)
 
   const loadSessionsHistory = () => {
     fetchAllSessions()
@@ -111,10 +112,11 @@ export const Dashboard = () => {
         fetchRevisionQueue().catch(() => []),
         fetchWeakness(),
         message<any>({ action: "get_solved_problem_slugs" }).catch(() => null),
-        username ? message<any>({ action: "get_user_profile", payload: { username } }).catch(() => null) : null,
+        message<any>({ action: "get_user_profile", payload: { username } }).catch(() => null),
         message<any>({ action: "get_zerotrac" }).catch(() => null),
-        fetchAllSessions().catch(() => [])
-      ]).then(([dashboard, buckets, daily, reviews, weak, solvedResponse, profileRes, zerotracRes, sessionsRes]) => {
+        fetchAllSessions().catch(() => []),
+        message<any>({ action: "get_user_contest_history", payload: { username } }).catch(() => null)
+      ]).then(([dashboard, buckets, daily, reviews, weak, solvedResponse, profileRes, zerotracRes, sessionsRes, rankingRes]) => {
         if (dashboard) {
           setData(dashboard)
           setCachedDashboard(dashboard)
@@ -139,6 +141,9 @@ export const Dashboard = () => {
         if (Array.isArray(sessionsRes)) {
           setSessions(sessionsRes)
         }
+        if (rankingRes?.ok) {
+          setRankingInfo(rankingRes.data?.userContestRanking || null)
+        }
         setError(null)
       }).catch((err) => {
         console.error("Dashboard background fetch failed:", err)
@@ -152,7 +157,7 @@ export const Dashboard = () => {
     })
   }, [])
 
-  // 3. Keep live session ticking in sync with extension storage
+  // 3. Keep live session ticking in sync with extension storage and backend logic
   useEffect(() => {
     const syncSession = () => {
       chrome.storage.local.get(["algovault.currentSession", "algovault.problemStartTime", "algovault.sessionState"], (res) => {
@@ -162,14 +167,19 @@ export const Dashboard = () => {
         const state = res?.["algovault.sessionState"]
         if (state?.isSolved) {
           setSessionSeconds(state.finalSeconds || 0)
-        } else {
+        } else if (current) {
+          // Base time is accumulated focusSeconds from backend
+          let seconds = current.focusSeconds || 0
+          
+          // If actively focusing on a problem right now, add the active delta
           const startTime = res?.["algovault.problemStartTime"]
-          if (current && startTime) {
+          if (startTime) {
             const diff = Math.max(0, Math.floor((Date.now() - new Date(startTime).getTime()) / 1000))
-            setSessionSeconds(diff)
-          } else {
-            setSessionSeconds(0)
+            seconds += diff
           }
+          setSessionSeconds(seconds)
+        } else {
+          setSessionSeconds(0)
         }
       })
     }
@@ -180,28 +190,44 @@ export const Dashboard = () => {
 
   const range = useMemo(() => {
     if (!zerotrac || !solved.size) return null
-    const ratings: number[] = []
-    for (const p of zerotrac) {
-      const slug = p.TitleSlug || p.title_slug
-      const rating = p.Rating || p.rating
-      if (slug && solved.has(slug) && typeof rating === "number") {
-        ratings.push(rating)
+    let baseRating = 1500
+    let source = "default"
+
+    if (rankingInfo?.rating && rankingInfo?.attendedContestsCount > 0) {
+      // Use official rating if they have contest history
+      baseRating = Math.round(rankingInfo.rating)
+      source = "official LeetCode contest rating"
+    } else {
+      // Otherwise, use the 85th percentile of their solved problems to gauge capability
+      const ratings: number[] = []
+      for (const p of zerotrac) {
+        const slug = p.TitleSlug || p.title_slug
+        const rating = p.Rating || p.rating
+        if (slug && solved.has(slug) && typeof rating === "number") {
+          ratings.push(rating)
+        }
       }
+      if (!ratings.length) return null
+      
+      // Sort ascending to find the 85th percentile
+      ratings.sort((a, b) => a - b)
+      const index = Math.floor(ratings.length * 0.85)
+      baseRating = Math.round(ratings[Math.min(index, ratings.length - 1)])
+      source = "85th percentile of your solved problems"
     }
-    if (!ratings.length) return null
-    ratings.sort((a, b) => a - b)
-    const mid = Math.floor(ratings.length / 2)
-    const median = ratings.length % 2 !== 0 ? ratings[mid] : (ratings[mid - 1] + ratings[mid]) / 2
-    const low = Math.round(median)
-    const high = low + 100
+
+    const low = baseRating
+    const high = baseRating + 100
+    
     return {
       low,
       high,
       challengeLow: high,
-      challengeHigh: high + 150,
-      evidence: ratings.length
+      challengeHigh: high + 200,
+      evidence: solved.size,
+      source
     }
-  }, [zerotrac, solved])
+  }, [zerotrac, solved, rankingInfo])
 
   const achievements = useMemo(() => {
     return getAchievements(buildAchievementStats(data || {}, heatmap))
@@ -220,8 +246,20 @@ export const Dashboard = () => {
           validSessionCount++
         }
         if (s.startedAt) {
-          const dateKey = s.startedAt.split("T")[0]
-          dailyMinutes[dateKey] = (dailyMinutes[dateKey] || 0) + Math.floor((s.focusSeconds || 0) / 60)
+          try {
+            // Support both ISO strings and Jackson array formatting from Spring Boot
+            let dateObj: Date;
+            if (Array.isArray(s.startedAt)) {
+              const [y, m, d, h = 0, min = 0, sec = 0] = s.startedAt
+              dateObj = new Date(Date.UTC(y, m - 1, d, h, min, sec))
+            } else {
+              dateObj = new Date(s.startedAt)
+            }
+            const dateKey = dateObj.toISOString().split("T")[0]
+            dailyMinutes[dateKey] = (dailyMinutes[dateKey] || 0) + Math.floor((s.focusSeconds || 0) / 60)
+          } catch (err) {
+            console.warn("Date parsing error for session", s)
+          }
         }
       }
     }
@@ -232,7 +270,7 @@ export const Dashboard = () => {
       const dateStr = d.toISOString().split("T")[0]
       return {
         dateStr,
-        dateLabel: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+        dateLabel: d.toLocaleDateString(undefined, { month: "short", day: "numeric", weekday: "short" }),
         minutes: dailyMinutes[dateStr] || 0
       }
     })
@@ -290,18 +328,18 @@ export const Dashboard = () => {
   return (
     <div className="grid gap-3.5 select-none">
       {/* Solve range card */}
-      <Card className="p-4">
-        <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-zinc-500"><Target size={13} />Evidence-based solve range</div>
+      <Card className="p-4 bg-zinc-950/20 border border-zinc-900 shadow-inner">
+        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500"><Target size={13} />Target Rating Range</div>
         {range ? (
           <>
-            <div className="mt-2 text-3xl font-extrabold font-mono text-zinc-100">{range.low}-{range.high}</div>
-            <div className="mt-1 text-[10px] text-zinc-500 font-mono">Based on median rating of {range.evidence} solved problems (+100 offset)</div>
-            <div className="mt-3 border-t border-zinc-800/80 pt-2 text-[11px] text-zinc-400">
-              Challenge next: <span className="font-mono text-[#dfa054]">{range.challengeLow}-{range.challengeHigh}</span>
+            <div className="mt-2 text-3xl font-extrabold font-mono text-zinc-100 tabular-nums tracking-tight">{range.low} <span className="text-zinc-600 font-normal">→</span> {range.high}</div>
+            <div className="mt-1 text-[10px] text-zinc-500 leading-snug">Based on {range.source}.</div>
+            <div className="mt-3 border-t border-zinc-900/60 pt-2.5 text-[11px] font-mono text-zinc-400">
+              Challenge targets: <span className="text-[#dfa054] font-bold bg-[#dfa054]/10 border border-[#dfa054]/20 px-2 py-0.5 rounded ml-1">{range.challengeLow} - {range.challengeHigh}</span>
             </div>
           </>
         ) : (
-          <div className="mt-3 text-xs text-zinc-400">Establish a range by syncing your solved problems history.</div>
+          <div className="mt-3 text-xs text-zinc-500">Establish a range by syncing your LeetCode history.</div>
         )}
       </Card>
 
@@ -402,37 +440,51 @@ export const Dashboard = () => {
           </div>
         </div>
 
-        {/* Compact Heatmap Grid */}
-        <div className="flex flex-col gap-2 pt-1">
-          <div className="grid grid-cols-7 gap-1.5 justify-center">
-            {stats.calendarDays.map((day) => {
-              const minutes = day.minutes
-              let colorClass = "bg-zinc-900/50 border border-zinc-950/40 hover:border-zinc-800"
-              if (minutes > 45) {
-                colorClass = "bg-emerald-500/80 border border-emerald-400/20 hover:bg-emerald-400"
-              } else if (minutes > 15) {
-                colorClass = "bg-emerald-700/60 border border-emerald-600/10 hover:bg-emerald-600/70"
-              } else if (minutes > 0) {
-                colorClass = "bg-emerald-950/40 border border-emerald-900/10 hover:bg-emerald-900/50"
-              }
-
-              return (
-                <div
-                  key={day.dateStr}
-                  className={`aspect-square w-full rounded-md cursor-help transition-all relative group ${colorClass}`}
-                  title={`${day.dateLabel}: ${minutes} min spent`}
-                >
-                  <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block z-50 p-2 rounded-lg border border-zinc-800 bg-zinc-950 text-[9px] font-mono text-zinc-300 shadow-xl whitespace-nowrap">
-                    <div className="font-bold">{day.dateLabel}</div>
-                    <div className="text-emerald-400 mt-0.5">{minutes} min spent</div>
-                  </div>
-                </div>
-              )
-            })}
+        {/* Premium Calendar Heatmap Grid */}
+        <div className="flex flex-col gap-2 pt-1 border-t border-zinc-900 mt-2">
+          <div className="flex justify-between items-center text-[9px] font-mono font-bold uppercase tracking-widest text-zinc-600 mb-1">
+            <span>Activity Map</span>
+            <span>28 Days</span>
           </div>
-          <div className="flex justify-between text-[8px] font-mono text-zinc-600 px-1 mt-0.5">
-            <span>28d ago</span>
-            <span>Today</span>
+          
+          <div className="flex">
+            {/* Y-axis days (optional, commonly Mon/Wed/Fri) */}
+            <div className="grid grid-rows-4 gap-1.5 text-[7px] font-mono text-zinc-600 pr-2 pb-1 uppercase font-bold justify-items-end pt-1">
+              <span className="flex items-center">Sun</span>
+              <span className="flex items-center">Mon</span>
+              <span className="flex items-center">Tue</span>
+              <span className="flex items-center">Wed</span>
+            </div>
+
+            <div className="grid grid-cols-7 grid-rows-4 grid-flow-col gap-1.5 flex-1">
+              {stats.calendarDays.map((day) => {
+                const minutes = day.minutes
+                let colorClass = "bg-zinc-900/60 border border-zinc-900 hover:border-zinc-700"
+                if (minutes > 45) {
+                  colorClass = "bg-emerald-500/80 border border-emerald-400/30 hover:bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.25)]"
+                } else if (minutes > 15) {
+                  colorClass = "bg-emerald-600/60 border border-emerald-500/20 hover:bg-emerald-500"
+                } else if (minutes > 0) {
+                  colorClass = "bg-emerald-900/50 border border-emerald-800/20 hover:bg-emerald-700/60"
+                }
+
+                return (
+                  <div
+                    key={day.dateStr}
+                    className={`w-full aspect-square rounded-sm cursor-help transition-all duration-300 relative group ${colorClass}`}
+                  >
+                    {/* Glassmorphic Tooltip */}
+                    <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 hidden group-hover:block z-50 p-2.5 rounded-lg border border-zinc-800 bg-zinc-950/95 backdrop-blur shadow-2xl whitespace-nowrap min-w-[120px]">
+                      {/* Tooltip triangle pointer */}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-solid border-t-zinc-800 border-t-8 border-x-transparent border-x-8 border-b-0"></div>
+                      
+                      <div className="text-[10px] font-bold text-zinc-300 border-b border-zinc-900 pb-1 mb-1">{day.dateLabel}</div>
+                      <div className="text-[11px] font-mono font-bold text-emerald-400">{minutes} <span className="text-[9px] text-zinc-500 font-sans font-normal">minutes</span></div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
       </Card>

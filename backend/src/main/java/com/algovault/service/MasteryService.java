@@ -143,8 +143,9 @@ public class MasteryService {
             tm.setFirstAcCount(firstAcCount);
             tm.setSuccessRate(successRate * 100.0);
             tm.setAvgSolveTime(timedSolves > 0 ? totalSolveMinutes / timedSolves : null);
-            double penaltyFactor = 1.5 + (10.0 / (totalAttempted + 1.0));
-            double conservativeScore = currentRating.rating - (penaltyFactor * currentRating.rd);
+            // Replaced the overly aggressive 10 / (attempts + 1) penalty with the industry-standard Glicko-2 Lower Confidence Bound (Rating - 2 * RD)
+            // This prevents tags with only 1-2 attempts from mathematically dropping to a score of 800.
+            double conservativeScore = currentRating.rating - (2.0 * currentRating.rd);
             tm.setMasteryScore(Math.max(800.0, conservativeScore));
             tm.setRd(currentRating.rd);
             tm.setVolatility(currentRating.volatility);

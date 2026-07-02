@@ -4,6 +4,9 @@ server:
     max-http-form-post-size: 50MB
 
 spring:
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
   servlet:
     multipart:
       max-file-size: 50MB
