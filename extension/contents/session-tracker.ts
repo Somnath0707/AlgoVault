@@ -98,13 +98,15 @@ function heartbeat(titleSlug = trackedSlug, title = trackedTitle) {
 chrome.runtime.sendMessage({ action: "session_start" })
 sendEvent("OPEN", { url: location.href })
 
-function handleInactive() {
+function handleInactive(isTabSwitch = false) {
   if (isSolved) return
   if (isWindowFocused) {
     addFocusedTime(true)
     isWindowFocused = false
-    tabSwitches += 1
-    sendEvent("TAB_SWITCH", { tabSwitches })
+    if (isTabSwitch) {
+      tabSwitches += 1
+      sendEvent("TAB_SWITCH", { tabSwitches })
+    }
   }
 }
 
@@ -119,14 +121,14 @@ function handleActive() {
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
-    handleInactive()
+    handleInactive(true)
   } else {
     handleActive()
   }
 })
 
 window.addEventListener("blur", () => {
-  handleInactive()
+  handleInactive(false)
 })
 
 window.addEventListener("focus", () => {
@@ -153,7 +155,7 @@ document.addEventListener("copy", (event) => {
 // Stop timer immediately on Accepted submission
 // Listen for postMessage from MAIN world (events cross world boundary, CustomEvents do NOT)
 window.addEventListener("message", ((event: MessageEvent) => {
-  if (event.data?.type !== "AV_SUBMISSION_RESULT") return
+  if (event.data?.type !== "AV_SUBMISSION_RESULT" && event.data?.type !== "AV_SUBMISSION_RESULT_CONFIRMED") return
   if (isSolved) return
   const detail = event.data.detail || {}
   const statusNum = detail.statusCode != null ? Number(detail.statusCode) : null

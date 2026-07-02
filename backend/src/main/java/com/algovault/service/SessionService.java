@@ -207,6 +207,14 @@ public class SessionService {
             .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<SessionResponse> getAll(User user) {
+        return sessionRepository.findByUserIdOrderByStartedAtDesc(user.getId())
+            .stream()
+            .map(this::toResponse)
+            .toList();
+    }
+
     private Session currentOrStart(User user, String mode) {
         return sessionRepository.findFirstByUserIdAndEndedAtIsNullOrderByStartedAtDesc(user.getId())
             .orElseGet(() -> sessionRepository.save(Session.builder()

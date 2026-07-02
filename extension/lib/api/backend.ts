@@ -105,6 +105,8 @@ export const startSession = async (mode = "PRACTICE") => {
 
 export const fetchCurrentSession = async () => backendFetch("/api/sessions/current")
 
+export const fetchAllSessions = async () => backendFetch("/api/sessions/all")
+
 export const sendSessionEvent = async (payload: Record<string, any>) => {
   return backendFetch("/api/sessions/event", {
     method: "POST",

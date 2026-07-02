@@ -69,4 +69,10 @@ public class SessionController {
         User user = userContextService.resolveUser(servletRequest);
         return ResponseEntity.ok(sessionService.getToday(user));
     }
+
+    @GetMapping("/all")
+    public ResponseEntity<List<SessionResponse>> all(HttpServletRequest servletRequest) {
+        User user = userContextService.resolveUser(servletRequest);
+        return ResponseEntity.ok(sessionService.getAll(user));
+    }
 }

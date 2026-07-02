@@ -12,4 +12,5 @@ import java.util.Optional;
 public interface SessionRepository extends JpaRepository<Session, Long> {
     Optional<Session> findFirstByUserIdAndEndedAtIsNullOrderByStartedAtDesc(Long userId);
     List<Session> findByUserIdAndStartedAtAfterOrderByStartedAtDesc(Long userId, LocalDateTime startedAt);
+    List<Session> findByUserIdOrderByStartedAtDesc(Long userId);
 }
