@@ -130,7 +130,7 @@ export const Contest = () => {
 
   const chartData = useMemo(() => {
     return data
-      .filter((c) => c.status === "FINALIZED" && c.ratingAfter != null)
+      .filter((c) => c.status === "FINALIZED" && c.ratingAfter != null && c.attended !== false)
       .map((c) => ({
         name: c.contestTitle.replace("Weekly Contest ", "W").replace("Biweekly Contest ", "B"),
         rating: Math.round(c.ratingAfter!)
@@ -141,7 +141,7 @@ export const Contest = () => {
   // Filter display list
   const filteredContests = useMemo(() => {
     if (activeTab === "history") {
-      return data.filter((contest) => contest.status === "FINALIZED")
+      return data.filter((contest) => contest.status === "FINALIZED" && contest.attended !== false)
     }
     return []
   }, [data, activeTab])
