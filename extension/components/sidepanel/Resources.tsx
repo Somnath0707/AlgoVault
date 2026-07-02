@@ -18,7 +18,7 @@ const RESOURCES = [
     url: "https://cp-algorithms.com/",
     tags: [
       { text: "Algorithms", color: "bg-blue-950/30 text-blue-400 border border-blue-500/20" },
-      { text: "Reference", color: "bg-emerald-950/30 text-emerald-450 border border-emerald-500/20" }
+      { text: "Reference", color: "bg-emerald-950/30 text-emerald-400 border border-emerald-500/20" }
     ]
   },
   {
@@ -27,7 +27,7 @@ const RESOURCES = [
     url: "https://usaco.guide/",
     tags: [
       { text: "Algorithms", color: "bg-blue-950/30 text-blue-400 border border-blue-500/20" },
-      { text: "Reference", color: "bg-emerald-950/30 text-emerald-450 border border-emerald-500/20" }
+      { text: "Reference", color: "bg-emerald-950/30 text-emerald-400 border border-emerald-500/20" }
     ]
   },
   {
@@ -61,7 +61,7 @@ const RESOURCES = [
     url: "https://cses.fi/book/book.pdf",
     tags: [
       { text: "Algorithms", color: "bg-blue-950/30 text-blue-400 border border-blue-500/20" },
-      { text: "Reference", color: "bg-emerald-950/30 text-emerald-450 border border-emerald-500/20" }
+      { text: "Reference", color: "bg-emerald-950/30 text-emerald-400 border border-emerald-500/20" }
     ]
   },
   {
@@ -103,13 +103,13 @@ export const Resources = () => {
             rel="noopener noreferrer"
             className="block group focus:outline-none"
           >
-            <Card className="p-3 bg-zinc-950/20 border-zinc-850 hover:border-zinc-700/80 hover:bg-zinc-900/10 transition-all flex flex-col justify-between h-[90px] select-none">
+            <Card className="p-3 bg-zinc-950/20 border-zinc-800 hover:border-zinc-700/80 hover:bg-zinc-900/10 transition-all flex flex-col justify-between h-[90px] select-none">
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <span className="font-bold text-xs text-zinc-200 group-hover:text-[#dfa054] transition-colors">{resource.name}</span>
                   <ExternalLink size={11} className="text-zinc-600 group-hover:text-zinc-400 transition-colors" />
                 </div>
-                <p className="text-[10px] text-zinc-550 leading-snug line-clamp-2">{resource.description}</p>
+                <p className="text-[10px] text-zinc-500 leading-snug line-clamp-2">{resource.description}</p>
               </div>
               <div className="flex gap-1.5 mt-2">
                 {resource.tags.map((tag) => (

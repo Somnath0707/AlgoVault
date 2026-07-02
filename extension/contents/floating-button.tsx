@@ -68,7 +68,7 @@ const FloatingButton = () => {
     <div
       onMouseEnter={() => setExpanded(true)}
       onMouseLeave={() => setExpanded(false)}
-      className="fixed bottom-6 right-6 z-[9999] transition-all duration-150 ease-in-out font-sans"
+      className="fixed bottom-6 right-6 z-[9999] transition-all duration-200 ease-in-out font-sans"
     >
       {!expanded ? (
         // Collapsed Pill Button
@@ -81,7 +81,7 @@ const FloatingButton = () => {
         </button>
       ) : (
         // Expanded Command Surface Layout (Level 3 Elevation)
-        <div className="w-[190px] rounded-xl border border-zinc-800/80 bg-zinc-950/90 backdrop-blur-xl p-3 shadow-2xl transition-all duration-150">
+        <div className="w-[190px] rounded-xl border border-zinc-800/80 bg-zinc-950/90 backdrop-blur-xl p-3 shadow-2xl transition-all duration-200">
           <div className="flex items-center justify-between border-b border-zinc-900 pb-2 mb-2">
             <div className="flex items-center gap-1.5">
               <span className="relative flex h-1.5 w-1.5 shrink-0">

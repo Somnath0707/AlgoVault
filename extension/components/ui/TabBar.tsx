@@ -13,7 +13,7 @@ export const TabBar = ({ activeTab, setActiveTab }: { activeTab: Tab, setActiveT
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 min-w-[70px] text-center px-1.5 py-1.5 text-xs font-medium rounded-md transition-all duration-150 relative ${
+            className={`flex-1 min-w-[70px] text-center px-1.5 py-1.5 text-xs font-medium rounded-md transition-all duration-200 relative ${
               isActive 
                 ? 'bg-zinc-800 text-zinc-100' 
                 : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/30'

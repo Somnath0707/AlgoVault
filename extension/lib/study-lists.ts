@@ -52,6 +52,6 @@ const striverSde = [
 ]
 
 export const STUDY_LISTS: StudyList[] = [
-  { id: "neetcode-150", name: "NeetCode 150", description: "150 interview problems grouped by pattern", sourceUrl: "https://neetcode.io/practice", problems: neetcode150 },
+  { id: "neetcode-200", name: "NeetCode 150", description: "150 interview problems grouped by pattern", sourceUrl: "https://neetcode.io/practice", problems: neetcode150 },
   { id: "striver-sde", name: "Striver SDE", description: "LeetCode-compatible problems from the Striver SDE sheet", sourceUrl: "https://takeuforward.org/interviews/strivers-sde-sheet-top-coding-interview-problems", problems: striverSde }
 ]

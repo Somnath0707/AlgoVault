@@ -260,7 +260,7 @@ export function analyzeEvents(events: any[]): CheatReport {
 
   let status: AnalysisStatus = 'CLEAN';
   let label = 'No external paste detected';
-  let color = 'text-green-450';
+  let color = 'text-green-400';
   const details: string[] = [];
 
   const hasHeavyPaste = detectedPastes.some(d => d.includes('Large Ext. Paste'));

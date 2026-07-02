@@ -175,7 +175,7 @@ export const Contest = () => {
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm text-zinc-150 truncate">{profile?.realName || username || "Som 07"}</span>
+                  <span className="font-bold text-sm text-zinc-200 truncate">{profile?.realName || username || "Som 07"}</span>
                   <span className="text-[8px] bg-emerald-950/30 text-emerald-400 border border-emerald-500/20 px-1 py-0.2 rounded font-mono font-bold uppercase">{profile?.countryCode || "US"}</span>
                   <a href={`https://leetcode.com/${username || "som_07"}/`} target="_blank" rel="noreferrer" className="text-zinc-500 hover:text-zinc-300">
                     <ExternalLink size={12} />
@@ -205,7 +205,7 @@ export const Contest = () => {
               </Card>
               <Card className="p-3 bg-zinc-950/25 border-zinc-900">
                 <div className="text-[9px] uppercase text-zinc-500 font-bold font-mono">Avg Δ</div>
-                <div className={`text-lg font-extrabold font-mono mt-1 ${avgDelta >= 0 ? "text-emerald-450" : "text-red-400"}`}>
+                <div className={`text-lg font-extrabold font-mono mt-1 ${avgDelta >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                   {avgDelta >= 0 ? "+" : ""}{avgDelta.toFixed(1)}
                 </div>
               </Card>
@@ -218,7 +218,7 @@ export const Contest = () => {
             {/* Area Chart: Rating History */}
             <Card className="p-4 bg-zinc-950/15 border-zinc-900">
               <div className="text-[9px] uppercase font-bold text-zinc-400 font-mono mb-2">Rating History</div>
-              <div className="text-[9px] text-zinc-650 font-sans mb-3 -mt-1">Rating progression across contests. Hover for details.</div>
+              <div className="text-[9px] text-zinc-600 font-sans mb-3 -mt-1">Rating progression across contests. Hover for details.</div>
               <div className="h-[150px] w-full">
                 {chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
@@ -281,14 +281,14 @@ export const Contest = () => {
                       <span className="font-mono text-zinc-500">Rank {contest.predictedRank ?? "n/a"}</span>
                     </div>
                   </div>
-                  <div className={`shrink-0 text-right font-mono text-sm font-bold ${contest.predictedDelta >= 0 ? "text-emerald-450" : "text-red-400"}`}>
+                  <div className={`shrink-0 text-right font-mono text-sm font-bold ${contest.predictedDelta >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                     {contest.predictedDelta >= 0 ? "+" : ""}{Math.round(contest.predictedDelta)}
                   </div>
                 </div>
                 <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-md border border-zinc-800 bg-zinc-950/35 p-3">
                   <div>
-                    <div className="text-[9px] uppercase text-zinc-650 font-bold font-mono">Old Rating</div>
-                    <div className="mt-1 font-mono text-lg font-bold text-zinc-350">{Math.round(contest.oldRating)}</div>
+                    <div className="text-[9px] uppercase text-zinc-600 font-bold font-mono">Old Rating</div>
+                    <div className="mt-1 font-mono text-lg font-bold text-zinc-300">{Math.round(contest.oldRating)}</div>
                   </div>
                   <div className="text-zinc-600 font-bold">↓</div>
                   <div className="text-right">
@@ -326,10 +326,10 @@ export const Contest = () => {
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className={`font-bold text-xs font-mono ${!attended ? "text-zinc-500" : delta == null ? "text-zinc-500" : delta >= 0 ? "text-emerald-450" : "text-red-400"}`}>
+                    <div className={`font-bold text-xs font-mono ${!attended ? "text-zinc-500" : delta == null ? "text-zinc-500" : delta >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                       {attended ? deltaText(contest) : "0 (Unchanged)"}
                     </div>
-                    <div className={`text-[9px] mt-1 font-semibold ${!attended ? "text-zinc-500" : contest.status === "FINALIZED" ? "text-emerald-550" : contest.status === "PREDICTED" ? "text-amber-450" : "text-zinc-500"}`}>
+                    <div className={`text-[9px] mt-1 font-semibold ${!attended ? "text-zinc-500" : contest.status === "FINALIZED" ? "text-emerald-500" : contest.status === "PREDICTED" ? "text-amber-400" : "text-zinc-500"}`}>
                       {statusText(contest)}
                     </div>
                     {contest.predictionError && <div className="mt-1 max-w-[130px] truncate text-[8px] text-zinc-600" title={contest.predictionError}>{contest.predictionError}</div>}
@@ -339,7 +339,7 @@ export const Contest = () => {
             )
           })}
         </div>}
-        {data[0]?.refreshedAt && <div className="text-[9px] text-zinc-650 text-right mt-1.5">Refreshed {new Date(data[0].refreshedAt).toLocaleString()}</div>}
+        {data[0]?.refreshedAt && <div className="text-[9px] text-zinc-600 text-right mt-1.5">Refreshed {new Date(data[0].refreshedAt).toLocaleString()}</div>}
       </>}
     </div>
   )

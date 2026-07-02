@@ -16,7 +16,7 @@ const tierStyle: Record<string, { text: string; border: string; glow: string; la
     border: "border-zinc-700", 
     glow: "shadow-zinc-950/40", 
     label: "Common",
-    corner: "bg-zinc-550",
+    corner: "bg-zinc-500",
     bg: "bg-[#18181b]" 
   },
   rare: { 
@@ -24,7 +24,7 @@ const tierStyle: Record<string, { text: string; border: string; glow: string; la
     border: "border-sky-600", 
     glow: "shadow-sky-500/10", 
     label: "Rare",
-    corner: "bg-sky-450",
+    corner: "bg-sky-400",
     bg: "bg-[#0c1a24]" 
   },
   epic: { 
@@ -183,7 +183,7 @@ export function AchievementShowcase({ achievements, variant = "gallery" }: Achie
               {/* Lock Indicator overlay */}
               {!isEarned && (
                 <div className="absolute inset-0 flex items-center justify-center bg-zinc-950/20">
-                  <Lock size={15} className="text-zinc-650" />
+                  <Lock size={15} className="text-zinc-600" />
                 </div>
               )}
 
@@ -214,31 +214,31 @@ export function AchievementShowcase({ achievements, variant = "gallery" }: Achie
             </span>
           </div>
 
-          <div className="text-[10px] text-zinc-450 leading-relaxed mb-2 font-medium">
+          <div className="text-[10px] text-zinc-400 leading-relaxed mb-2 font-medium">
             {hoveredTrophy.requirement}
           </div>
 
           <div className="flex justify-between items-center font-mono mt-1 text-[9px]">
-            <span className="text-zinc-550">Status:</span>
-            <span className={`font-bold ${hoveredTrophy.earned ? "text-emerald-450" : "text-zinc-500"}`}>
+            <span className="text-zinc-500">Status:</span>
+            <span className={`font-bold ${hoveredTrophy.earned ? "text-emerald-400" : "text-zinc-500"}`}>
               {hoveredTrophy.earned ? "Unlocked ✓" : `${hoveredTrophy.progress}% Unlocked`}
             </span>
           </div>
 
           {!hoveredTrophy.earned && (
             <div className="flex justify-between items-center font-mono text-[9px] mt-0.5">
-              <span className="text-zinc-550">Progress:</span>
-              <span className="text-zinc-350">{hoveredTrophy.progressLabel}</span>
+              <span className="text-zinc-500">Progress:</span>
+              <span className="text-zinc-300">{hoveredTrophy.progressLabel}</span>
             </div>
           )}
 
           <div className="flex flex-col gap-0.5 font-mono text-[9px] border-t border-zinc-900 pt-1.5 mt-1.5">
-            <span className="text-zinc-550">Insight:</span>
+            <span className="text-zinc-500">Insight:</span>
             <span className="text-zinc-400 leading-relaxed text-[8.5px]">{hoveredTrophy.insight}</span>
           </div>
 
           {hoveredTrophy.earned && hoveredTrophy.earnedLabel && (
-            <div className="text-[8px] font-mono text-zinc-550 text-right mt-1.5">
+            <div className="text-[8px] font-mono text-zinc-500 text-right mt-1.5">
               {hoveredTrophy.earnedLabel}
             </div>
           )}

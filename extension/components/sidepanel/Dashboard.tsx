@@ -255,7 +255,7 @@ export const Dashboard = () => {
     return (
       <Card className="py-8 text-center border-red-900/35 bg-red-950/20">
         <div className="text-sm font-semibold text-red-400">Dashboard Failed to Load</div>
-        <div className="mt-1.5 text-[10px] text-zinc-405 font-mono px-4 break-all">{error}</div>
+        <div className="mt-1.5 text-[10px] text-zinc-400 font-mono px-4 break-all">{error}</div>
         <button 
           onClick={() => window.location.reload()} 
           className="mt-4 px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-[10px] font-mono border border-zinc-700"
@@ -295,7 +295,7 @@ export const Dashboard = () => {
         {range ? (
           <>
             <div className="mt-2 text-3xl font-extrabold font-mono text-zinc-100">{range.low}-{range.high}</div>
-            <div className="mt-1 text-[10px] text-zinc-550 font-mono">Based on median rating of {range.evidence} solved problems (+100 offset)</div>
+            <div className="mt-1 text-[10px] text-zinc-500 font-mono">Based on median rating of {range.evidence} solved problems (+100 offset)</div>
             <div className="mt-3 border-t border-zinc-800/80 pt-2 text-[11px] text-zinc-400">
               Challenge next: <span className="font-mono text-[#dfa054]">{range.challengeLow}-{range.challengeHigh}</span>
             </div>
@@ -317,32 +317,32 @@ export const Dashboard = () => {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
           ) : (
-            <span className="text-[9px] font-mono text-zinc-650 uppercase">Standby</span>
+            <span className="text-[9px] font-mono text-zinc-600 uppercase">Standby</span>
           )}
         </div>
 
         {/* Telemetry metrics */}
         <div className="grid grid-cols-4 gap-2 text-center font-mono">
           <div className="bg-zinc-900/30 border border-zinc-900 py-1.5 rounded-lg flex flex-col">
-            <span className="text-[8px] text-zinc-550 uppercase tracking-wider font-semibold">Time</span>
+            <span className="text-[8px] text-zinc-500 uppercase tracking-wider font-semibold">Time</span>
             <span className="font-bold text-zinc-200 mt-0.5 tabular-nums text-xs">
               {liveSession ? `${Math.floor(sessionSeconds / 60)}:${String(sessionSeconds % 60).padStart(2, "0")}` : "0:00"}
             </span>
           </div>
           <div className="bg-zinc-900/30 border border-zinc-900 py-1.5 rounded-lg flex flex-col">
-            <span className="text-[8px] text-zinc-550 uppercase tracking-wider font-semibold">Focus</span>
+            <span className="text-[8px] text-zinc-500 uppercase tracking-wider font-semibold">Focus</span>
             <span className="font-bold text-zinc-200 mt-0.5 tabular-nums text-xs">
               {liveSession ? `${liveSession.focusScore}%` : "100%"}
             </span>
           </div>
           <div className="bg-zinc-900/30 border border-zinc-900 py-1.5 rounded-lg flex flex-col">
-            <span className="text-[8px] text-zinc-550 uppercase tracking-wider font-semibold">Switches</span>
+            <span className="text-[8px] text-zinc-500 uppercase tracking-wider font-semibold">Switches</span>
             <span className="font-bold text-zinc-200 mt-0.5 tabular-nums text-xs">
               {liveSession ? liveSession.tabSwitches : 0}
             </span>
           </div>
           <div className="bg-zinc-900/30 border border-zinc-900 py-1.5 rounded-lg flex flex-col">
-            <span className="text-[8px] text-zinc-550 uppercase tracking-wider font-semibold">Pastes</span>
+            <span className="text-[8px] text-zinc-500 uppercase tracking-wider font-semibold">Pastes</span>
             <span className="font-bold text-zinc-200 mt-0.5 tabular-nums text-xs">
               {liveSession ? liveSession.pasteCount : 0}
             </span>
@@ -383,21 +383,21 @@ export const Dashboard = () => {
           <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-zinc-500">
             <Clock3 size={13} /> Practice Telemetry
           </div>
-          <div className="text-[9px] font-mono text-zinc-550">Last 28 Days</div>
+          <div className="text-[9px] font-mono text-zinc-500">Last 28 Days</div>
         </div>
 
         {/* History Stats Grid */}
         <div className="grid grid-cols-3 gap-2 text-center font-mono">
           <div className="bg-zinc-900/10 border border-zinc-900/60 p-2 rounded-lg">
-            <span className="text-[8px] text-zinc-550 block uppercase">Total Hours</span>
+            <span className="text-[8px] text-zinc-500 block uppercase">Total Hours</span>
             <span className="text-xs font-bold text-zinc-200 mt-0.5 block">{stats.totalHours.toFixed(1)}h</span>
           </div>
           <div className="bg-zinc-900/10 border border-zinc-900/60 p-2 rounded-lg">
-            <span className="text-[8px] text-zinc-550 block uppercase">Avg Session</span>
+            <span className="text-[8px] text-zinc-500 block uppercase">Avg Session</span>
             <span className="text-xs font-bold text-zinc-200 mt-0.5 block">{stats.avgSessionMin}m</span>
           </div>
           <div className="bg-zinc-900/10 border border-zinc-900/60 p-2 rounded-lg">
-            <span className="text-[8px] text-zinc-550 block uppercase">Daily Avg</span>
+            <span className="text-[8px] text-zinc-500 block uppercase">Daily Avg</span>
             <span className="text-xs font-bold text-zinc-200 mt-0.5 block">{stats.dailyAvgMin}m</span>
           </div>
         </div>
@@ -430,7 +430,7 @@ export const Dashboard = () => {
               )
             })}
           </div>
-          <div className="flex justify-between text-[8px] font-mono text-zinc-650 px-1 mt-0.5">
+          <div className="flex justify-between text-[8px] font-mono text-zinc-600 px-1 mt-0.5">
             <span>28d ago</span>
             <span>Today</span>
           </div>

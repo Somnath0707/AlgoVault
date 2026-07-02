@@ -61,7 +61,7 @@ export const Weakness = () => {
         {data?.recommendations?.length === 0 && <div className="text-xs text-zinc-500 font-mono py-2">No recommendations available yet.</div>}
         {data?.recommendations?.map((r: any, i: number) => (
           <a key={i} href={`https://leetcode.com/problems/${r.titleSlug}/`} target="_blank" rel="noreferrer">
-            <Card className="py-2.5 px-3 cursor-pointer hover:bg-zinc-800/30 transition-all duration-150 border border-zinc-800/50 hover:border-zinc-700">
+            <Card className="py-2.5 px-3 cursor-pointer hover:bg-zinc-800/30 transition-all duration-200 border border-zinc-800/50 hover:border-zinc-700">
               <div className="flex justify-between items-center">
                 <span className="font-medium text-xs text-zinc-300 truncate pr-2">{r.title}</span>
                 <span className="text-[10px] font-mono shrink-0 px-2 py-0.5 bg-zinc-900/30 rounded border border-zinc-800 text-zinc-400">

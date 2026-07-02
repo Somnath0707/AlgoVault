@@ -44,7 +44,7 @@ export const Lists = () => {
   }, [])
 
   // Find NeetCode and Striver list objects
-  const neetcodeList = STUDY_LISTS.find(l => l.id === "neetcode-150")
+  const neetcodeList = STUDY_LISTS.find(l => l.id === "neetcode-200")
   const striverList = STUDY_LISTS.find(l => l.id === "striver-sde")
 
   const currentStudyList = activeList === "neetcode" ? neetcodeList : striverList
@@ -181,7 +181,7 @@ export const Lists = () => {
             className={`flex-1 text-[10px] font-bold py-2 rounded-md transition-all uppercase tracking-wider font-mono ${
               activeList === opt 
                 ? "bg-zinc-900 text-[#dfa054] border border-zinc-800/80 shadow" 
-                : "text-zinc-500 hover:text-zinc-350"
+                : "text-zinc-500 hover:text-zinc-300"
             }`}
           >
             {opt === "neetcode" ? "NeetCode 150" : opt === "striver" ? "Striver SDE" : "ZeroTrac"}
@@ -234,7 +234,7 @@ export const Lists = () => {
                   >
                     <div className="flex items-center gap-2">
                       <span className={`text-[8px] transition-transform duration-200 ${isExpanded ? "rotate-90 text-[#dfa054]" : "rotate-0 text-zinc-500"}`}>▶</span>
-                      <span className={`text-xs font-bold ${isTopicComplete ? "text-emerald-400 pl-1" : "text-zinc-250"}`}>{topic}</span>
+                      <span className={`text-xs font-bold ${isTopicComplete ? "text-emerald-400 pl-1" : "text-zinc-200"}`}>{topic}</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] font-mono text-zinc-500 tabular-nums">
@@ -390,9 +390,9 @@ export const Lists = () => {
 
           {/* ZeroTrac Matching Results List */}
           <div className="flex flex-col gap-2.5">
-            <div className="flex justify-between items-center text-[10px] text-zinc-550 font-mono px-1">
+            <div className="flex justify-between items-center text-[10px] text-zinc-500 font-mono px-1">
               <span>Matching Problems</span>
-              <span>Count: <span className="text-zinc-350">{filteredZerotrac.length}</span></span>
+              <span>Count: <span className="text-zinc-300">{filteredZerotrac.length}</span></span>
             </div>
 
             {filteredZerotrac.length === 0 ? (
@@ -416,7 +416,7 @@ export const Lists = () => {
                       {paginatedItems.map((p, idx) => {
                         const isSolved = solvedSlugs.has(p.TitleSlug)
                         return (
-                          <tr key={idx} className="hover:bg-zinc-900/20 transition-all duration-150">
+                          <tr key={idx} className="hover:bg-zinc-900/20 transition-all duration-200">
                             {/* Problem ID */}
                             <td className="py-3 px-1 text-center text-zinc-500 font-mono select-none">
                               {p.ID || p.QuestionID || ""}
@@ -520,7 +520,7 @@ export const Lists = () => {
                       type="text" 
                       defaultValue={activePage}
                       key={activePage} // Reset value on page change
-                      className="w-8 bg-zinc-900 border border-zinc-800 rounded-md text-center text-[10px] text-zinc-350 font-mono py-0.5 ml-1.5 focus:outline-none focus:border-[#dfa054]"
+                      className="w-8 bg-zinc-900 border border-zinc-800 rounded-md text-center text-[10px] text-zinc-300 font-mono py-0.5 ml-1.5 focus:outline-none focus:border-[#dfa054]"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           const val = parseInt((e.target as HTMLInputElement).value)

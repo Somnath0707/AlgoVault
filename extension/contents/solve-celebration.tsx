@@ -74,7 +74,7 @@ const THEMES: Record<string, ThemeAssets> = {
     },
     titleColor: {
       victory: "text-[#dfa054] drop-shadow-[0_4px_16px_rgba(223,160,84,0.45)]",
-      defeat: "text-red-650 drop-shadow-[0_4px_16px_rgba(220,38,38,0.45)]"
+      defeat: "text-red-600 drop-shadow-[0_4px_16px_rgba(220,38,38,0.45)]"
     },
     subColor: {
       victory: "text-zinc-100",
@@ -250,7 +250,7 @@ export default function SolveCelebration() {
             setVisible(false)
             setTimeout(() => setMounted(false), 500)
           }}
-          className="text-[9px] text-zinc-550 font-mono hover:text-[#dfa054] transition-colors uppercase tracking-widest outline-none cursor-pointer"
+          className="text-[9px] text-zinc-500 font-mono hover:text-[#dfa054] transition-colors uppercase tracking-widest outline-none cursor-pointer"
         >
           [ Click anywhere or press ESC to dismiss ]
         </button>

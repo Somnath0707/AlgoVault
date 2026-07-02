@@ -194,7 +194,7 @@ export const Settings = () => {
             <select
                 value={celebrationTheme}
                 onChange={handleThemeChange}
-                className="bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-xs text-zinc-350 focus:outline-none focus:border-[#dfa054]"
+                className="bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-xs text-zinc-300 focus:outline-none focus:border-[#dfa054]"
             >
                 <option value="gta">Grand Theft Auto</option>
                 <option value="minecraft">Minecraft</option>
@@ -235,22 +235,22 @@ export const Settings = () => {
                 value={username}
                 onChange={handleUsernameChange}
                 placeholder="Enter username"
-                className="w-full bg-zinc-900/30 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-650 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/20 transition-all"
+                className="w-full bg-zinc-900/30 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/20 transition-all"
             />
             {!loadingActiveUser && activeLcUser && username && activeLcUser.toLowerCase() !== username.trim().toLowerCase() && (
-              <div className="text-[9px] text-amber-550 mt-1 font-mono">
+              <div className="text-[9px] text-amber-500 mt-1 font-mono">
                 ⚠️ Click <span className="underline cursor-pointer text-[#dfa054] hover:text-white" onClick={() => { setUsername(activeLcUser); persistUsername(activeLcUser); }}>here</span> to align with logged-in user: "{activeLcUser}".
               </div>
             )}
             {!loadingActiveUser && !activeLcUser && (
-              <div className="text-[9px] text-amber-550 mt-1 font-mono">
+              <div className="text-[9px] text-amber-500 mt-1 font-mono">
                 ⚠️ Log in to LeetCode.com in your browser before running a sync.
               </div>
             )}
         </div>
 
         {syncStatus?.status === 'RUNNING' ? (
-            <div className="bg-zinc-950 border border-zinc-850 p-3 rounded-lg font-mono text-[10px] text-zinc-400">
+            <div className="bg-zinc-950 border border-zinc-800 p-3 rounded-lg font-mono text-[10px] text-zinc-400">
                 <div className="flex justify-between items-center mb-2 pb-1 border-b border-zinc-900/50">
                     <span className="text-[#dfa054] animate-pulse">SYNCHRONIZING LOGGER</span>
                     <div className="w-3.5 h-3.5 rounded-full border border-[#dfa054] border-t-transparent animate-spin" />
@@ -289,7 +289,7 @@ export const Settings = () => {
                         });
                         setSyncStatus({ status: 'RUNNING', message: 'Resuming older sync...', count: 0, subCount: 0 });
                     }}
-                    className="w-full bg-zinc-850 hover:bg-zinc-800 text-zinc-200 hover:text-white font-semibold text-[10px] py-1.5 px-3 rounded border border-zinc-750 font-mono tracking-wider uppercase"
+                    className="w-full bg-zinc-800 hover:bg-zinc-800 text-zinc-200 hover:text-white font-semibold text-[10px] py-1.5 px-3 rounded border border-zinc-700 font-mono tracking-wider uppercase"
                 >
                     Sync Older Submissions (Offset: {syncHasMore.nextOffset})
                 </button>
@@ -317,7 +317,7 @@ export const Settings = () => {
               value={githubPat}
               onChange={(e) => setGithubPat(e.target.value)}
               placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-              className="w-full bg-zinc-900/30 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-650 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/20 transition-all font-mono"
+              className="w-full bg-zinc-900/30 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/20 transition-all font-mono"
             />
           </div>
 
@@ -328,13 +328,13 @@ export const Settings = () => {
               value={githubRepo}
               onChange={(e) => setGithubRepo(e.target.value)}
               placeholder="owner/repo (e.g. Somnath0707/AlgoVault)"
-              className="w-full bg-zinc-900/30 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-650 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/20 transition-all font-mono"
+              className="w-full bg-zinc-900/30 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/20 transition-all font-mono"
             />
           </div>
 
           <button
             onClick={handleGithubSave}
-            className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-250 hover:text-white font-semibold text-xs py-2 px-4 rounded-lg transition-colors border border-zinc-750 font-mono tracking-wider uppercase mt-1"
+            className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white font-semibold text-xs py-2 px-4 rounded-lg transition-colors border border-zinc-700 font-mono tracking-wider uppercase mt-1"
           >
             {githubSaved ? "Saved ✔" : "Save Credentials"}
           </button>
@@ -342,7 +342,7 @@ export const Settings = () => {
           {gitSyncStatus && (
             <div className={`mt-3 p-3 rounded-lg border text-[10px] font-mono leading-relaxed ${
               gitSyncStatus.success 
-                ? 'bg-emerald-950/20 border-emerald-900/30 text-emerald-450' 
+                ? 'bg-emerald-950/20 border-emerald-900/30 text-emerald-400' 
                 : 'bg-red-950/20 border-red-900/30 text-red-400'
             }`}>
               <div className="font-bold uppercase mb-0.5">
@@ -352,7 +352,7 @@ export const Settings = () => {
               {gitSyncStatus.message && gitSyncStatus.message !== "Success" && (
                 <div className="mt-0.5 text-zinc-400 break-all">Error: {gitSyncStatus.message}</div>
               )}
-              <div className="text-zinc-650 mt-1.5 text-[8px] text-right">
+              <div className="text-zinc-600 mt-1.5 text-[8px] text-right">
                 {new Date(gitSyncStatus.timestamp).toLocaleTimeString()}
               </div>
             </div>
