@@ -15,8 +15,7 @@
     "plasmo": "0.89.2",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "recharts": "^2.12.7",
-    "sharp": "^0.35.2"
+    "recharts": "^2.12.7"
   },
   "devDependencies": {
     "@types/chrome": "0.0.268",
@@ -25,6 +24,7 @@
     "@types/react-dom": "18.3.0",
     "autoprefixer": "^10.4.19",
     "postcss": "^8.4.38",
+    "sharp": "^0.35.2",
     "svgo": "^3.3.3",
     "tailwindcss": "^3.4.4",
     "typescript": "5.4.5"
@@ -34,8 +34,7 @@
       "sidePanel",
       "storage",
       "activeTab",
-      "cookies",
-      "alarms"
+      "cookies"
     ],
     "host_permissions": [
       "https://leetcode.com/*",
