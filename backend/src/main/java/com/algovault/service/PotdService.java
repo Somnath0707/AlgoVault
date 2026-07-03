@@ -85,11 +85,6 @@ public class PotdService {
         RevisionCard revisionCard = null;
         if (!dueCards.isEmpty()) {
             revisionCard = dueCards.get(0);
-        } else {
-            List<RevisionCard> allCards = revisionCardRepository.findByUserIdOrderByNextReviewAsc(userId);
-            if (!allCards.isEmpty()) {
-                revisionCard = allCards.get(0);
-            }
         }
 
         if (revisionCard != null) {

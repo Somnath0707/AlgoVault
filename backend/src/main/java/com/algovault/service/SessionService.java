@@ -31,6 +31,7 @@ public class SessionService {
     private final AnalyticsService analyticsService;
     private final ZerotracService zerotracService;
     private final ProblemService problemService;
+    private final AnalyticsMetricRepository analyticsMetricRepository;
 
     private Problem problemFromRequest(String titleSlug, String title) {
         return problemService.getOrCreate(titleSlug, title);
@@ -171,8 +172,9 @@ public class SessionService {
             exists = submissionRepository.existsByTighterTuple(user.getId(), problem.getId(), verdict, submittedAt, request.getRuntimeMs());
         }
 
+        Submission submission = null;
         if (!exists) {
-            submissionRepository.save(Submission.builder()
+            submission = submissionRepository.save(Submission.builder()
                 .user(user)
                 .problem(problem)
                 .leetcodeSubmissionId(request.getSubmissionId())
@@ -185,6 +187,14 @@ public class SessionService {
                 .source("REALTIME")
                 .submittedAt(submittedAt)
                 .build());
+        } else {
+            if (request.getSubmissionId() != null && !request.getSubmissionId().isBlank()) {
+                submission = submissionRepository.findByUserIdAndLeetcodeSubmissionId(user.getId(), request.getSubmissionId()).orElse(null);
+            }
+            if (submission == null) {
+                List<Submission> matches = submissionRepository.findByUserIdAndProblemId(user.getId(), problem.getId());
+                submission = matches.isEmpty() ? null : matches.get(matches.size() - 1);
+            }
         }
 
         ProblemOpenEvent event = openEvent(user, problem, null);
@@ -196,12 +206,24 @@ public class SessionService {
         }
         problemOpenEventRepository.save(event);
 
+        // Resolve prediction metrics for this user & problem
+        List<AnalyticsMetric> unresolved = analyticsMetricRepository.findByUserIdAndActualResultIsNull(user.getId());
+        for (AnalyticsMetric m : unresolved) {
+            if (m.getProblem().getId().equals(problem.getId())) {
+                m.setActualResult("Accepted".equals(verdict));
+                m.setResolvedAt(LocalDateTime.now());
+                analyticsMetricRepository.save(m);
+            }
+        }
+
         session.setProblemsAttempted((int) submissionRepository.countDistinctProblemsSince(user.getId(), session.getStartedAt()));
         session.setProblemsSolved((int) submissionRepository.countDistinctSolvedProblemsSince(user.getId(), session.getStartedAt()));
         sessionRepository.save(session);
 
         syncMetadata(user);
-        analyticsService.recomputeAll(user.getId());
+        if (submission != null) {
+            analyticsService.updateIncremental(user.getId(), submission);
+        }
         return toResponse(session);
     }
 
@@ -222,7 +244,7 @@ public class SessionService {
         ProblemOpenEvent event = openEvent(user, problem, null);
         event.setSelfReportedHelp(Optional.ofNullable(request.getHelpType()).orElse("NONE"));
         problemOpenEventRepository.save(event);
-        analyticsService.recomputeAll(user.getId());
+        analyticsService.updateIncremental(user.getId(), event);
     }
 
     @Transactional(readOnly = true)

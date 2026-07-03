@@ -9,17 +9,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.algovault.dto.PredictionEvaluationResponse;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class PredictionEvaluationService {
     private final AnalyticsMetricRepository repository;
 
-    public void evaluateMetrics() {
-        List<AnalyticsMetric> resolvedMetrics = repository.findByActualResultIsNotNull();
+    public PredictionEvaluationResponse getEvaluation(Long userId) {
+        List<AnalyticsMetric> resolvedMetrics = repository.findByActualResultIsNotNull().stream()
+            .filter(m -> m.getUser().getId().equals(userId))
+            .collect(Collectors.toList());
+
         if (resolvedMetrics.isEmpty()) {
-            log.info("No resolved predictions to evaluate.");
-            return;
+            return PredictionEvaluationResponse.builder()
+                .totalResolved(0)
+                .accuracyPercent(0.0)
+                .brierScore(0.0)
+                .build();
         }
 
         double totalBrierScore = 0;
@@ -39,9 +47,10 @@ public class PredictionEvaluationService {
         double meanBrierScore = totalBrierScore / resolvedMetrics.size();
         double accuracy = (double) correctPredictions / resolvedMetrics.size();
 
-        log.info("Prediction Evaluation:");
-        log.info("Total Resolved: {}", resolvedMetrics.size());
-        log.info("Accuracy: {}%", String.format("%.2f", accuracy * 100));
-        log.info("Brier Score: {}", String.format("%.4f", meanBrierScore)); // Lower is better (0 to 1)
+        return PredictionEvaluationResponse.builder()
+            .totalResolved(resolvedMetrics.size())
+            .accuracyPercent(accuracy * 100.0)
+            .brierScore(meanBrierScore)
+            .build();
     }
 }

@@ -1,4 +1,6 @@
 package com.algovault.service;
+import com.algovault.model.Submission;
+import com.algovault.model.ProblemOpenEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,5 +31,17 @@ public class AnalyticsService {
     
     public void recomputeRatingBuckets(Long userId) {
         heatmapService.recomputeHeatmap(userId);
+    }
+
+    public void updateIncremental(Long userId, Submission submission) {
+        log.info("Incremental update of analytics for user: {}, submission: {}", userId, submission.getId());
+        masteryService.updateIncremental(userId, submission);
+        topicRatingService.updateIncremental(userId, submission);
+        heatmapService.updateIncremental(userId, submission);
+    }
+
+    public void updateIncremental(Long userId, ProblemOpenEvent event) {
+        log.info("Incremental update of analytics for user: {}, event: {}", userId, event.getId());
+        masteryService.updateIncremental(userId, event);
     }
 }

@@ -9,12 +9,22 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.algovault.dto.PredictionEvaluationResponse;
+import com.algovault.service.PredictionEvaluationService;
+
 @RestController
 @RequestMapping("/api/predict")
 @RequiredArgsConstructor
 public class PredictionController {
     private final SolveProbabilityService service;
     private final UserContextService userContextService;
+    private final PredictionEvaluationService evaluationService;
+
+    @GetMapping("/evaluation")
+    public ResponseEntity<PredictionEvaluationResponse> getEvaluation(HttpServletRequest request) {
+        User user = userContextService.resolveUser(request);
+        return ResponseEntity.ok(evaluationService.getEvaluation(user.getId()));
+    }
 
     @GetMapping("/{titleSlug}")
     public ResponseEntity<PredictionResponse> getPrediction(HttpServletRequest request, @PathVariable String titleSlug) {

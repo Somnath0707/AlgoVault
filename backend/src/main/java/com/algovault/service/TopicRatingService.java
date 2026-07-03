@@ -82,4 +82,32 @@ public class TopicRatingService {
         // Save completely new topics
         topicRatingRepository.saveAll(tagRatings.values());
     }
+
+    @Transactional
+    public void updateIncremental(Long userId, Submission submission) {
+        if (submission.getProblem() == null || submission.getProblem().getActualRating() == null) return;
+        List<String> tags = submission.getProblem().getTags();
+        if (tags == null || tags.isEmpty()) return;
+
+        User user = userRepository.findById(userId).orElseThrow();
+        int problemRating = (int) Math.round(submission.getProblem().getActualRating());
+        
+        List<Submission> problemSubs = submissionRepository.findByUserIdAndProblemId(userId, submission.getProblem().getId());
+        problemSubs.sort(Comparator.comparing(Submission::getSubmittedAt));
+        
+        boolean isFirstTryAc = "Accepted".equals(problemSubs.get(0).getVerdict());
+        boolean isEventualAc = problemSubs.stream().anyMatch(s -> "Accepted".equals(s.getVerdict()));
+        double score = isFirstTryAc ? 1.0 : (isEventualAc ? 0.7 : 0.0);
+
+        for (String tag : tags) {
+            TopicRating tr = topicRatingRepository.findByUserIdAndTag(userId, tag)
+                .orElseGet(() -> TopicRating.builder().user(user).tag(tag).eloRating(1200).peakRating(1200).problemsPlayed(0).build());
+
+            int newElo = eloEngine.calculateNewElo(tr.getEloRating(), problemRating, score, tr.getProblemsPlayed());
+            tr.setEloRating(newElo);
+            if (newElo > tr.getPeakRating()) tr.setPeakRating(newElo);
+            tr.setProblemsPlayed(tr.getProblemsPlayed() + 1);
+            topicRatingRepository.save(tr);
+        }
+    }
 }

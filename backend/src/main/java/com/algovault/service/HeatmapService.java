@@ -87,7 +87,11 @@ public class HeatmapService {
         for (UserRatingBucket bucket : buckets.values()) {
             if (bucket.getAttempted() != null && bucket.getAttempted() > 0) {
                 bucket.setAvgAttempts(bucket.getAvgAttempts() / bucket.getAttempted());
-                bucket.setAvgSolveTime(bucket.getAvgSolveTime() / bucket.getAttempted());
+            }
+            if (bucket.getSolved() != null && bucket.getSolved() > 0) {
+                bucket.setAvgSolveTime(bucket.getAvgSolveTime() / bucket.getSolved());
+            } else {
+                bucket.setAvgSolveTime(0.0);
             }
         }
 
@@ -95,5 +99,85 @@ public class HeatmapService {
         userRatingBucketRepository.deleteAll(existing);
         userRatingBucketRepository.flush();
         userRatingBucketRepository.saveAll(buckets.values());
+    }
+
+    @Transactional
+    public void updateIncremental(Long userId, Submission submission) {
+        if (submission.getProblem() == null || submission.getProblem().getActualRating() == null) return;
+        
+        User user = userRepository.findById(userId).orElseThrow();
+        int rating = (int) Math.round(submission.getProblem().getActualRating());
+        int bucketRating = (rating / 100) * 100;
+
+        UserRatingBucket bucket = userRatingBucketRepository.findByUserId(userId).stream()
+            .filter(b -> b.getBucketRating().equals(bucketRating))
+            .findFirst()
+            .orElseGet(() -> UserRatingBucket.builder()
+                .user(user)
+                .bucketRating(bucketRating)
+                .attempted(0)
+                .solved(0)
+                .firstAcCount(0)
+                .avgAttempts(0.0)
+                .avgSolveTime(0.0)
+                .build());
+
+        List<Submission> problemSubs = submissionRepository.findByUserIdAndProblemId(userId, submission.getProblem().getId());
+        problemSubs.sort(Comparator.comparing(Submission::getSubmittedAt));
+
+        if (problemSubs.size() == 1) {
+            bucket.setAttempted(bucket.getAttempted() + 1);
+            if ("Accepted".equals(submission.getVerdict())) {
+                bucket.setSolved(bucket.getSolved() + 1);
+                bucket.setFirstAcCount(bucket.getFirstAcCount() + 1);
+            }
+        } else {
+            boolean wasSolved = problemSubs.subList(0, problemSubs.size() - 1).stream()
+                .anyMatch(s -> "Accepted".equals(s.getVerdict()));
+            boolean isSolvedNow = "Accepted".equals(submission.getVerdict());
+            if (!wasSolved && isSolvedNow) {
+                bucket.setSolved(bucket.getSolved() + 1);
+            }
+        }
+
+        List<Submission> allSubs = submissionRepository.findByUserId(userId);
+        List<Submission> bucketSubs = allSubs.stream()
+            .filter(s -> s.getProblem() != null && s.getProblem().getActualRating() != null &&
+                        ((int) Math.round(s.getProblem().getActualRating()) / 100) * 100 == bucketRating)
+            .toList();
+
+        Map<Long, List<Submission>> problemAttempts = new HashMap<>();
+        for (Submission sub : bucketSubs) {
+            problemAttempts.computeIfAbsent(sub.getProblem().getId(), k -> new ArrayList<>()).add(sub);
+        }
+
+        double totalAttempts = 0;
+        double totalSolveTime = 0;
+        int solvedCount = 0;
+
+        for (List<Submission> subs : problemAttempts.values()) {
+            subs.sort(Comparator.comparing(Submission::getSubmittedAt));
+            boolean isEventualAc = subs.stream().anyMatch(s -> "Accepted".equals(s.getVerdict()));
+            int attemptsUntilAc = 0;
+            for (Submission sub : subs) {
+                attemptsUntilAc++;
+                if ("Accepted".equals(sub.getVerdict())) {
+                    break;
+                }
+            }
+            totalAttempts += attemptsUntilAc;
+            if (isEventualAc) {
+                solvedCount++;
+                if (subs.size() > 1) {
+                    long minutes = java.time.Duration.between(subs.get(0).getSubmittedAt(), subs.get(attemptsUntilAc - 1).getSubmittedAt()).toMinutes();
+                    totalSolveTime += Math.max(0, minutes);
+                }
+            }
+        }
+
+        bucket.setAvgAttempts(problemAttempts.isEmpty() ? 0.0 : totalAttempts / problemAttempts.size());
+        bucket.setAvgSolveTime(solvedCount == 0 ? 0.0 : totalSolveTime / solvedCount);
+        
+        userRatingBucketRepository.save(bucket);
     }
 }

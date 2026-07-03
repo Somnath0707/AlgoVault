@@ -17,6 +17,9 @@ import java.util.List;
 
 import org.springframework.cache.annotation.Cacheable;
 
+import com.algovault.model.AnalyticsMetric;
+import com.algovault.repository.AnalyticsMetricRepository;
+
 @Service
 @RequiredArgsConstructor
 public class SolveProbabilityService {
@@ -28,6 +31,7 @@ public class SolveProbabilityService {
     private final com.algovault.repository.ContestResultRepository contestResultRepository;
     private final com.algovault.repository.ProblemOpenEventRepository problemOpenEventRepository;
     private final ProblemService problemService;
+    private final AnalyticsMetricRepository analyticsMetricRepository;
 
     @org.springframework.cache.annotation.Cacheable(value = "predictions", key = "#userId + '-' + #titleSlug")
     public PredictionResponse predict(Long userId, String titleSlug) {
@@ -39,6 +43,24 @@ public class SolveProbabilityService {
         List<com.algovault.model.ContestResult> contestResults = contestResultRepository.findByUserIdOrderByContestDateDesc(userId);
         List<com.algovault.model.ProblemOpenEvent> openEvents = problemOpenEventRepository.findByUserId(userId);
         
-        return engine.predict(user, problem, submissions, masteries, contestResults, openEvents);
+        PredictionResponse response = engine.predict(user, problem, submissions, masteries, contestResults, openEvents);
+
+        if (response != null && !Boolean.TRUE.equals(response.getInsufficientData())) {
+            boolean alreadyPending = analyticsMetricRepository.findByUserIdAndActualResultIsNull(userId).stream()
+                .anyMatch(m -> m.getProblem().getId().equals(problem.getId()));
+            if (!alreadyPending) {
+                analyticsMetricRepository.save(AnalyticsMetric.builder()
+                    .user(user)
+                    .problem(problem)
+                    .predictedProbability((double) response.getSolveChance())
+                    .actualResult(null)
+                    .problemRating(problem.getActualRating())
+                    .tags(problem.getTags() != null ? String.join(",", problem.getTags()) : "")
+                    .confidence(response.getConfidence())
+                    .build());
+            }
+        }
+
+        return response;
     }
 }

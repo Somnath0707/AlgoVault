@@ -10,6 +10,7 @@ import java.util.Optional;
 public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     List<Submission> findByUserId(Long userId);
     List<Submission> findByUserIdOrderBySubmittedAtDesc(Long userId);
+    List<Submission> findByUserIdAndProblemId(Long userId, Long problemId);
     boolean existsByUserIdAndProblemIdAndSubmittedAt(Long userId, Long problemId, LocalDateTime submittedAt);
     Optional<Submission> findByUserIdAndLeetcodeSubmissionId(Long userId, String leetcodeSubmissionId);
     long countByUserId(Long userId);
