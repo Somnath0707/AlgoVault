@@ -36,22 +36,11 @@ public class DashboardService {
         User user = userRepository.findById(userId).orElseThrow();
         SyncMetadata meta = syncMetadataRepository.findByUserId(userId).orElse(new SyncMetadata());
         
-        List<Submission> submissions = submissionRepository.findByUserIdOrderBySubmittedAtDesc(userId);
-        List<Submission> recentSubs = submissions.stream()
-            .filter(s -> "Accepted".equals(s.getVerdict()))
-            .limit(5)
-            .collect(Collectors.toList());
+        List<Submission> recentSubs = submissionRepository.findTop5ByUserIdAndVerdictOrderBySubmittedAtDesc(userId, "Accepted");
 
-        LocalDate today = LocalDate.now();
-        int todaySubmissions = (int) submissions.stream()
-            .filter(s -> s.getSubmittedAt().toLocalDate().equals(today))
-            .count();
-        int todaySolves = (int) submissions.stream()
-            .filter(s -> "Accepted".equals(s.getVerdict()))
-            .filter(s -> s.getSubmittedAt().toLocalDate().equals(today))
-            .map(s -> s.getProblem().getId())
-            .distinct()
-            .count();
+        LocalDateTime startOfToday = LocalDate.now().atStartOfDay();
+        int todaySubmissions = (int) submissionRepository.countSubmissionsSince(userId, startOfToday);
+        int todaySolves = (int) submissionRepository.countDistinctSolvedProblemsSince(userId, startOfToday);
 
         Optional<Session> currentSession = sessionRepository.findFirstByUserIdAndEndedAtIsNullOrderByStartedAtDesc(userId);
         int sessionTime = 0;
@@ -82,6 +71,8 @@ public class DashboardService {
                 .build())
             .collect(Collectors.toList());
 
+        List<LocalDateTime> acceptedDates = submissionRepository.findAcceptedDatesDesc(userId);
+
         return DashboardResponse.builder()
             .lcRating(user.getLcRating())
             .lastSyncTime(meta.getLastSyncTime())
@@ -94,15 +85,14 @@ public class DashboardService {
             .tabSwitches(switches)
             .pasteCount(pastes)
             .currentMode(currentSession.map(Session::getMode).orElse("PRACTICE"))
-            .currentStreak(computeCurrentStreak(submissions))
+            .currentStreak(computeCurrentStreak(acceptedDates))
             .recentSolves(recentSolves)
             .build();
     }
 
-    private int computeCurrentStreak(List<Submission> submissions) {
-        Set<LocalDate> acceptedDays = submissions.stream()
-            .filter(s -> "Accepted".equals(s.getVerdict()))
-            .map(s -> s.getSubmittedAt().toLocalDate())
+    private int computeCurrentStreak(List<LocalDateTime> acceptedDates) {
+        Set<LocalDate> acceptedDays = acceptedDates.stream()
+            .map(LocalDateTime::toLocalDate)
             .collect(Collectors.toCollection(HashSet::new));
 
         LocalDate cursor = LocalDate.now();

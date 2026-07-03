@@ -171,17 +171,8 @@ public class SessionService {
         }
         problemOpenEventRepository.save(event);
 
-        session.setProblemsAttempted((int) submissionRepository.findByUserId(user.getId()).stream()
-            .filter(s -> !s.getSubmittedAt().isBefore(session.getStartedAt()))
-            .map(s -> s.getProblem().getId())
-            .distinct()
-            .count());
-        session.setProblemsSolved((int) submissionRepository.findByUserId(user.getId()).stream()
-            .filter(s -> !s.getSubmittedAt().isBefore(session.getStartedAt()))
-            .filter(s -> "Accepted".equals(s.getVerdict()))
-            .map(s -> s.getProblem().getId())
-            .distinct()
-            .count());
+        session.setProblemsAttempted((int) submissionRepository.countDistinctProblemsSince(user.getId(), session.getStartedAt()));
+        session.setProblemsSolved((int) submissionRepository.countDistinctSolvedProblemsSince(user.getId(), session.getStartedAt()));
         sessionRepository.save(session);
 
         syncMetadata(user);

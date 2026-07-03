@@ -19,4 +19,15 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
 
     @Query("select distinct s.submittedAt from Submission s where s.user.id = :userId and s.verdict = 'Accepted' order by s.submittedAt desc")
     List<LocalDateTime> findAcceptedDatesDesc(Long userId);
+
+    @Query("select count(distinct s.problem.id) from Submission s where s.user.id = :userId and s.submittedAt >= :since")
+    long countDistinctProblemsSince(Long userId, LocalDateTime since);
+
+    @Query("select count(distinct s.problem.id) from Submission s where s.user.id = :userId and s.submittedAt >= :since and s.verdict = 'Accepted'")
+    long countDistinctSolvedProblemsSince(Long userId, LocalDateTime since);
+
+    @Query("select count(s.id) from Submission s where s.user.id = :userId and s.submittedAt >= :since")
+    long countSubmissionsSince(Long userId, LocalDateTime since);
+
+    List<Submission> findTop5ByUserIdAndVerdictOrderBySubmittedAtDesc(Long userId, String verdict);
 }
