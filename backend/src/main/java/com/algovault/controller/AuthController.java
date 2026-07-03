@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.beans.factory.annotation.Value;
+import jakarta.annotation.PostConstruct;
 
 import java.util.Map;
 
@@ -22,6 +24,19 @@ public class AuthController {
 
     private final JwtService jwtService;
     private final UserRepository userRepository;
+
+    @Value("${app.auth.mode:}")
+    private String authMode;
+
+    @PostConstruct
+    public void logWarning() {
+        if ("single-user".equalsIgnoreCase(authMode)) {
+            System.err.println("****************************************************************");
+            System.err.println("WARNING: SINGLE-USER MODE ACTIVE. AUTHENTICATION BYPASS ENABLED.");
+            System.err.println("THIS MODE IS ONLY SAFE ON A MACHINE ONLY YOU CAN REACH.");
+            System.err.println("****************************************************************");
+        }
+    }
 
     @GetMapping("/success")
     public ResponseEntity<?> oauthSuccess(@AuthenticationPrincipal OAuth2User oauth2User) {
@@ -63,6 +78,9 @@ public class AuthController {
 
     @PostMapping("/extension-login")
     public ResponseEntity<?> extensionLogin(@RequestBody Map<String, String> request) {
+        if (!"single-user".equalsIgnoreCase(authMode)) {
+            return ResponseEntity.status(403).body("Extension login bypass is disabled. OAuth required.");
+        }
         String username = request.get("username");
         if (username == null || username.isBlank()) {
             return ResponseEntity.badRequest().body("Username required");

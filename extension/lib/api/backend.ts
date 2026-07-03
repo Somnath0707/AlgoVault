@@ -1,5 +1,5 @@
 import { BACKEND_URL } from "../constants"
-import { getUsername } from "../storage"
+import { getUsername, getJwtToken, clearJwtToken } from "../storage"
 import type { PredictionResult } from "../types"
 
 let cachedToken: string | null = null;
@@ -22,16 +22,18 @@ async function getAuthToken(username: string): Promise<string> {
 
 async function backendFetch(path: string, init: RequestInit = {}) {
   const username = await getUsername()
+  const jwt = await getJwtToken()
   const headers = new Headers(init.headers)
   headers.set("Content-Type", headers.get("Content-Type") || "application/json")
 
-  if (username) {
-    headers.set("X-Leetcode-Username", username)
+  if (jwt) {
+    headers.set("Authorization", `Bearer ${jwt}`)
+  } else if (username) {
     try {
       const token = await getAuthToken(username);
       headers.set("Authorization", `Bearer ${token}`);
     } catch (e) {
-      console.warn("Failed to get JWT, falling back to legacy header", e);
+      console.warn("Failed to get JWT via extension-login", e);
     }
   }
 
@@ -40,21 +42,36 @@ async function backendFetch(path: string, init: RequestInit = {}) {
     headers
   })
 
-  if (res.status === 401 && cachedToken) {
-    // Token might be expired, clear it and retry once
-    cachedToken = null;
-    cachedTokenUsername = null;
-    if (username) {
-        const newToken = await getAuthToken(username);
-        headers.set("Authorization", `Bearer ${newToken}`);
-        const retryRes = await fetch(`${BACKEND_URL}${path}`, { ...init, headers });
-        if (!retryRes.ok) {
-            const body = await retryRes.text().catch(() => "")
-            throw new Error(body || `Backend request failed: ${retryRes.status}`)
-        }
-        if (retryRes.status === 204) return null;
-        return retryRes.json();
+  if (res.status === 401) {
+    if (jwt) {
+      await clearJwtToken()
+    } else {
+      cachedToken = null;
+      cachedTokenUsername = null;
     }
+    
+    // Retry once
+    const nextJwt = await getJwtToken()
+    const headersRetry = new Headers(init.headers)
+    headersRetry.set("Content-Type", headersRetry.get("Content-Type") || "application/json")
+    if (nextJwt) {
+      headersRetry.set("Authorization", `Bearer ${nextJwt}`)
+    } else if (username) {
+      try {
+        const token = await getAuthToken(username);
+        headersRetry.set("Authorization", `Bearer ${token}`);
+      } catch (e) {
+        console.warn("Failed to get JWT via extension-login on retry", e);
+      }
+    }
+    
+    const retryRes = await fetch(`${BACKEND_URL}${path}`, { ...init, headers: headersRetry });
+    if (!retryRes.ok) {
+      const body = await retryRes.text().catch(() => "")
+      throw new Error(body || `Backend request failed: ${retryRes.status}`)
+    }
+    if (retryRes.status === 204) return null;
+    return retryRes.json();
   }
 
   if (!res.ok) {

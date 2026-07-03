@@ -21,35 +21,7 @@ public class UserContextService {
             return userRepository.findById(authenticatedUserId)
                 .orElseThrow(() -> new IllegalArgumentException("Authenticated user no longer exists"));
         }
-
-        String userId = firstNonBlank(request.getHeader("X-User-Id"), request.getParameter("userId"));
-        if (userId != null) {
-            try {
-                return userRepository.findById(Long.parseLong(userId))
-                    .orElseThrow(() -> new IllegalArgumentException("Unknown userId: " + userId));
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Invalid userId: " + userId);
-            }
-        }
-
-        String username = firstNonBlank(
-            request.getHeader("X-Leetcode-Username"),
-            request.getHeader("X-Algovault-Username"),
-            request.getParameter("username")
-        );
-
-        if (username == null) {
-            throw new IllegalArgumentException("Missing user context. Send X-Leetcode-Username or userId.");
-        }
-
-        String normalized = username.trim();
-        return userRepository.findByLcUsernameIgnoreCase(normalized)
-            .orElseGet(() -> userRepository.save(User.builder()
-                .githubId("leetcode:" + normalized.toLowerCase())
-                .username(normalized)
-                .lcUsername(normalized)
-                .virtualRating(1500)
-                .build()));
+        throw new IllegalArgumentException("Unauthorized: Missing user authentication context");
     }
 
     private String firstNonBlank(String... values) {

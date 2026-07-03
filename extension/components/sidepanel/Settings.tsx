@@ -10,6 +10,8 @@ import {
   getLastSync
 } from "../../lib/storage"
 import { fetchUserStatus } from "../../lib/api/leetcode"
+import { BACKEND_URL } from "../../lib/constants"
+import { getJwtToken, clearJwtToken } from "../../lib/storage"
 
 export const Settings = () => {
   const [hideAccRate, setHideAccRate] = useState(true);
@@ -26,6 +28,7 @@ export const Settings = () => {
   const [gitSyncStatus, setGitSyncStatus] = useState<any>(null);
   const [syncHasMore, setSyncHasMore] = useState<any>(null);
   const [lastSync, setLastSync] = useState<number | null>(null);
+  const [hasJwt, setHasJwt] = useState<boolean>(false);
 
   useEffect(() => {
     chrome.storage.sync.get(['hideAcceptanceRate', 'celebrationOverlay', 'celebrationSound', 'celebrationTheme'], (res) => {
@@ -72,7 +75,7 @@ export const Settings = () => {
       });
 
     const checkSync = () => {
-      chrome.storage.local.get(['syncStatus', 'algovault.syncHasMore'], (res) => {
+      chrome.storage.local.get(['syncStatus', 'algovault.syncHasMore', 'algovault.jwt'], (res) => {
         if (res.syncStatus) setSyncStatus(res.syncStatus);
         getLastSync().then(setLastSync).catch(() => {});
         let hasMoreVal = res['algovault.syncHasMore'];
@@ -80,6 +83,7 @@ export const Settings = () => {
           try { hasMoreVal = JSON.parse(hasMoreVal) } catch (e) {}
         }
         setSyncHasMore(hasMoreVal || null);
+        setHasJwt(!!res['algovault.jwt']);
       });
     };
     checkSync();
@@ -89,6 +93,14 @@ export const Settings = () => {
       chrome.storage.onChanged.removeListener(gitListener);
     };
   }, []);
+
+  const handleGithubLogin = () => {
+    chrome.tabs.create({ url: `${BACKEND_URL}/oauth2/authorization/github` });
+  };
+
+  const handleLogout = () => {
+    clearJwtToken().then(() => setHasJwt(false));
+  };
 
   const toggleAccRate = () => {
     const val = !hideAccRate;
@@ -200,6 +212,34 @@ export const Settings = () => {
                 <option value="minecraft">Minecraft</option>
             </select>
         </div>
+      </Card>
+
+      <Card className="p-3.5">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-2">AlgoVault Account</h3>
+        <p className="text-[11px] text-zinc-500 font-mono leading-relaxed mb-3">
+          Authenticate using GitHub OAuth to protect your metrics and enable secure sync functions.
+        </p>
+        {hasJwt ? (
+          <div className="space-y-2">
+            <div className="text-[10px] text-emerald-400 font-mono bg-emerald-950/15 border border-emerald-900/25 rounded-lg px-3 py-2 flex items-center justify-between">
+              <span>Authenticated via GitHub</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold text-xs py-2 px-4 rounded-lg transition-colors border border-zinc-700 font-mono tracking-wider uppercase"
+            >
+              Sign Out
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={handleGithubLogin}
+            className="w-full bg-[#dfa054] hover:bg-[#e5b376] text-zinc-950 font-semibold text-xs py-2 px-4 rounded-lg transition-colors border border-[#dfa054]/20 font-mono tracking-wider uppercase"
+          >
+            Log in with GitHub
+          </button>
+        )}
       </Card>
 
       <Card className="p-3.5">

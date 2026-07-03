@@ -166,6 +166,7 @@ function showPostSolveDialog(titleSlug: string) {
 
 // Listen for postMessage from MAIN world (CustomEvents do NOT cross MAIN→ISOLATED boundary)
 window.addEventListener("message", ((event: MessageEvent) => {
+  if (event.origin !== window.location.origin || event.source !== window) return
   if (event.data?.type !== "AV_SUBMISSION_RESULT") return
   const slug = currentSlug()
   if (!slug) return

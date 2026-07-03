@@ -30,23 +30,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String authHeader = request.getHeader("Authorization");
         
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            String username = request.getHeader("X-Leetcode-Username");
-            if (username != null && !username.trim().isEmpty()) {
-                String normalized = username.trim();
-                User user = userRepository.findByLcUsernameIgnoreCase(normalized)
-                    .orElseGet(() -> userRepository.save(User.builder()
-                        .githubId("leetcode:" + normalized.toLowerCase())
-                        .username(normalized)
-                        .lcUsername(normalized)
-                        .virtualRating(1500)
-                        .build()));
-
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                    user.getId(), null, new ArrayList<>()
-                );
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
-            }
             filterChain.doFilter(request, response);
             return;
         }
