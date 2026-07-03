@@ -62,4 +62,55 @@ class SessionServiceTest {
         assertNull(freshSession.getEndedAt());
         verify(sessionRepository, never()).save(freshSession);
     }
+
+    @Mock
+    private ProblemService problemService;
+
+    @Test
+    void heartbeat_accumulatesCorrectlyAcrossEpochs() {
+        User user = User.builder().id(1L).build();
+        Session session = Session.builder()
+                .id(200L)
+                .user(user)
+                .mode("PRACTICE")
+                .startedAt(LocalDateTime.now())
+                .focusSeconds(0)
+                .tabSwitches(0)
+                .pasteCount(0)
+                .accumulatedFocusSeconds(0)
+                .accumulatedTabSwitches(0)
+                .accumulatedPasteCount(0)
+                .build();
+
+        when(sessionRepository.findFirstByUserIdAndEndedAtIsNullOrderByStartedAtDesc(1L))
+                .thenReturn(java.util.Optional.of(session));
+        when(sessionRepository.save(any(Session.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // 1. Heartbeat 1 (Epoch 1, 300s focus)
+        com.algovault.dto.SessionRequests.HeartbeatRequest req1 = new com.algovault.dto.SessionRequests.HeartbeatRequest();
+        req1.setHeartbeatEpoch("epoch-1");
+        req1.setFocusSeconds(300);
+        req1.setTabSwitches(2);
+        req1.setPasteCount(1);
+
+        sessionService.heartbeat(user, req1);
+
+        assertEquals(300, session.getFocusSeconds());
+        assertEquals("epoch-1", session.getLastHeartbeatEpoch());
+
+        // 2. Simulated crash/restart (Epoch 2, starts at 50s focus)
+        com.algovault.dto.SessionRequests.HeartbeatRequest req2 = new com.algovault.dto.SessionRequests.HeartbeatRequest();
+        req2.setHeartbeatEpoch("epoch-2");
+        req2.setFocusSeconds(50);
+        req2.setTabSwitches(1);
+        req2.setPasteCount(0);
+
+        sessionService.heartbeat(user, req2);
+
+        // Assert total focus time is 350s (300s + 50s), tab switches is 3, paste count is 1
+        assertEquals(350, session.getFocusSeconds());
+        assertEquals(3, session.getTabSwitches());
+        assertEquals(1, session.getPasteCount());
+        assertEquals("epoch-2", session.getLastHeartbeatEpoch());
+    }
 }

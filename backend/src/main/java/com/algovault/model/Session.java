@@ -45,4 +45,16 @@ public class Session {
 
     @Column(name = "focus_score")
     private Integer focusScore;
+
+    @Column(name = "last_heartbeat_epoch")
+    private String lastHeartbeatEpoch;
+
+    @Column(name = "accumulated_focus_seconds")
+    private Integer accumulatedFocusSeconds;
+
+    @Column(name = "accumulated_tab_switches")
+    private Integer accumulatedTabSwitches;
+
+    @Column(name = "accumulated_paste_count")
+    private Integer accumulatedPasteCount;
 }

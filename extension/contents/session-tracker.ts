@@ -74,11 +74,15 @@ function sendEvent(
   })
 }
 
+const heartbeatEpoch = (typeof crypto !== "undefined" && crypto.randomUUID) 
+  ? crypto.randomUUID() 
+  : Math.random().toString(36).substring(2) + Date.now().toString(36);
+
 function heartbeat(titleSlug = trackedSlug, title = trackedTitle) {
   if (isSolved) return
   addFocusedTime(isWindowFocused)
   if (!titleSlug) return
-
+ 
   chrome.runtime.sendMessage({
     action: "session_heartbeat",
     payload: {
@@ -90,7 +94,8 @@ function heartbeat(titleSlug = trackedSlug, title = trackedTitle) {
       pasteCount,
       problemFocusSeconds: Math.max(0, focusSeconds - focusBaseline),
       problemTabSwitches: Math.max(0, tabSwitches - tabSwitchBaseline),
-      problemPasteCount: Math.max(0, pasteCount - pasteBaseline)
+      problemPasteCount: Math.max(0, pasteCount - pasteBaseline),
+      heartbeatEpoch
     }
   })
 }

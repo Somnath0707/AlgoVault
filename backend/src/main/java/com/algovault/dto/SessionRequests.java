@@ -46,6 +46,7 @@ public class SessionRequests {
         private Integer problemTabSwitches;
         private Integer problemPasteCount;
         private LocalDateTime openedAt;
+        private String heartbeatEpoch;
     }
 
     @Data

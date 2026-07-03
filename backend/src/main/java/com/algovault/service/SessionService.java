@@ -110,9 +110,23 @@ public class SessionService {
     @Transactional
     public SessionResponse heartbeat(User user, SessionRequests.HeartbeatRequest request) {
         Session session = currentOrStart(user, "PRACTICE");
-        session.setFocusSeconds(max(session.getFocusSeconds(), request.getFocusSeconds()));
-        session.setTabSwitches(max(session.getTabSwitches(), request.getTabSwitches()));
-        session.setPasteCount(max(session.getPasteCount(), request.getPasteCount()));
+        
+        String incomingEpoch = request.getHeartbeatEpoch();
+        if (incomingEpoch != null && !incomingEpoch.isBlank()) {
+            if (!incomingEpoch.equals(session.getLastHeartbeatEpoch())) {
+                session.setAccumulatedFocusSeconds(nonNull(session.getFocusSeconds()));
+                session.setAccumulatedTabSwitches(nonNull(session.getTabSwitches()));
+                session.setAccumulatedPasteCount(nonNull(session.getPasteCount()));
+                session.setLastHeartbeatEpoch(incomingEpoch);
+            }
+            session.setFocusSeconds(nonNull(session.getAccumulatedFocusSeconds()) + nonNull(request.getFocusSeconds()));
+            session.setTabSwitches(nonNull(session.getAccumulatedTabSwitches()) + nonNull(request.getTabSwitches()));
+            session.setPasteCount(nonNull(session.getAccumulatedPasteCount()) + nonNull(request.getPasteCount()));
+        } else {
+            session.setFocusSeconds(max(session.getFocusSeconds(), request.getFocusSeconds()));
+            session.setTabSwitches(max(session.getTabSwitches(), request.getTabSwitches()));
+            session.setPasteCount(max(session.getPasteCount(), request.getPasteCount()));
+        }
         session.setFocusScore(focusScore(session.getTabSwitches(), session.getPasteCount()));
 
         Problem problem = problemFromRequest(request.getTitleSlug(), request.getTitle());
