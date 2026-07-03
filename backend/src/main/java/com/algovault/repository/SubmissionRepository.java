@@ -30,4 +30,8 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     long countSubmissionsSince(Long userId, LocalDateTime since);
 
     List<Submission> findTop5ByUserIdAndVerdictOrderBySubmittedAtDesc(Long userId, String verdict);
+
+    @Query("select count(s) > 0 from Submission s where s.user.id = :userId and s.problem.id = :problemId and s.verdict = :verdict and s.submittedAt = :submittedAt and " +
+           "((:runtimeMs is null and s.runtimeMs is null) or s.runtimeMs = :runtimeMs)")
+    boolean existsByTighterTuple(Long userId, Long problemId, String verdict, java.time.LocalDateTime submittedAt, Integer runtimeMs);
 }

@@ -165,10 +165,10 @@ public class SessionService {
         String verdict = normalizeVerdict(request.getStatusDisplay(), request.getStatusCode());
         LocalDateTime submittedAt = Optional.ofNullable(request.getSubmittedAt()).orElse(LocalDateTime.now());
 
-        boolean exists = request.getSubmissionId() != null
+        boolean exists = request.getSubmissionId() != null && !request.getSubmissionId().isBlank()
             && submissionRepository.findByUserIdAndLeetcodeSubmissionId(user.getId(), request.getSubmissionId()).isPresent();
         if (!exists) {
-            exists = submissionRepository.existsByUserIdAndProblemIdAndSubmittedAt(user.getId(), problem.getId(), submittedAt);
+            exists = submissionRepository.existsByTighterTuple(user.getId(), problem.getId(), verdict, submittedAt, request.getRuntimeMs());
         }
 
         if (!exists) {

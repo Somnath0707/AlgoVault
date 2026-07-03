@@ -169,10 +169,10 @@ public class SyncService {
                 continue;
             }
 
-            boolean exists = sInfo.getId() != null
+            boolean exists = sInfo.getId() != null && !sInfo.getId().isBlank()
                 && submissionRepository.findByUserIdAndLeetcodeSubmissionId(user.getId(), sInfo.getId()).isPresent();
             if (!exists) {
-                exists = submissionRepository.existsByUserIdAndProblemIdAndSubmittedAt(user.getId(), problem.getId(), submittedAt);
+                exists = submissionRepository.existsByTighterTuple(user.getId(), problem.getId(), sInfo.getStatusDisplay(), submittedAt, parseRuntimeMs(sInfo.getRuntime()));
             }
             if (exists) {
                 continue;
