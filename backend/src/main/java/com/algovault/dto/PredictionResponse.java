@@ -11,4 +11,5 @@ public class PredictionResponse {
     private int expectedTimeMinutes;
     private String confidence;
     private Map<String, Object> breakdown;
+    private Boolean insufficientData;
 }

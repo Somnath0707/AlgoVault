@@ -27,11 +27,12 @@ public class SolveProbabilityService {
     private final TagMasteryRepository tagMasteryRepository;
     private final com.algovault.repository.ContestResultRepository contestResultRepository;
     private final com.algovault.repository.ProblemOpenEventRepository problemOpenEventRepository;
+    private final ProblemService problemService;
 
-    @Cacheable(value = "predictions", key = "#userId + '-' + #titleSlug")
+    @org.springframework.cache.annotation.Cacheable(value = "predictions", key = "#userId + '-' + #titleSlug")
     public PredictionResponse predict(Long userId, String titleSlug) {
         User user = userRepository.findById(userId).orElseThrow();
-        Problem problem = problemRepository.findByTitleSlug(titleSlug).orElseThrow(() -> new RuntimeException("Problem not found"));
+        Problem problem = problemService.getOrCreate(titleSlug, null);
         
         List<Submission> submissions = submissionRepository.findByUserIdOrderBySubmittedAtDesc(userId);
         List<TagMastery> masteries = tagMasteryRepository.findByUserIdOrderByMasteryScoreDesc(userId);

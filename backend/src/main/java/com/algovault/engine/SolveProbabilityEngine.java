@@ -23,6 +23,7 @@ public class SolveProbabilityEngine {
                 .solveChance(50)
                 .expectedTimeMinutes(30)
                 .confidence("LOW")
+                .insufficientData(true)
                 .build();
         }
 
@@ -207,6 +208,7 @@ public class SolveProbabilityEngine {
                 .expectedTimeMinutes(expectedTime)
                 .confidence(confidence)
                 .breakdown(breakdown)
+                .insufficientData(bucketAttemptCount == 0)
                 .build();
     }
 

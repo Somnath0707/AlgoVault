@@ -30,6 +30,11 @@ public class SessionService {
     private final SyncMetadataRepository syncMetadataRepository;
     private final AnalyticsService analyticsService;
     private final ZerotracService zerotracService;
+    private final ProblemService problemService;
+
+    private Problem problemFromRequest(String titleSlug, String title) {
+        return problemService.getOrCreate(titleSlug, title);
+    }
 
     @Transactional
     public SessionResponse startSession(User user, String mode) {
@@ -243,25 +248,6 @@ public class SessionService {
                 .pasteCount(0)
                 .focusScore(100)
                 .build()));
-    }
-
-    private Problem problemFromRequest(String titleSlug, String title) {
-        if (titleSlug == null || titleSlug.isBlank()) return null;
-        Problem problem = problemRepository.findByTitleSlug(titleSlug).orElse(null);
-        Double rating = null;
-        if (problem == null || problem.getActualRating() == null) {
-            rating = zerotracService.getRatingsBySlug().get(titleSlug);
-        }
-        if (problem == null) {
-            problem = Problem.builder()
-                .titleSlug(titleSlug)
-                .title(title != null && !title.isBlank() ? title : titleSlug)
-                .actualRating(rating)
-                .build();
-        } else if (problem.getActualRating() == null && rating != null) {
-            problem.setActualRating(rating);
-        }
-        return problemRepository.save(problem);
     }
 
     private ProblemOpenEvent openEvent(User user, Problem problem, LocalDateTime openedAt) {
