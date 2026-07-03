@@ -54,11 +54,6 @@ public class DashboardService {
                 focus = s.getFocusScore() != null ? s.getFocusScore() : 100;
                 switches = s.getTabSwitches() != null ? s.getTabSwitches() : 0;
                 pastes = s.getPasteCount() != null ? s.getPasteCount() : 0;
-            } else {
-                try {
-                    s.setEndedAt(s.getStartedAt().plusHours(1));
-                    sessionRepository.save(s);
-                } catch (Exception e) {}
             }
         }
 

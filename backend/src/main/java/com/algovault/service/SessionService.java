@@ -9,6 +9,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.scheduling.annotation.Scheduled;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,6 +19,8 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class SessionService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SessionService.class);
+
     private final SessionRepository sessionRepository;
     private final SessionEventRepository sessionEventRepository;
     private final ProblemRepository problemRepository;
@@ -30,6 +33,9 @@ public class SessionService {
 
     @Transactional
     public SessionResponse startSession(User user, String mode) {
+        // Natural place to also auto-close old sessions during startup
+        closeStaleSessions();
+
         sessionRepository.findFirstByUserIdAndEndedAtIsNullOrderByStartedAtDesc(user.getId())
             .ifPresent(existing -> {
                 existing.setEndedAt(LocalDateTime.now());
@@ -343,5 +349,24 @@ public class SessionService {
             .pasteCount(nonNull(session.getPasteCount()))
             .focusScore(focusScore(session.getTabSwitches(), session.getPasteCount()))
             .build();
+    }
+
+    @Transactional
+    @Scheduled(fixedDelay = 900000) // Runs every 15 minutes
+    public void closeStaleSessions() {
+        log.info("Running stale session auto-closure check");
+        List<Session> openSessions = sessionRepository.findByEndedAtIsNull();
+        LocalDateTime now = LocalDateTime.now();
+        for (Session s : openSessions) {
+            if (s.getStartedAt() != null && java.time.temporal.ChronoUnit.HOURS.between(s.getStartedAt(), now) >= 12) {
+                try {
+                    s.setEndedAt(s.getStartedAt().plusHours(1));
+                    sessionRepository.save(s);
+                    log.info("Auto-closed stale session id: {} for user: {}", s.getId(), s.getUser().getId());
+                } catch (Exception e) {
+                    log.warn("Failed to auto-close stale session {}", s.getId(), e);
+                }
+            }
+        }
     }
 }
