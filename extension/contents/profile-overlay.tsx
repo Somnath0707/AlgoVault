@@ -91,7 +91,7 @@ export default function ProfileOverlay() {
   }
 
   const filteredContests = useMemo(() => {
-    return contests.filter((c) => c.attended !== false)
+    return contests.filter((c) => c.attended === true)
   }, [contests])
 
   const latest = filteredContests[0]

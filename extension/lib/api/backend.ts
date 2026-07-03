@@ -170,3 +170,16 @@ export const fetchEntrantHubUpcomingBackend = async (): Promise<any> => {
   return backendFetch("/api/entranthub/upcoming")
 }
 
+export const getSettings = async () => {
+  return backendFetch("/api/settings", {
+    method: "GET"
+  })
+}
+
+export const updateSettings = async (preferences: Record<string, any>) => {
+  return backendFetch("/api/settings", {
+    method: "POST",
+    body: JSON.stringify(preferences)
+  })
+}
+

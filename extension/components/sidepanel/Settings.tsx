@@ -12,6 +12,7 @@ import {
 import { fetchUserStatus } from "../../lib/api/leetcode"
 import { BACKEND_URL } from "../../lib/constants"
 import { getJwtToken, clearJwtToken } from "../../lib/storage"
+import { getSettings, updateSettings } from "../../lib/api/backend"
 
 export const Settings = () => {
   const [hideAccRate, setHideAccRate] = useState(true);
@@ -29,6 +30,7 @@ export const Settings = () => {
   const [syncHasMore, setSyncHasMore] = useState<any>(null);
   const [lastSync, setLastSync] = useState<number | null>(null);
   const [hasJwt, setHasJwt] = useState<boolean>(false);
+  const [settingsSynced, setSettingsSynced] = useState<boolean>(false);
 
   useEffect(() => {
     chrome.storage.sync.get(['hideAcceptanceRate', 'celebrationOverlay', 'celebrationSound', 'celebrationTheme'], (res) => {
@@ -37,6 +39,35 @@ export const Settings = () => {
       if (res.celebrationSound !== undefined) setCelebrationSound(res.celebrationSound);
       if (res.celebrationTheme !== undefined) setCelebrationTheme(res.celebrationTheme);
     });
+
+    chrome.storage.local.get("algovault.jwt", (res) => {
+      if (res["algovault.jwt"]) {
+        getSettings()
+          .then((resp: any) => {
+            if (resp && resp.preferences) {
+              const prefs = resp.preferences;
+              if (prefs.hideAcceptanceRate !== undefined) {
+                setHideAccRate(prefs.hideAcceptanceRate);
+                chrome.storage.sync.set({ hideAcceptanceRate: prefs.hideAcceptanceRate });
+              }
+              if (prefs.celebrationOverlay !== undefined) {
+                setCelebrationOverlay(prefs.celebrationOverlay);
+                chrome.storage.sync.set({ celebrationOverlay: prefs.celebrationOverlay });
+              }
+              if (prefs.celebrationSound !== undefined) {
+                setCelebrationSound(prefs.celebrationSound);
+                chrome.storage.sync.set({ celebrationSound: prefs.celebrationSound });
+              }
+              if (prefs.celebrationTheme !== undefined) {
+                setCelebrationTheme(prefs.celebrationTheme);
+                chrome.storage.sync.set({ celebrationTheme: prefs.celebrationTheme });
+              }
+            }
+          })
+          .catch((e) => console.log("Failed to load settings from server:", e));
+      }
+    });
+
     getUsername().then((value) => setUsername(value || ""));
     getGithubPat().then((value) => setGithubPat(value || ""));
     getGithubRepo().then((value) => setGithubRepo(value || ""));
@@ -148,6 +179,22 @@ export const Settings = () => {
     setTimeout(() => setGithubSaved(false), 2000);
   };
 
+  const handleSyncSettings = async () => {
+    try {
+      await updateSettings({
+        hideAcceptanceRate: hideAccRate,
+        celebrationOverlay,
+        celebrationSound,
+        celebrationTheme
+      });
+      setSettingsSynced(true);
+      setTimeout(() => setSettingsSynced(false), 2000);
+    } catch (e) {
+      console.error("Failed to sync settings:", e);
+      alert("Failed to sync settings to server.");
+    }
+  };
+
   return (
     <div className="grid gap-3.5">
       <Card className="p-3.5">
@@ -211,6 +258,15 @@ export const Settings = () => {
                 <option value="gta">Grand Theft Auto</option>
                 <option value="minecraft">Minecraft</option>
             </select>
+        </div>
+
+        <div className="mt-3.5 pt-3.5 border-t border-zinc-800/50">
+            <button
+                onClick={handleSyncSettings}
+                className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white font-semibold text-xs py-2 px-4 rounded-lg transition-colors border border-zinc-700 font-mono tracking-wider uppercase"
+            >
+                {settingsSynced ? "Synced to Server ✔" : "Sync Settings to Server"}
+            </button>
         </div>
       </Card>
 
