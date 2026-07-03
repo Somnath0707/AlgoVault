@@ -183,3 +183,19 @@ export const updateSettings = async (preferences: Record<string, any>) => {
   })
 }
 
+export const exportUserData = async (): Promise<Blob> => {
+  const token = await getJwtToken()
+  const headers: Record<string, string> = {}
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`
+  }
+  const response = await fetch(`${BACKEND_URL}/api/export`, {
+    method: "GET",
+    headers
+  })
+  if (!response.ok) {
+    throw new Error(`Export failed: ${response.statusText}`)
+  }
+  return response.blob()
+}
+

@@ -12,7 +12,7 @@ import {
 import { fetchUserStatus } from "../../lib/api/leetcode"
 import { BACKEND_URL } from "../../lib/constants"
 import { getJwtToken, clearJwtToken } from "../../lib/storage"
-import { getSettings, updateSettings } from "../../lib/api/backend"
+import { getSettings, updateSettings, exportUserData } from "../../lib/api/backend"
 
 export const Settings = () => {
   const [hideAccRate, setHideAccRate] = useState(true);
@@ -31,6 +31,7 @@ export const Settings = () => {
   const [lastSync, setLastSync] = useState<number | null>(null);
   const [hasJwt, setHasJwt] = useState<boolean>(false);
   const [settingsSynced, setSettingsSynced] = useState<boolean>(false);
+  const [exporting, setExporting] = useState<boolean>(false);
 
   useEffect(() => {
     chrome.storage.sync.get(['hideAcceptanceRate', 'celebrationOverlay', 'celebrationSound', 'celebrationTheme'], (res) => {
@@ -192,6 +193,26 @@ export const Settings = () => {
     } catch (e) {
       console.error("Failed to sync settings:", e);
       alert("Failed to sync settings to server.");
+    }
+  };
+
+  const handleExportData = async () => {
+    setExporting(true);
+    try {
+      const blob = await exportUserData();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "algovault_export.json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Failed to export data:", e);
+      alert("Failed to export data from server.");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -397,6 +418,16 @@ export const Settings = () => {
                 SYNC ERROR: {syncStatus.message?.toUpperCase()}
             </div>
         )}
+
+        <div className="mt-3.5 pt-3.5 border-t border-zinc-800/50">
+            <button
+                onClick={handleExportData}
+                disabled={exporting}
+                className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white font-semibold text-xs py-2 px-4 rounded-lg transition-colors border border-zinc-700 font-mono tracking-wider uppercase"
+            >
+                {exporting ? "Exporting..." : "Export Vault Data (JSON)"}
+            </button>
+        </div>
       </Card>
 
       <Card className="p-3.5">
