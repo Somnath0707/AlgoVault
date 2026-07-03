@@ -12,6 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
+import org.springframework.cache.annotation.Cacheable;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -20,6 +22,7 @@ public class HeatmapService {
     private final UserRatingBucketRepository userRatingBucketRepository;
     private final UserRepository userRepository;
 
+    @Cacheable(value = "heatmap", key = "#userId")
     public List<UserRatingBucket> getHeatmap(Long userId) {
         List<UserRatingBucket> buckets = userRatingBucketRepository.findByUserId(userId);
         buckets.sort(Comparator.comparing(UserRatingBucket::getBucketRating));

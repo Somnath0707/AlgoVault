@@ -6,6 +6,7 @@ import com.algovault.model.*;
 import com.algovault.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -120,7 +121,15 @@ public class SessionService {
     }
 
     @Transactional
-    @CacheEvict(value = {"dashboard", "heatmap", "mastery", "predictions", "potd", "contests", "weakness"}, allEntries = true)
+    @Caching(evict = {
+        @CacheEvict(value = "dashboard", key = "#user.id"),
+        @CacheEvict(value = "heatmap", key = "#user.id"),
+        @CacheEvict(value = "mastery", key = "#user.id"),
+        @CacheEvict(value = "potd", key = "#user.id"),
+        @CacheEvict(value = "contests", key = "#user.id"),
+        @CacheEvict(value = "weakness", key = "#user.id"),
+        @CacheEvict(value = "predictions", key = "#user.id + '-' + #request.titleSlug")
+    })
     public SessionResponse recordSubmission(User user, SessionRequests.SubmissionResultRequest request) {
         Session session = currentOrStart(user, "PRACTICE");
         Problem problem = problemFromRequest(request.getTitleSlug(), request.getTitle());
@@ -181,6 +190,15 @@ public class SessionService {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "dashboard", key = "#user.id"),
+        @CacheEvict(value = "heatmap", key = "#user.id"),
+        @CacheEvict(value = "mastery", key = "#user.id"),
+        @CacheEvict(value = "potd", key = "#user.id"),
+        @CacheEvict(value = "contests", key = "#user.id"),
+        @CacheEvict(value = "weakness", key = "#user.id"),
+        @CacheEvict(value = "predictions", key = "#user.id + '-' + #request.titleSlug")
+    })
     public void recordSelfReport(User user, SessionRequests.SelfReportRequest request) {
         if (request.getTitleSlug() == null) return;
         Problem problem = problemRepository.findByTitleSlug(request.getTitleSlug()).orElse(null);

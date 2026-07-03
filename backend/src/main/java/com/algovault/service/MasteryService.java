@@ -16,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.*;
 
+import org.springframework.cache.annotation.Cacheable;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -26,6 +28,7 @@ public class MasteryService {
     private final ProblemOpenEventRepository problemOpenEventRepository;
     private final Glicko2MasteryEngine glickoEngine;
 
+    @Cacheable(value = "mastery", key = "#userId")
     public List<TagMastery> getMastery(Long userId) {
         return tagMasteryRepository.findByUserIdOrderByMasteryScoreDesc(userId);
     }

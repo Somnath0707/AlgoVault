@@ -14,6 +14,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.cache.annotation.Cacheable;
+
 @Service
 @RequiredArgsConstructor
 public class PotdService {
@@ -22,6 +24,7 @@ public class PotdService {
     private final TagMasteryRepository tagMasteryRepository;
     private final RevisionCardRepository revisionCardRepository;
 
+    @Cacheable(value = "potd", key = "#userId")
     public List<PotdResponse> getPotd(Long userId) {
         User user = userRepository.findById(userId).orElseThrow();
         int ceiling = user.getVirtualRating() != null ? user.getVirtualRating() : 1500;

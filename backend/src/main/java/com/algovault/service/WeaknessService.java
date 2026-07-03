@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.Cacheable;
+
 @Service
 @RequiredArgsConstructor
 public class WeaknessService {
@@ -22,6 +24,7 @@ public class WeaknessService {
     private final ProblemRepository problemRepository;
     private final UserRepository userRepository;
 
+    @Cacheable(value = "weakness", key = "#userId")
     public WeaknessResponse getWeakness(Long userId) {
         List<TagMastery> masteries = tagMasteryRepository.findByUserIdOrderByMasteryScoreDesc(userId);
         

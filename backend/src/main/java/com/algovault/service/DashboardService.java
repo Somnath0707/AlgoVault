@@ -21,6 +21,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.Cacheable;
+
 @Service
 @RequiredArgsConstructor
 public class DashboardService {
@@ -29,6 +31,7 @@ public class DashboardService {
     private final SubmissionRepository submissionRepository;
     private final SessionRepository sessionRepository;
 
+    @Cacheable(value = "dashboard", key = "#userId")
     public DashboardResponse getDashboard(Long userId) {
         User user = userRepository.findById(userId).orElseThrow();
         SyncMetadata meta = syncMetadataRepository.findByUserId(userId).orElse(new SyncMetadata());

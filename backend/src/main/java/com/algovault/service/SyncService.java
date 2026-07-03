@@ -6,6 +6,7 @@ import com.algovault.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,7 +33,15 @@ public class SyncService {
     private final RevisionCardRepository revisionCardRepository;
 
     @Transactional
-    @CacheEvict(value = {"dashboard", "heatmap", "mastery", "predictions", "potd", "contests", "weakness"}, allEntries = true)
+    @Caching(evict = {
+        @CacheEvict(value = "dashboard", key = "#userId"),
+        @CacheEvict(value = "heatmap", key = "#userId"),
+        @CacheEvict(value = "mastery", key = "#userId"),
+        @CacheEvict(value = "potd", key = "#userId"),
+        @CacheEvict(value = "contests", key = "#userId"),
+        @CacheEvict(value = "weakness", key = "#userId"),
+        @CacheEvict(value = "predictions", allEntries = true)
+    })
     public void syncLeetcode(Long userId, SyncLeetcodeRequest request) {
         log.info("Starting sync for user ID: {}", userId);
         LocalDateTime startTime = LocalDateTime.now();

@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+import org.springframework.cache.annotation.Cacheable;
+
 @Service
 @RequiredArgsConstructor
 public class SolveProbabilityService {
@@ -26,6 +28,7 @@ public class SolveProbabilityService {
     private final com.algovault.repository.ContestResultRepository contestResultRepository;
     private final com.algovault.repository.ProblemOpenEventRepository problemOpenEventRepository;
 
+    @Cacheable(value = "predictions", key = "#userId + '-' + #titleSlug")
     public PredictionResponse predict(Long userId, String titleSlug) {
         User user = userRepository.findById(userId).orElseThrow();
         Problem problem = problemRepository.findByTitleSlug(titleSlug).orElseThrow(() -> new RuntimeException("Problem not found"));
