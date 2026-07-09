@@ -45,9 +45,11 @@
 
     // Only process checks that correspond to a real Submit action (registered in our submissions object)
     if (!window.__ALGOVAULT_SUBMISSIONS__[String(submissionId)]) {
+      console.log("AlgoVault Interceptor: Ignoring check result for run-code task ID", submissionId);
       return;
     }
     
+    console.log("AlgoVault Interceptor: Valid submission result captured for ID", submissionId);
     if (submissionId === lastSeenSubmissionId) return;
     lastSeenSubmissionId = submissionId;
     
@@ -82,9 +84,10 @@
   // Monkey-patch window.fetch
   window.fetch = function(input, init) {
     var url = normalizeUrl(input);
-    var isSubmit = /\/submit\/?$/.test(url) || /\/problems\/[^\/]+\/submit\//.test(url);
+    var isSubmit = /\/submit(\/|\?|$)/.test(url);
 
     if (isSubmit) {
+      console.log("AlgoVault Interceptor: Intercepted fetch submit action to", url);
       try {
         if (init && init.body) {
           var body = typeof init.body === 'string' ? JSON.parse(init.body) : init.body;
@@ -103,6 +106,7 @@
         if (response.ok) {
           response.clone().json().then(function(data) {
             if (data && data.submission_id) {
+              console.log("AlgoVault Interceptor: Registered valid submission ID", data.submission_id);
               window.__ALGOVAULT_SUBMISSIONS__[String(data.submission_id)] = true;
             }
           }).catch(function() {});
@@ -135,14 +139,17 @@
 
   XMLHttpRequest.prototype.send = function(body) {
     var url = this._avUrl || '';
-    var isSubmit = /\/submit\/?$/.test(url) || /\/problems\/[^\/]+\/submit\//.test(url);
-    if (isSubmit && body) {
-      try {
-        var payload = typeof body === 'string' ? JSON.parse(body) : body;
-        if (payload && payload.typed_code) {
-          window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = { code: payload.typed_code, lang: payload.lang };
-        }
-      } catch(e) {}
+    var isSubmit = /\/submit(\/|\?|$)/.test(url);
+    if (isSubmit) {
+      console.log("AlgoVault Interceptor: Intercepted XHR submit action to", url);
+      if (body) {
+        try {
+          var payload = typeof body === 'string' ? JSON.parse(body) : body;
+          if (payload && payload.typed_code) {
+            window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = { code: payload.typed_code, lang: payload.lang };
+          }
+        } catch(e) {}
+      }
     }
     
     // Intercept XHR submit response
@@ -152,6 +159,7 @@
           if (this.status >= 200 && this.status < 300 && this.responseText) {
             var data = JSON.parse(this.responseText);
             if (data && data.submission_id) {
+              console.log("AlgoVault Interceptor: Registered valid XHR submission ID", data.submission_id);
               window.__ALGOVAULT_SUBMISSIONS__[String(data.submission_id)] = true;
             }
           }
