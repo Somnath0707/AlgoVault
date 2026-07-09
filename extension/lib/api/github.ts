@@ -15,7 +15,9 @@ export async function commitToGithub(
   fileContent: string
 ): Promise<{ ok: boolean; message?: string }> {
   try {
-    const cleanRepo = repoPath.trim().replace(/^https:\/\/github\.com\//, "");
+    const cleanRepo = repoPath.trim()
+      .replace(/^https:\/\/github\.com\//, "")
+      .replace(/\.git$/, "");
     const [owner, repo] = cleanRepo.split("/");
     if (!owner || !repo) {
       return { ok: false, message: "Invalid repository path. Format must be 'owner/repo'." };

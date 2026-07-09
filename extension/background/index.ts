@@ -182,29 +182,40 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === "submission_result") {
     const payload = message.payload;
+    
+    // Trigger GitHub sync independently in the background so backend failures don't block it
+    if (payload.statusDisplay === "Accepted") {
+      syncAcceptedSubmissionToGithub(payload, "PENDING_SELF_REPORT").catch((gitErr) => {
+        console.error("Error during GitHub sync operation:", gitErr)
+      })
+    }
+
     sendSubmissionResult(payload)
-      .then(async (data) => {
+      .then((data) => {
         storage.set("algovault.currentSession", data)
-
-        if (payload.statusDisplay === "Accepted") {
-          await syncAcceptedSubmissionToGithub(payload, "PENDING_SELF_REPORT", data).catch((gitErr) => {
-            console.error("Error during GitHub sync operation:", gitErr)
-          })
-        }
-
         sendResponse({ ok: true, data })
       })
-      .catch((err) => sendResponse({ ok: false, error: err.message }))
+      .catch((err) => {
+        console.error("Backend submission report failed:", err)
+        sendResponse({ ok: false, error: err.message })
+      })
     return true
   }
 
   if (message.action === "post_solve_report") {
+    // Sync post-solve report to GitHub independently
+    updateGithubHelpReport(message.payload).catch((err) => {
+      console.warn("GitHub help report update failed", err)
+    })
+
     sendSelfReport(message.payload)
-      .then(async () => {
-        await updateGithubHelpReport(message.payload).catch((err) => console.warn("GitHub help report update failed", err))
+      .then(() => {
         sendResponse({ ok: true })
       })
-      .catch((err) => sendResponse({ ok: false, error: err.message }))
+      .catch((err) => {
+        console.error("Backend self report failed:", err)
+        sendResponse({ ok: false, error: err.message })
+      })
     return true
   }
 
