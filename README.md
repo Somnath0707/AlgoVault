@@ -93,51 +93,137 @@ To resolve loading delays caused by Plasmo's Parcel module loaders, the extensio
 
 ## 🛠️ Step-by-Step Installation & Local Setup
 
-### 1. Prerequisites
-- **Java 17+** (e.g., Eclipse Temurin JDK 17)
-- **Node.js 18+** & NPM
-- **PostgreSQL** & **Redis** (Locally or via Docker Compose)
-- **Maven** (optional, wrapper provided)
+Choose one of the deployment methods below depending on your preference for containerization.
 
-### 2. Database Initialization
-Ensure PostgreSQL is running and create the `algovault` schema:
-```bash
-createdb algovault
-```
+---
 
-### 3. Start Cache & Database via Docker Compose
-If you prefer running Postgres and Redis inside Docker:
-```bash
-docker-compose up -d postgres redis
-```
+### 🐳 Method A: Containerized Infrastructure (Docker Compose)
+If you have Docker Desktop installed on your machine, this is the fastest way to get the database and caching dependencies running.
 
-### 4. Running the Backend Service
-1. Navigate to the `backend` directory.
-2. Ensure `JAVA_HOME` points to JDK 17+.
-3. Run the Spring Boot application (database migrations compile automatically via Flyway on startup):
-```bash
-cd backend
-export JAVA_HOME=/path/to/jdk-17
-mvn spring-boot:run
-```
-The backend service will run on `http://localhost:8080`.
+1. **Start Services:** Launch the PostgreSQL and Redis containers in the background:
+   ```bash
+   docker-compose up -d postgres redis
+   ```
+2. **Verify Containers:** Ensure both containers are healthy and running:
+   ```bash
+   docker ps
+   ```
+   *PostgreSQL will be exposed on port `5432` and Redis on port `6379`.*
 
-### 5. Build and Install Chrome Extension
-1. Navigate to the `extension` directory.
-2. Install Node dependencies:
-```bash
-cd extension
-npm install
-```
-3. Run the production build compiler:
-```bash
-npm run build
-```
-4. Load in Chrome:
-   - Open `chrome://extensions/`
-   - Toggle **Developer Mode** (top right).
-   - Click **Load Unpacked**.
-   - Select the directory `extension/build/chrome-mv3-prod/`.
+---
+
+### 💻 Method B: Native Setup Without Docker (By Operating System)
+
+If you prefer to run services natively on your host machine, install the prerequisites and follow the steps for your specific OS.
+
+#### 📋 General Prerequisites
+- **Java 17+** (e.g. [Eclipse Temurin OpenJDK 17](https://adoptium.net/temurin/releases/?version=17))
+- **Node.js 18+** & NPM (e.g. [Node.js Downloads](https://nodejs.org/))
+- **Maven 3.8+** (Optional; a `./mvnw` wrapper script is included in the backend directory)
+
+---
+
+#### 🍏 macOS Setup
+1. **Install Dependencies:** Install PostgreSQL and Redis using Homebrew:
+   ```bash
+   brew install postgresql@15 redis
+   ```
+2. **Start Services:** Start both services in the background:
+   ```bash
+   brew services start postgresql@15
+   brew services start redis
+   ```
+3. **Initialize Database:** Create the target `algovault` database in PostgreSQL:
+   ```bash
+   createdb algovault
+   ```
+   *(By default, this associates the database with your current macOS username, which is supported by Spring Boot's datasource auto-fallback).*
+
+---
+
+#### 🪟 Windows Setup
+1. **Install PostgreSQL:** 
+   - Download the installer from the [PostgreSQL Official Website](https://www.postgresql.org/download/windows/) (v15 or higher recommended).
+   - Run the installer. During configuration, set the default superuser password (e.g. `algovault_dev`) and note the port (`5432`).
+2. **Install Redis:** 
+   - Windows does not natively support Redis. It is recommended to run Redis via WSL2 (Windows Subsystem for Linux):
+     ```powershell
+     # In PowerShell (as Administrator) to enable WSL:
+     wsl --install
+     ```
+   - Inside your WSL Ubuntu terminal, run:
+     ```bash
+     sudo apt update && sudo apt install redis-server -y
+     sudo service redis-server start
+     ```
+3. **Initialize Database:** 
+   - Open **pgAdmin** (installed alongside PostgreSQL) or open the **SQL Shell (psql)**.
+   - Log in and run the database creation query:
+     ```sql
+     CREATE DATABASE algovault;
+     ```
+
+---
+
+#### 🐧 Linux Setup (Ubuntu/Debian)
+1. **Install Dependencies:** Update packages and install Postgres and Redis:
+   ```bash
+   sudo apt update
+   sudo apt install postgresql postgresql-contrib redis-server -y
+   ```
+2. **Start Services:** Ensure services are active and set to run on system boot:
+   ```bash
+   sudo systemctl start postgresql
+   sudo systemctl enable postgresql
+   sudo systemctl start redis-server
+   sudo systemctl enable redis-server
+   ```
+3. **Initialize Database:** Switch to the default postgres system account to create the database:
+   ```bash
+   sudo -u postgres createdb algovault
+   ```
+
+---
+
+### 🚀 Running the Services & Extension
+
+Once your databases are online, launch the backend and extension.
+
+#### 1. Boot up the Spring Boot Backend
+1. Open a terminal and navigate to the `/backend` directory.
+2. If your PostgreSQL database password differs from the default `algovault_dev`, set it in your environment:
+   ```bash
+   # Linux/macOS
+   export SPRING_DATASOURCE_PASSWORD=your_password
+   # Windows PowerShell
+   $env:SPRING_DATASOURCE_PASSWORD="your_password"
+   ```
+3. Compile and boot the application:
+   ```bash
+   # Linux/macOS
+   ./mvnw spring-boot:run
+   # Windows
+   mvnw.cmd spring-boot:run
+   ```
+   *Flyway Migrations will automatically construct the relational database schema, mapping the tables from `V1` to `V18` on first run. The API runs on `http://localhost:8080`.*
+
+---
+
+#### 2. Compile and Load the Chrome Extension
+1. Open a terminal and navigate to the `/extension` directory.
+2. Install the required Node modules:
+   ```bash
+   npm install
+   ```
+3. Build the production files using the Plasmo CLI:
+   ```bash
+   npm run build
+   ```
+4. Load the compiled extension into Google Chrome:
+   - Navigate to the URL `chrome://extensions/`
+   - Toggle **Developer Mode** active in the top-right corner.
+   - Click the **Load Unpacked** button in the top-left corner.
+   - Select the target output folder: `extension/build/chrome-mv3-prod/`.
 
 ---
 
