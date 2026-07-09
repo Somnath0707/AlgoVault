@@ -11,39 +11,30 @@ AlgoVault is a self-hosted performance telemetry, rating estimation, and algorit
 ### 📊 Performance Analytics & Dashboard
 AlgoVault provides a unified dashboard showing your performance stats, streaks, active session time, and cognitive loading telemetry.
 <p align="center">
-  <img src="readme-images/dashboard_1.png" alt="AlgoVault Dashboard" width="45%" />
-  <img src="readme-images/dashboard_2.png" alt="Dashboard Metrics" width="45%" />
+  <img src="readme-images/dashboard_1.png" alt="AlgoVault Dashboard" width="49%" />
+  <img src="readme-images/dashboard_2.png" alt="Dashboard Metrics" width="49%" />
 </p>
 
 ---
 
-### 🎮 The Trophy Cabinet ("The Vault")
-A premium display case designed with emotional craftsmanship. It features 3D badge parallax tilts, responsive metallic glare catching the light, and categorized layout compartments (Common, Rare, Epic, Legendary). Locked achievements sit in grayscale stillness to spark curiosity.
+### 🎮 The Trophy Cabinet & Progress Heatmap
+A premium display case designed with emotional craftsmanship featuring 3D badge parallax tilts and categorized layout shelves, paired with a dynamic height Solve vs Attempted categories comparison chart.
 <p align="center">
-  <img src="readme-images/trophy_cabinet.png" alt="Trophy Cabinet" width="90%" />
-</p>
-
----
-
-### 📈 Solve vs Attempted Rating Heatmap
-Visualizes unique solved count nested directly inside overall attempted problems across difficulty rating categories. Dynamically auto-scales height to prevent vertical clutter.
-<p align="center">
-  <img src="readme-images/heatmap.png" alt="Solve vs Attempted Heatmap" width="90%" />
+  <img src="readme-images/trophy_cabinet.png" alt="Trophy Cabinet" width="49%" />
+  <img src="readme-images/heatmap.png" alt="Solve vs Attempted Heatmap" width="49%" />
 </p>
 
 ---
 
 ### 🏆 Interactive LeetCode Page Overlays
 AlgoVault injects beautiful UI overlays directly onto LeetCode pages to track tags, difficulty ratings, solve probability, and target stats.
-
 <p align="center">
-  <img src="readme-images/rating_tags.png" alt="Problem Rating Tags" width="45%" />
-  <img src="readme-images/rating_to_target.png" alt="Target Rating Metric" width="45%" />
+  <img src="readme-images/rating_tags.png" alt="Problem Rating Tags" width="49%" />
+  <img src="readme-images/rating_to_target.png" alt="Target Rating Metric" width="49%" />
 </p>
-
 <p align="center">
-  <img src="readme-images/zerotrac_integration.png" alt="ZeroTrac Rating Integration" width="45%" />
-  <img src="readme-images/hide_account.png" alt="Page Cleanup Tweaks" width="45%" />
+  <img src="readme-images/zerotrac_integration.png" alt="ZeroTrac Rating Integration" width="49%" />
+  <img src="readme-images/hide_account.png" alt="Page Cleanup Tweaks" width="49%" />
 </p>
 
 ---
@@ -51,28 +42,21 @@ AlgoVault injects beautiful UI overlays directly onto LeetCode pages to track ta
 ### ⚔️ Contest Intelligence & Analytics
 Track upcoming contests, monitor live contest performance metrics, and analyze your rating progression graph.
 <p align="center">
-  <img src="readme-images/upcoming_contests.png" alt="Upcoming Contests" width="45%" />
-  <img src="readme-images/contest_performance.png" alt="Contest Performance Charts" width="45%" />
+  <img src="readme-images/upcoming_contests.png" alt="Upcoming Contests" width="49%" />
+  <img src="readme-images/contest_performance.png" alt="Contest Performance Charts" width="49%" />
 </p>
 <p align="center">
-  <img src="readme-images/contest_details.png" alt="Contest Details" width="90%" />
-</p>
-
----
-
-### 🧠 Spaced Repetition & Study Lists
-Reviews scheduled using a modified SM-2 algorithm aligned with your Tag Mastery values. Includes curated lists like NeetCode 150 and Striver SDE Sheet.
-<p align="center">
-  <img src="readme-images/topic_mastery.png" alt="Topic Mastery" width="45%" />
-  <img src="readme-images/study_lists.png" alt="Study Lists" width="45%" />
+  <img src="readme-images/contest_details.png" alt="Contest Details" width="49%" />
+  <img src="readme-images/study_lists.png" alt="Study Lists" width="49%" />
 </p>
 
 ---
 
-### 🔍 Weakness Identification
-AlgoVault analyzes your submission logs and identifies specific topic tags where your solve probability is low or average attempts are high, grouping them into direct actionable items.
+### 🧠 Spaced Repetition & Weakness Identification
+Reviews scheduled using a modified SM-2 algorithm aligned with your Tag Mastery values. Includes automatic detection of topic tags where your solve probability is low.
 <p align="center">
-  <img src="readme-images/weakness.png" alt="Weakness Discovery" width="90%" />
+  <img src="readme-images/topic_mastery.png" alt="Topic Mastery" width="49%" />
+  <img src="readme-images/weakness.png" alt="Weakness Discovery" width="49%" />
 </p>
 
 ---
@@ -80,28 +64,21 @@ AlgoVault analyzes your submission logs and identifies specific topic tags where
 ### 🎬 Submission Celebration Overlays
 Play Minecraft (Level Up / You Died) or GTA (Mission Passed / Wasted) themes with authentic sounds and overlays immediately on accepted/rejected submissions.
 <p align="center">
-  <img src="readme-images/mission_passed.png" alt="Mission Passed GTA Overlay" width="45%" />
-  <img src="readme-images/mission_failed.png" alt="Wasted GTA Overlay" width="45%" />
+  <img src="readme-images/mission_passed.png" alt="Mission Passed GTA Overlay" width="49%" />
+  <img src="readme-images/mission_failed.png" alt="Wasted GTA Overlay" width="49%" />
 </p>
 
 ---
 
-### 🛡️ Telemetry & Anti-Cheat Analysis
-Tracks keyboard metrics (e.g. typing speed vs copy-paste detection) and window focus switches to help you build honest coding habits.
+### 🛡️ Telemetry, Anti-Cheat, & Settings
+Tracks keyboard metrics (manual typing vs copy-paste detection), tab focus switches, and browser config panels.
 <p align="center">
-  <img src="readme-images/anti_cheat.png" alt="Anti-Cheat Analytics" width="90%" />
-</p>
-
----
-
-### ⚙️ System Settings & Resources
-Configure backend connections, toggle celebration styles, reset stats, and browse algorithmic study resources directly inside the panel.
-<p align="center">
-  <img src="readme-images/settings_1.png" alt="Dashboard Sync Settings" width="45%" />
-  <img src="readme-images/settings_2.png" alt="Celebration Overlay Config" width="45%" />
+  <img src="readme-images/anti_cheat.png" alt="Anti-Cheat Analytics" width="49%" />
+  <img src="readme-images/resources.png" alt="Resources Hub" width="49%" />
 </p>
 <p align="center">
-  <img src="readme-images/resources.png" alt="Resources Hub" width="90%" />
+  <img src="readme-images/settings_1.png" alt="Dashboard Sync Settings" width="49%" />
+  <img src="readme-images/settings_2.png" alt="Celebration Overlay Config" width="49%" />
 </p>
 
 ---
