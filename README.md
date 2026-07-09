@@ -6,6 +6,141 @@ AlgoVault is a self-hosted performance telemetry, rating estimation, and algorit
 
 ---
 
+## 🏗️ Technical Stack & Architecture
+
+```mermaid
+graph TD
+    subgraph "Browser Context (leetcode.com)"
+        MAIN[MAIN World: Fetch Interceptor]
+        ISOLATED[ISOLATED World: Telemetry Scripts]
+        UI[Plasmo React UI: Overlays]
+    end
+
+    subgraph AlgoVault Local Server
+        SRV[Spring Boot Web Service]
+        Redis[(Redis Cache)]
+        DB[(PostgreSQL Database)]
+    end
+
+    subgraph External Platforms
+        LC[LeetCode REST/GraphQL APIs]
+        EH[EntrantHub API Proxy]
+    end
+
+    MAIN -->|window.postMessage| ISOLATED
+    ISOLATED -->|chrome.runtime| SRV
+    UI -->|API Requests| SRV
+    SRV <---> DB
+    SRV <---> Redis
+    SRV -->|History / Ranks| LC
+    SRV -->|Predictions| EH
+```
+
+### 💻 Chrome Extension (Manifest V3)
+- **Framework:** [Plasmo](https://www.plasmo.com/) browser extension framework with React 18, TypeScript, and TailwindCSS.
+- **Tactile 3D Badge cabinet:** Uses `framer-motion` for physical card translations (`preserve-3d` and `translateZ(24px)`) and responsive mouse-follow specular glare.
+- **Analytics Charts:** Built using `recharts` but custom-engineered with a nested SVG shape callback (`NestedBarShape`) to draw solved bars inside attempted bars, bypassing default vertical grouping alignment bugs.
+
+### ☕ Spring Boot Backend Service
+- **Core Platform:** Spring Boot 3.3, Java 17+, Hibernate JPA, Maven.
+- **Relational Storage:** PostgreSQL database managing users, submissions, tag masteries, contest results, and spaced repetition cards.
+- **Migration Engine:** [Flyway Migrations](https://flywaydb.org/) executing sequence updates and indexes (`V1__create_users.sql` up to `V18__add_version_and_indexes.sql`).
+- **Caching Layer:** Redis serving key-value caches for user sessions, dashboards, and live rating buckets.
+
+---
+
+## 🧮 Mathematical Modeling & Core Calculations
+
+### 1. Expected Solve Probability (ZeroTrac Logistic Curve)
+We model the probability $P$ of a user solving a problem of difficulty rating $R_p$ with a personal rating $R_u$ using the standard logistic function:
+
+$$P(\text{solve}) = \frac{1}{1 + 10^{\frac{R_p - R_u}{400}}}$$
+
+### 2. Topic ELO Rating Update
+Upon solving or failing a problem with rating $R_p$, your topic rating $R_u$ updates via:
+
+$$R_u^{\text{new}} = R_u^{\text{old}} + K \times (\text{Score} - P(\text{solve}))$$
+
+*   $\text{Score} = 1.0$ (Success / Accepted) or $0.0$ (Failure / Rejected).
+*   $K$ is a dynamic scaling factor based on the number of completed problems in the category to control rating volatility.
+
+### 3. Spaced Repetition (Modified SM-2 Scheduling)
+Schedulers compute the optimal interval $I$ in days for problem review based on card repetition count $n$, ease factor $EF$, and topic mastery values:
+
+$$I(n) = \begin{cases} 
+1 & n = 1 \\ 
+6 & n = 2 \\ 
+I(n-1) \times EF \times \theta_{\text{mastery}} & n > 2 
+\end{cases}$$
+
+*   $\theta_{\text{mastery}}$ represents a tag mastery coefficient that shortens the repetition intervals for weak topics and extends them for strong topics.
+
+---
+
+## 🛡️ Under-the-Hood Telemetry Core
+
+### 1. Next.js Fetch & XHR Interception
+To resolve loading delays caused by Plasmo's Parcel module loaders, the extension injects `assets/interceptor.js` directly as a script tag into the page DOM (`MAIN` world context) at `document_start`. This monkey-patches `window.fetch` and `XMLHttpRequest` synchronously before LeetCode's Next.js runtime mounts:
+- Intercepts `/submissions/detail/.../check/` queries.
+- Reads final submission results (e.g. `state: "SUCCESS"`, memory, runtime, compile errors).
+- Relays payloads via `window.postMessage` using a cryptographically verified `nonce` to isolate the payload.
+
+### 2. Cognitive Telemetry & Anti-Cheat
+- **Manual Typing vs Copy-Paste:** Listens to keyboard event intervals (`keydown`) on code editors. Calculates characters per minute (CPM). Staging sudden block additions triggers copy-paste tracking.
+- **Window Focus/Blur Heartbeats:** Logs focus switches (`tabSwitches`) to gauge context switching and attention drift during active problem solving.
+
+---
+
+## 🛠️ Step-by-Step Installation & Local Setup
+
+### 1. Prerequisites
+- **Java 17+** (e.g., Eclipse Temurin JDK 17)
+- **Node.js 18+** & NPM
+- **PostgreSQL** & **Redis** (Locally or via Docker Compose)
+- **Maven** (optional, wrapper provided)
+
+### 2. Database Initialization
+Ensure PostgreSQL is running and create the `algovault` schema:
+```bash
+createdb algovault
+```
+
+### 3. Start Cache & Database via Docker Compose
+If you prefer running Postgres and Redis inside Docker:
+```bash
+docker-compose up -d postgres redis
+```
+
+### 4. Running the Backend Service
+1. Navigate to the `backend` directory.
+2. Ensure `JAVA_HOME` points to JDK 17+.
+3. Run the Spring Boot application (database migrations compile automatically via Flyway on startup):
+```bash
+cd backend
+export JAVA_HOME=/path/to/jdk-17
+mvn spring-boot:run
+```
+The backend service will run on `http://localhost:8080`.
+
+### 5. Build and Install Chrome Extension
+1. Navigate to the `extension` directory.
+2. Install Node dependencies:
+```bash
+cd extension
+npm install
+```
+3. Run the production build compiler:
+```bash
+npm run build
+```
+4. Load in Chrome:
+   - Open `chrome://extensions/`
+   - Toggle **Developer Mode** (top right).
+   - Click **Load Unpacked**.
+   - Select the directory `extension/build/chrome-mv3-prod/`.
+
+---
+
 ## 📸 Visual Showcase & Feature Tour
 
 ### 📊 Performance Analytics & Dashboard
@@ -88,123 +223,10 @@ Tracks keyboard metrics (manual typing vs copy-paste detection), tab focus switc
 
 ---
 
-## 🏗️ System Architecture
+## 💾 Replay Evidence & Verification Files (Logs)
 
-```mermaid
-graph TD
-    subgraph "Browser Context (leetcode.com)"
-        MAIN[MAIN World: Fetch Interceptor]
-        ISOLATED[ISOLATED World: Telemetry Scripts]
-        UI[Plasmo React UI: Overlays]
-    end
+Verification walkthrough logs, redesign proposals, and checklist trackers generated during the architecture audits:
+- **Redesign Blueprint:** [Trophy Cabinet Design Artifact](file:///Users/somnathghorpade/.gemini/antigravity/brain/3bdba3b2-baf3-4c71-8cae-f00709ce90b5/trophy_cabinet_redesign_proposal.md)
+- **Checklist Tracker:** [Task list checklist](file:///Users/somnathghorpade/.gemini/antigravity/brain/3bdba3b2-baf3-4c71-8cae-f00709ce90b5/task.md)
+- **Audit Walkthrough:** [walkthrough.md](file:///Users/somnathghorpade/.gemini/antigravity/brain/3bdba3b2-baf3-4c71-8cae-f00709ce90b5/walkthrough.md)
 
-    subgraph AlgoVault Local Server
-        SRV[Spring Boot Web Service]
-        Redis[(Redis Cache)]
-        DB[(PostgreSQL Database)]
-    end
-
-    subgraph External Platforms
-        LC[LeetCode REST/GraphQL APIs]
-        EH[EntrantHub API Proxy]
-    end
-
-    MAIN -->|window.postMessage| ISOLATED
-    ISOLATED -->|chrome.runtime| SRV
-    UI -->|API Requests| SRV
-    SRV <---> DB
-    SRV <---> Redis
-    SRV -->|History / Ranks| LC
-    SRV -->|Predictions| EH
-```
-
-### The Analytical Core
-*   **Next.js Interception:** To catch LeetCode's Next.js asynchronous submission polling before the page caches the fetch pointer, the extension injects a raw `interceptor.js` script straight into the page DOM (`MAIN` world context) at `document_start`. This overrides the network layers safely.
-*   **Anti-Cheat Analytics:** Keyboard event tracking captures code completion speeds and copy-paste sizes. Frequent window tab switching is recorded to gauge attention distribution.
-
----
-
-## 🛠️ Repository Structure
-
-```text
-├── /extension     # Manifest V3 Extension (Plasmo, React 18, TailwindCSS, TS)
-├── /backend       # Web Service (Spring Boot 3.3, Flyway Migrations, Hibernate, PostgreSQL)
-└── docker-compose.yml  # Docker Compose environment for Local Databases and Services
-```
-
----
-
-## 🚀 Setup & Deployment
-
-### Method A: Quick Start (Docker Compose)
-If you have Docker installed, you can start the database stack in one command:
-
-1. Clone the repository and navigate to the directory:
-   ```bash
-   cd ChromeExtension
-   ```
-2. Start the database and cache services:
-   ```bash
-   docker-compose up -d postgres redis
-   ```
-3. Run the Spring Boot application (detailed below).
-
----
-
-### Method B: Manual Developer Setup
-
-#### 1. Setup the Database
-Create the `algovault` database in your local PostgreSQL instance:
-```bash
-createdb algovault
-```
-
-#### 2. Start the Backend Service
-Execute the Spring Boot service:
-```bash
-cd backend
-# Explicitly set Java 17+ or ensure it is in your path
-export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home 
-mvn spring-boot:run
-```
-The server will start on `http://localhost:8080`.
-
-#### 3. Build & Install the Extension
-The Chrome Extension is built using Plasmo.
-
-1. Install dependencies:
-   ```bash
-   cd extension
-   npm install
-   ```
-2. Run the production build:
-   ```bash
-   npm run build
-   ```
-3. Load the extension in Chrome:
-   - Navigate to `chrome://extensions/`
-   - Enable **Developer Mode** (toggle top-right).
-   - Click **Load Unpacked**.
-   - Select the `extension/build/chrome-mv3-prod/` directory.
-
----
-
-## 🧮 Mathematical Modeling
-
-### Expected Solve Probability
-We model the probability $P$ of a user solving a problem of difficulty rating $R_p$ with a personal rating $R_u$ using the logistic function:
-
-$$P(\text{solve}) = \frac{1}{1 + 10^{\frac{R_p - R_u}{400}}}$$
-
-### Topic ELO Rating Update
-Upon solving or failing a problem with rating $R_p$, your topic rating $R_u$ updates via:
-
-$$R_u^{\text{new}} = R_u^{\text{old}} + K \times (\text{Score} - P(\text{solve}))$$
-
-*   $\text{Score} = 1.0$ (Success) or $0.0$ (Failure).
-*   $K$ is a dynamic scaling factor based on the number of completed problems in the category.
-
----
-
-## 🛡️ License
-Distributed under the MIT License. See `LICENSE` for more information.
