@@ -9,7 +9,12 @@ AlgoVault is a self-hosted performance telemetry, rating estimation, and algorit
 ## 📸 Visual Showcase & Feature Tour
 
 ### 📊 Performance Analytics & Dashboard
-AlgoVault provides a unified dashboard showing your performance stats, streaks, active session time, and cognitive loading telemetry.
+AlgoVault provides a unified dashboard showing your performance stats, streaks, active session time, and cognitive loading telemetry, integrating seamlessly directly into the Chrome Side Panel.
+
+<p align="center">
+  <img src="readme-images/extension_overall_showcase.png" alt="AlgoVault Overall Showcase" width="90%" />
+</p>
+
 <p align="center">
   <img src="readme-images/dashboard_1.png" alt="AlgoVault Dashboard" width="49%" />
   <img src="readme-images/dashboard_2.png" alt="Dashboard Metrics" width="49%" />
