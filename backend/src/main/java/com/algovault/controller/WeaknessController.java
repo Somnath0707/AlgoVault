@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.cache.annotation.CacheEvict;
 
 @RestController
 @RequestMapping("/api/weakness")
@@ -17,8 +18,11 @@ public class WeaknessController {
     private final UserContextService userContextService;
 
     @GetMapping
-    public ResponseEntity<WeaknessResponse> getWeakness(HttpServletRequest request) {
+    public ResponseEntity<WeaknessResponse> getWeakness(HttpServletRequest request, @RequestParam(required = false, defaultValue = "false") boolean refresh) {
         User user = userContextService.resolveUser(request);
+        if (refresh) {
+            service.evictWeaknessCache(user.getId());
+        }
         return ResponseEntity.ok(service.getWeakness(user.getId()));
     }
 }

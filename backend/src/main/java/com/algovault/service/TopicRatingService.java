@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 
 @Service
+@org.springframework.transaction.annotation.Transactional
 @RequiredArgsConstructor
 @Slf4j
 public class TopicRatingService {
@@ -57,10 +58,13 @@ public class TopicRatingService {
                     TopicRating.builder().user(user).tag(k).eloRating(1200).peakRating(1200).problemsPlayed(0).build()
                 );
 
-                int newElo = eloEngine.calculateNewElo(tr.getEloRating(), problemRating, score, tr.getProblemsPlayed());
+                Integer currentElo = tr.getEloRating() != null ? tr.getEloRating() : 1200;
+                Integer currentPlayed = tr.getProblemsPlayed() != null ? tr.getProblemsPlayed() : 0;
+                int newElo = eloEngine.calculateNewElo(currentElo, problemRating, score, currentPlayed);
                 tr.setEloRating(newElo);
-                if (newElo > tr.getPeakRating()) tr.setPeakRating(newElo);
-                tr.setProblemsPlayed(tr.getProblemsPlayed() + 1);
+                Integer peak = tr.getPeakRating() != null ? tr.getPeakRating() : 1200;
+                if (newElo > peak) tr.setPeakRating(newElo);
+                tr.setProblemsPlayed(currentPlayed + 1);
             }
         }
 
@@ -80,7 +84,7 @@ public class TopicRatingService {
         // Save modifications to existing
         topicRatingRepository.saveAll(existing);
         // Save completely new topics
-        topicRatingRepository.saveAll(tagRatings.values());
+        topicRatingRepository.saveAll(new ArrayList<>(tagRatings.values()));
     }
 
     @Transactional
@@ -90,23 +94,48 @@ public class TopicRatingService {
         if (tags == null || tags.isEmpty()) return;
 
         User user = userRepository.findById(userId).orElseThrow();
-        int problemRating = (int) Math.round(submission.getProblem().getActualRating());
-        
-        List<Submission> problemSubs = submissionRepository.findByUserIdAndProblemId(userId, submission.getProblem().getId());
-        problemSubs.sort(Comparator.comparing(Submission::getSubmittedAt));
-        
-        boolean isFirstTryAc = "Accepted".equals(problemSubs.get(0).getVerdict());
-        boolean isEventualAc = problemSubs.stream().anyMatch(s -> "Accepted".equals(s.getVerdict()));
-        double score = isFirstTryAc ? 1.0 : (isEventualAc ? 0.7 : 0.0);
-
         for (String tag : tags) {
-            TopicRating tr = topicRatingRepository.findByUserIdAndTag(userId, tag)
-                .orElseGet(() -> TopicRating.builder().user(user).tag(tag).eloRating(1200).peakRating(1200).problemsPlayed(0).build());
+            recomputeEloForTag(user, tag);
+        }
+    }
 
-            int newElo = eloEngine.calculateNewElo(tr.getEloRating(), problemRating, score, tr.getProblemsPlayed());
+    @Transactional
+    public void recomputeEloForTag(User user, String tag) {
+        List<Submission> tagSubs = submissionRepository.findByUserIdAndTag(user.getId(), tag);
+        tagSubs.sort(Comparator.comparing(Submission::getSubmittedAt));
+
+        Map<Long, List<Submission>> problemAttemptsMap = new LinkedHashMap<>();
+        for (Submission sub : tagSubs) {
+            if (sub.getProblem() != null && sub.getProblem().getActualRating() != null) {
+                problemAttemptsMap.computeIfAbsent(sub.getProblem().getId(), k -> new ArrayList<>()).add(sub);
+            }
+        }
+
+        TopicRating tr = topicRatingRepository.findByUserIdAndTag(user.getId(), tag)
+            .orElseGet(() -> TopicRating.builder().user(user).tag(tag).eloRating(1200).peakRating(1200).problemsPlayed(0).build());
+
+        tr.setEloRating(1200);
+        tr.setPeakRating(1200);
+        tr.setProblemsPlayed(0);
+
+        for (List<Submission> subs : problemAttemptsMap.values()) {
+            int problemRating = (int) Math.round(subs.get(0).getProblem().getActualRating());
+            boolean isFirstTryAc = "Accepted".equals(subs.get(0).getVerdict());
+            boolean isEventualAc = subs.stream().anyMatch(s -> "Accepted".equals(s.getVerdict()));
+            double score = isFirstTryAc ? 1.0 : (isEventualAc ? 0.7 : 0.0);
+
+            Integer currentElo = tr.getEloRating() != null ? tr.getEloRating() : 1200;
+            Integer currentPlayed = tr.getProblemsPlayed() != null ? tr.getProblemsPlayed() : 0;
+            int newElo = eloEngine.calculateNewElo(currentElo, problemRating, score, currentPlayed);
             tr.setEloRating(newElo);
-            if (newElo > tr.getPeakRating()) tr.setPeakRating(newElo);
-            tr.setProblemsPlayed(tr.getProblemsPlayed() + 1);
+            Integer peak = tr.getPeakRating() != null ? tr.getPeakRating() : 1200;
+            if (newElo > peak) tr.setPeakRating(newElo);
+            tr.setProblemsPlayed(currentPlayed + 1);
+        }
+
+        if (tr.getProblemsPlayed() == 0) {
+            topicRatingRepository.delete(tr);
+        } else {
             topicRatingRepository.save(tr);
         }
     }

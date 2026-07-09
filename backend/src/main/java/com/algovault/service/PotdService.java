@@ -17,6 +17,7 @@ import java.util.List;
 import org.springframework.cache.annotation.Cacheable;
 
 @Service
+@org.springframework.transaction.annotation.Transactional
 @RequiredArgsConstructor
 public class PotdService {
     private final ProblemRepository problemRepository;

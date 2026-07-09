@@ -4,9 +4,11 @@ import type { PredictionResult } from "../types"
 
 let cachedToken: string | null = null;
 let cachedTokenUsername: string | null = null;
+let cachedTokenTime: number = 0;
 
 async function getAuthToken(username: string): Promise<string> {
-  if (cachedToken && cachedTokenUsername === username) return cachedToken;
+  const now = Date.now();
+  if (cachedToken && cachedTokenUsername === username && (now - cachedTokenTime < 30 * 60 * 1000)) return cachedToken;
 
   const res = await fetch(`${BACKEND_URL}/api/auth/extension-login`, {
     method: 'POST',
@@ -17,6 +19,7 @@ async function getAuthToken(username: string): Promise<string> {
   const data = await res.json();
   cachedToken = data.token;
   cachedTokenUsername = username;
+  cachedTokenTime = Date.now();
   return data.token;
 }
 
@@ -37,18 +40,24 @@ async function backendFetch(path: string, init: RequestInit = {}) {
     }
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
   const res = await fetch(`${BACKEND_URL}${path}`, {
     ...init,
-    headers
+    headers,
+    signal: controller.signal
   })
+  clearTimeout(timeoutId);
 
   if (res.status === 401) {
     if (jwt) {
       await clearJwtToken()
-    } else {
-      cachedToken = null;
-      cachedTokenUsername = null;
     }
+    // ALWAYS clear the in-memory cache on 401, regardless of where the token came from.
+    // If the token was rejected, we must force a new one.
+    cachedToken = null;
+    cachedTokenUsername = null;
     
     // Retry once
     const nextJwt = await getJwtToken()
@@ -65,7 +74,10 @@ async function backendFetch(path: string, init: RequestInit = {}) {
       }
     }
     
-    const retryRes = await fetch(`${BACKEND_URL}${path}`, { ...init, headers: headersRetry });
+    const retryController = new AbortController();
+    const retryTimeoutId = setTimeout(() => retryController.abort(), 15000);
+    const retryRes = await fetch(`${BACKEND_URL}${path}`, { ...init, headers: headersRetry, signal: retryController.signal });
+    clearTimeout(retryTimeoutId);
     if (!retryRes.ok) {
       const body = await retryRes.text().catch(() => "")
       throw new Error(body || `Backend request failed: ${retryRes.status}`)
@@ -89,10 +101,15 @@ export const fetchPrediction = async (titleSlug: string): Promise<PredictionResu
 export const fetchDashboard = async () => backendFetch("/api/dashboard")
 export const fetchHeatmap = async () => backendFetch("/api/heatmap")
 export const fetchMastery = async () => backendFetch("/api/mastery")
-export const fetchWeakness = async () => backendFetch("/api/weakness")
-export const fetchRecommendations = async () => backendFetch("/api/recommendations")
+export const fetchWeakness = async (refresh = false) => backendFetch(refresh ? "/api/weakness?refresh=true" : "/api/weakness")
 export const fetchPotd = async () => backendFetch("/api/potd")
-export const fetchRevisionQueue = async () => backendFetch("/api/revision/queue")
+export const fetchRevisionQueue = async () => backendFetch("/api/revision")
+export const reviewRevisionCard = async (cardId: number, quality: number) => {
+  return backendFetch(`/api/revision/${cardId}`, {
+    method: "POST",
+    body: JSON.stringify({ quality })
+  })
+}
 export const fetchContests = async () => backendFetch("/api/contests")
 export const syncLeetcode = async (payload: Record<string, any>) => {
   return backendFetch("/api/sync/leetcode", {
@@ -102,7 +119,7 @@ export const syncLeetcode = async (payload: Record<string, any>) => {
 }
 
 export const fetchVault = async (query?: string) => {
-  const path = query ? `/api/vault/search?q=${encodeURIComponent(query)}` : "/api/vault"
+  const path = query ? `/api/vault?query=${encodeURIComponent(query)}` : "/api/vault"
   return backendFetch(path)
 }
 
@@ -170,6 +187,10 @@ export const fetchEntrantHubUpcomingBackend = async (): Promise<any> => {
   return backendFetch("/api/entranthub/upcoming")
 }
 
+export const fetchZerotracRatingsBackend = async (): Promise<any> => {
+  return backendFetch("/api/metadata/zerotrac-ratings")
+}
+
 export const getSettings = async () => {
   return backendFetch("/api/settings", {
     method: "GET"
@@ -189,7 +210,7 @@ export const exportUserData = async (): Promise<Blob> => {
   if (token) {
     headers["Authorization"] = `Bearer ${token}`
   }
-  const response = await fetch(`${BACKEND_URL}/api/export`, {
+  const response = await fetch(`${BACKEND_URL}/api/export/json`, {
     method: "GET",
     headers
   })

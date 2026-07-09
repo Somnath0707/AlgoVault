@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 import org.springframework.cache.annotation.Cacheable;
 
 @Service
+@org.springframework.transaction.annotation.Transactional
 @RequiredArgsConstructor
 public class ContestAnalyzerService {
     private final ContestResultRepository repository;

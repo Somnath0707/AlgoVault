@@ -1,7 +1,7 @@
 import type { PlasmoCSConfig } from "plasmo"
 
 export const config: PlasmoCSConfig = {
-  matches: ["https://leetcode.com/problems/*"],
+  matches: ["https://leetcode.com/problems/*", "https://leetcode.com/contest/*/problems/*"],
   run_at: "document_idle"
 }
 
@@ -49,14 +49,18 @@ function languageFallback() {
 function parseRuntimeMs(runtime?: string) {
   if (!runtime) return undefined
   const match = runtime.match(/\d+/)
-  return match ? Number(match[0]) : undefined
+  const val = match ? Number(match[0]) : undefined
+  if (val !== undefined && (val < 0 || val > 1_000_000)) return undefined
+  return val
 }
 
 function parseMemoryKb(memory?: string) {
   if (!memory) return undefined
   const value = Number(memory.replace(/[^0-9.]/g, ""))
   if (!Number.isFinite(value)) return undefined
-  return memory.toLowerCase().includes("mb") ? Math.round(value * 1024) : Math.round(value)
+  const val = memory.toLowerCase().includes("mb") ? Math.round(value * 1024) : Math.round(value)
+  if (val < 0 || val > 10_000_000) return undefined
+  return val
 }
 
 function verdictFromCode(statusCode?: any, fallback?: string) {
@@ -168,24 +172,58 @@ function showPostSolveDialog(titleSlug: string) {
 window.addEventListener("message", ((event: MessageEvent) => {
   if (event.origin !== window.location.origin || event.source !== window) return
   if (event.data?.type !== "AV_SUBMISSION_RESULT") return
+  
+  console.log("AlgoVault: submission-relay received AV_SUBMISSION_RESULT", {
+    nonce: event.data?.nonce,
+    windowNonce: (window as any).__ALGOVAULT_ISOLATED_NONCE__
+  })
+
+  const expectedNonce = (window as any).__ALGOVAULT_ISOLATED_NONCE__
+  if (!expectedNonce || event.data.nonce !== expectedNonce) {
+    console.warn("AlgoVault: submission-relay nonce mismatch!", {
+      received: event.data?.nonce,
+      expected: expectedNonce
+    })
+    return
+  }
+
+  const detail = event.data.detail || {}
+
+  // 1. submission id is numeric string when present
+  if (detail.submissionId && !/^\d+$/.test(String(detail.submissionId))) {
+    return
+  }
+
+  // 2. status code is known/expected
+  const statusCode = detail.statusCode != null ? Number(detail.statusCode) : null
+  const validStatusCodes = [10, 11, 14, 15, 20]
+  if (statusCode !== null && !validStatusCodes.includes(statusCode)) {
+    return
+  }
+
+  // 3. title slug comes from current URL, not trusted page payload
   const slug = currentSlug()
   if (!slug) return
-  const detail = event.data.detail || {}
+
   if (detail.submissionId) {
     const submissionId = String(detail.submissionId)
     if (relayedSubmissionIds.has(submissionId)) return
     relayedSubmissionIds.add(submissionId)
     if (relayedSubmissionIds.size > 100) relayedSubmissionIds.delete(relayedSubmissionIds.values().next().value!)
   }
+
+  const runtimeMs = parseRuntimeMs(detail.runtime)
+  const memoryKb = parseMemoryKb(detail.memory)
+
   const payload: SubmissionPayload = {
-    submissionId: detail.submissionId,
+    submissionId: detail.submissionId ? String(detail.submissionId) : undefined,
     titleSlug: slug,
     title: currentTitle(),
     statusCode: detail.statusCode,
     statusDisplay: verdictFromCode(detail.statusCode, detail.statusDisplay),
     language: detail.lang,
-    runtimeMs: parseRuntimeMs(detail.runtime),
-    memoryKb: parseMemoryKb(detail.memory),
+    runtimeMs: runtimeMs,
+    memoryKb: memoryKb,
     totalCorrect: detail.totalCorrect,
     totalTestcases: detail.totalTestcases,
     submittedAt: new Date().toISOString(),
@@ -195,12 +233,12 @@ window.addEventListener("message", ((event: MessageEvent) => {
 
   chrome.runtime.sendMessage({ action: "submission_result", payload })
   if (payload.statusDisplay === "Accepted") {
-    window.postMessage({ type: "AV_SUBMISSION_RESULT_CONFIRMED", detail: payload }, "*")
+    window.postMessage({ type: "AV_SUBMISSION_RESULT_CONFIRMED", nonce: expectedNonce, detail: payload }, "*")
     chrome.storage.local.get("algovault.solvedSlugs", (result) => {
-      const cached = result["algovault.solvedSlugs"]
+      const cached = result["algovault.solvedSlugs"] || {}
       const slugs = new Set<string>(Array.isArray(cached?.slugs) ? cached.slugs : [])
       slugs.add(slug)
-      chrome.storage.local.set({ "algovault.solvedSlugs": { fetchedAt: Date.now(), slugs: Array.from(slugs) } })
+      chrome.storage.local.set({ "algovault.solvedSlugs": { ...cached, fetchedAt: Date.now(), slugs: Array.from(slugs) } })
     })
     showPostSolveDialog(slug)
   }

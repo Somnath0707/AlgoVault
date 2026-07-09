@@ -17,13 +17,14 @@ public class SyncController {
     private final UserContextService userContextService;
 
     @PostMapping("/leetcode")
-    public ResponseEntity<?> syncLeetcode(HttpServletRequest servletRequest, @RequestBody SyncLeetcodeRequest request) {
+    public ResponseEntity<?> syncLeetcode(HttpServletRequest servletRequest, @RequestBody @jakarta.validation.Valid SyncLeetcodeRequest request) {
         try {
             User user = userContextService.resolveUser(servletRequest);
             syncService.syncLeetcode(user.getId(), request);
             return ResponseEntity.ok(Map.of("status", "success", "message", "Data synchronized successfully"));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", e.getMessage()));
+            org.slf4j.LoggerFactory.getLogger(SyncController.class).error("Sync failed", e);
+            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Data synchronization failed. Please try again later."));
         }
     }
 }

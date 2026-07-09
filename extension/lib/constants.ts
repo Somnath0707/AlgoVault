@@ -5,8 +5,8 @@ export const BACKEND_URL = process.env.PLASMO_PUBLIC_BACKEND_URL || 'http://loca
 export const STORAGE_KEYS = {
   USERNAME: "algovault.username",
   JWT_TOKEN: "algovault.jwt",
-  ZEROTRAC_DATA: "algovault.zerotrac.data",
-  ZEROTRAC_LAST_FETCHED: "algovault.zerotrac.lastFetched",
+  ZEROTRAC_DATA: "algovault.zerotrac.data.v2",
+  ZEROTRAC_LAST_FETCHED: "algovault.zerotrac.last_fetched.v2",
   LAST_SYNC: "algovault.lastSync",
   USER_SETTINGS: "algovault.userSettings",
   CACHED_DASHBOARD: "algovault.cache.dashboard",

@@ -12,10 +12,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 
 @Service
+@org.springframework.transaction.annotation.Transactional
 @RequiredArgsConstructor
 @Slf4j
 public class EntrantHubService {
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
     private static final String ENTRANTHUB_BASE_URL = "https://api.entranthub.com/api/v1";
 
     public String fetchHistory(String username, String region) {

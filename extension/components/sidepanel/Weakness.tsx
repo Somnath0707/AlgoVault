@@ -6,6 +6,7 @@ import { getCachedWeakness, setCachedWeakness } from "../../lib/storage"
 export const Weakness = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     // 1. Try to load from cache
@@ -25,6 +26,20 @@ export const Weakness = () => {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // Add a query param to bypass backend cache if supported, or just rely on backend cache eviction.
+      const fresh = await fetchWeakness(true);
+      setData(fresh);
+      setCachedWeakness(fresh);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   if (loading) return <div className="p-4 text-center text-av-text-secondary text-sm">Loading weakness data...</div>;
 
@@ -56,8 +71,18 @@ export const Weakness = () => {
         ))}
       </div>
       
-      <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mt-2">Recommended Training Problems</h3>
-      <div className="grid gap-2">
+      <div className="flex justify-between items-center mt-2">
+        <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Recommended Training Problems</h3>
+        <button 
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="text-[9px] px-2 py-0.5 border border-zinc-700 hover:bg-zinc-800 rounded font-mono text-zinc-300 disabled:opacity-50 flex items-center gap-1 transition-colors"
+        >
+          <span className={refreshing ? "animate-spin" : ""}>⟳</span>
+          Shuffle
+        </button>
+      </div>
+      <div className="grid gap-2 mt-1">
         {data?.recommendations?.length === 0 && <div className="text-xs text-zinc-500 font-mono py-2">No recommendations available yet.</div>}
         {data?.recommendations?.map((r: any, i: number) => (
           <a key={i} href={`https://leetcode.com/problems/${r.titleSlug}/`} target="_blank" rel="noreferrer">

@@ -15,6 +15,7 @@ import java.util.*;
 import org.springframework.cache.annotation.Cacheable;
 
 @Service
+@org.springframework.transaction.annotation.Transactional
 @RequiredArgsConstructor
 @Slf4j
 public class HeatmapService {
@@ -22,6 +23,7 @@ public class HeatmapService {
     private final UserRatingBucketRepository userRatingBucketRepository;
     private final UserRepository userRepository;
 
+    @Transactional(readOnly = true)
     @Cacheable(value = "heatmap", key = "#userId")
     public List<UserRatingBucket> getHeatmap(Long userId) {
         List<UserRatingBucket> buckets = userRatingBucketRepository.findByUserId(userId);
@@ -39,6 +41,7 @@ public class HeatmapService {
 
         // Group by bucket (increments of 100)
         Map<Integer, UserRatingBucket> buckets = new HashMap<>();
+        Map<Integer, Integer> bucketTimedSolves = new HashMap<>();
 
         Map<Long, List<Submission>> problemAttempts = new HashMap<>();
         for (Submission sub : allSubs) {
@@ -57,16 +60,16 @@ public class HeatmapService {
                 UserRatingBucket.builder().user(user).bucketRating(k).attempted(0).solved(0).firstAcCount(0).avgAttempts(0.0).avgSolveTime(0.0).build()
             );
 
-            bucket.setAttempted(bucket.getAttempted() + 1);
+            bucket.setAttempted((bucket.getAttempted() != null ? bucket.getAttempted() : 0) + 1);
             
             boolean isFirstTryAc = "Accepted".equals(subs.get(0).getVerdict());
             boolean isEventualAc = subs.stream().anyMatch(s -> "Accepted".equals(s.getVerdict()));
             
             if (isEventualAc) {
-                bucket.setSolved(bucket.getSolved() + 1);
+                bucket.setSolved((bucket.getSolved() != null ? bucket.getSolved() : 0) + 1);
             }
             if (isFirstTryAc) {
-                bucket.setFirstAcCount(bucket.getFirstAcCount() + 1);
+                bucket.setFirstAcCount((bucket.getFirstAcCount() != null ? bucket.getFirstAcCount() : 0) + 1);
             }
 
             int attemptsUntilAc = 0;
@@ -76,11 +79,17 @@ public class HeatmapService {
                     break;
                 }
             }
-            bucket.setAvgAttempts(bucket.getAvgAttempts() + attemptsUntilAc);
+            bucket.setAvgAttempts((bucket.getAvgAttempts() != null ? bucket.getAvgAttempts() : 0.0) + attemptsUntilAc);
 
-            if (isEventualAc && subs.size() > 1) {
-                long minutes = java.time.Duration.between(subs.get(0).getSubmittedAt(), subs.get(attemptsUntilAc - 1).getSubmittedAt()).toMinutes();
-                bucket.setAvgSolveTime(bucket.getAvgSolveTime() + Math.max(0, minutes));
+            if (isEventualAc) {
+                long minutes = 0;
+                if (attemptsUntilAc > 1) {
+                    minutes = java.time.Duration.between(subs.get(0).getSubmittedAt(), subs.get(attemptsUntilAc - 1).getSubmittedAt()).toMinutes();
+                }
+                if (minutes <= 120) {
+                    bucket.setAvgSolveTime((bucket.getAvgSolveTime() != null ? bucket.getAvgSolveTime() : 0.0) + Math.max(0, minutes));
+                    bucketTimedSolves.put(bucketRating, bucketTimedSolves.getOrDefault(bucketRating, 0) + 1);
+                }
             }
         }
 
@@ -88,8 +97,9 @@ public class HeatmapService {
             if (bucket.getAttempted() != null && bucket.getAttempted() > 0) {
                 bucket.setAvgAttempts(bucket.getAvgAttempts() / bucket.getAttempted());
             }
-            if (bucket.getSolved() != null && bucket.getSolved() > 0) {
-                bucket.setAvgSolveTime(bucket.getAvgSolveTime() / bucket.getSolved());
+            int timedCount = bucketTimedSolves.getOrDefault(bucket.getBucketRating(), 0);
+            if (timedCount > 0) {
+                bucket.setAvgSolveTime(bucket.getAvgSolveTime() / timedCount);
             } else {
                 bucket.setAvgSolveTime(0.0);
             }
@@ -126,25 +136,21 @@ public class HeatmapService {
         problemSubs.sort(Comparator.comparing(Submission::getSubmittedAt));
 
         if (problemSubs.size() == 1) {
-            bucket.setAttempted(bucket.getAttempted() + 1);
+            bucket.setAttempted((bucket.getAttempted() != null ? bucket.getAttempted() : 0) + 1);
             if ("Accepted".equals(submission.getVerdict())) {
-                bucket.setSolved(bucket.getSolved() + 1);
-                bucket.setFirstAcCount(bucket.getFirstAcCount() + 1);
+                bucket.setSolved((bucket.getSolved() != null ? bucket.getSolved() : 0) + 1);
+                bucket.setFirstAcCount((bucket.getFirstAcCount() != null ? bucket.getFirstAcCount() : 0) + 1);
             }
         } else {
             boolean wasSolved = problemSubs.subList(0, problemSubs.size() - 1).stream()
                 .anyMatch(s -> "Accepted".equals(s.getVerdict()));
             boolean isSolvedNow = "Accepted".equals(submission.getVerdict());
             if (!wasSolved && isSolvedNow) {
-                bucket.setSolved(bucket.getSolved() + 1);
+                bucket.setSolved((bucket.getSolved() != null ? bucket.getSolved() : 0) + 1);
             }
         }
 
-        List<Submission> allSubs = submissionRepository.findByUserId(userId);
-        List<Submission> bucketSubs = allSubs.stream()
-            .filter(s -> s.getProblem() != null && s.getProblem().getActualRating() != null &&
-                        ((int) Math.round(s.getProblem().getActualRating()) / 100) * 100 == bucketRating)
-            .toList();
+        List<Submission> bucketSubs = submissionRepository.findByUserIdAndProblemActualRatingBetween(userId, (double) bucketRating, (double) bucketRating + 100);
 
         Map<Long, List<Submission>> problemAttempts = new HashMap<>();
         for (Submission sub : bucketSubs) {
@@ -153,7 +159,7 @@ public class HeatmapService {
 
         double totalAttempts = 0;
         double totalSolveTime = 0;
-        int solvedCount = 0;
+        int timedSolvedCount = 0;
 
         for (List<Submission> subs : problemAttempts.values()) {
             subs.sort(Comparator.comparing(Submission::getSubmittedAt));
@@ -167,16 +173,19 @@ public class HeatmapService {
             }
             totalAttempts += attemptsUntilAc;
             if (isEventualAc) {
-                solvedCount++;
-                if (subs.size() > 1) {
-                    long minutes = java.time.Duration.between(subs.get(0).getSubmittedAt(), subs.get(attemptsUntilAc - 1).getSubmittedAt()).toMinutes();
+                long minutes = 0;
+                if (attemptsUntilAc > 1) {
+                    minutes = java.time.Duration.between(subs.get(0).getSubmittedAt(), subs.get(attemptsUntilAc - 1).getSubmittedAt()).toMinutes();
+                }
+                if (minutes <= 120) {
                     totalSolveTime += Math.max(0, minutes);
+                    timedSolvedCount++;
                 }
             }
         }
 
         bucket.setAvgAttempts(problemAttempts.isEmpty() ? 0.0 : totalAttempts / problemAttempts.size());
-        bucket.setAvgSolveTime(solvedCount == 0 ? 0.0 : totalSolveTime / solvedCount);
+        bucket.setAvgSolveTime(timedSolvedCount == 0 ? 0.0 : totalSolveTime / timedSolvedCount);
         
         userRatingBucketRepository.save(bucket);
     }

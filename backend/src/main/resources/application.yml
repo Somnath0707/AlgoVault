@@ -3,6 +3,10 @@ server:
   tomcat:
     max-http-form-post-size: 50MB
 
+app:
+  auth:
+    mode: ${APP_AUTH_MODE:single-user}
+
 spring:
   jackson:
     serialization:
@@ -15,10 +19,17 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/algovault}
     username: ${SPRING_DATASOURCE_USERNAME:algovault}
     password: ${SPRING_DATASOURCE_PASSWORD:algovault_dev}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 5000
   jpa:
     hibernate:
       ddl-auto: none
     show-sql: false
+    open-in-view: false
   flyway:
     enabled: true
   data:

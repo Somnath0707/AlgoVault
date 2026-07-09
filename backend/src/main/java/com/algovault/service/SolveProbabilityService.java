@@ -21,6 +21,7 @@ import com.algovault.model.AnalyticsMetric;
 import com.algovault.repository.AnalyticsMetricRepository;
 
 @Service
+@org.springframework.transaction.annotation.Transactional
 @RequiredArgsConstructor
 public class SolveProbabilityService {
     private final SolveProbabilityEngine engine;

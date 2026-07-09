@@ -26,7 +26,7 @@ public class VaultController {
     }
 
     @PostMapping
-    public ResponseEntity<VaultEntry> saveEntry(HttpServletRequest request, @RequestBody VaultEntry entry) {
+    public ResponseEntity<VaultEntry> saveEntry(HttpServletRequest request, @RequestBody @jakarta.validation.Valid VaultEntry entry) {
         User user = userContextService.resolveUser(request);
         return ResponseEntity.ok(vaultService.saveEntry(user.getId(), entry));
     }

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 @Service
+@org.springframework.transaction.annotation.Transactional
 @RequiredArgsConstructor
 public class VaultService {
     private final VaultEntryRepository repository;
@@ -41,8 +42,9 @@ public class VaultService {
 
     public void deleteEntry(Long userId, Long entryId) {
         VaultEntry entry = repository.findById(entryId).orElseThrow();
-        if (entry.getUser().getId().equals(userId)) {
-            repository.delete(entry);
+        if (!entry.getUser().getId().equals(userId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Not authorized to delete this entry");
         }
+        repository.delete(entry);
     }
 }

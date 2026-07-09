@@ -27,6 +27,13 @@ function statusText(contest: ContestLifecycleItem) {
   return "PREDICTION PENDING"
 }
 
+function getMetricBadgeColor(val: string) {
+  if (val === "High") return "bg-red-500/10 border-red-500/20 text-red-400"
+  if (val === "Medium") return "bg-amber-500/10 border-amber-500/20 text-amber-400"
+  if (val === "Low") return "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+  return "bg-zinc-900 border-zinc-800 text-zinc-500"
+}
+
 export const Contest = () => {
   const [activeTab, setActiveTab] = useState<"history" | "predicted" | "upcoming">("history")
   const [data, setData] = useState<ContestLifecycleItem[]>([])
@@ -70,8 +77,14 @@ export const Contest = () => {
 
       const [lifecycle, profileRes, rankingRes, localAnalytics] = await Promise.all([
         loadContestLifecycle(username),
-        new Promise<any>((resolve) => chrome.runtime.sendMessage({ action: "get_user_profile", payload: { username } }, resolve)),
-        new Promise<any>((resolve) => chrome.runtime.sendMessage({ action: "get_user_contest_history", payload: { username } }, resolve)),
+        new Promise<any>((resolve) => chrome.runtime.sendMessage({ action: "get_user_profile", payload: { username } }, (res) => {
+          if (chrome.runtime.lastError) console.error(chrome.runtime.lastError);
+          resolve(res);
+        })),
+        new Promise<any>((resolve) => chrome.runtime.sendMessage({ action: "get_user_contest_history", payload: { username } }, (res) => {
+          if (chrome.runtime.lastError) console.error(chrome.runtime.lastError);
+          resolve(res);
+        })),
         fetchContests().catch(() => [])
       ])
 
@@ -303,7 +316,7 @@ export const Contest = () => {
 
         {activeTab === "history" && latestAnalytics && (
           <div className="text-[10px] text-zinc-500 font-mono mt-1">
-            Latest behavioral signals: panic {latestAnalytics.panicIndex || "n/a"}, choking {latestAnalytics.chokingIndex || "n/a"}
+            Latest behavioral signals: panic {latestAnalytics.panicIndex || "n/a"}, choking {latestAnalytics.chokingIndex || "n/a"}, stamina {latestAnalytics.staminaDropoff || "n/a"}
           </div>
         )}
 
@@ -312,10 +325,14 @@ export const Contest = () => {
           {filteredContests.map((contest) => {
             const delta = contest.status === "FINALIZED" ? contest.ratingDelta : contest.predictedDelta
             const attended = contest.attended !== false
+            const localAnalysis = analytics.find(
+              (a) => a.contestSlug?.toLowerCase() === contest.contestSlug?.toLowerCase()
+            )
+
             return (
               <Card key={contest.contestSlug} className="py-2.5 px-3">
                 <div className="flex justify-between gap-3 items-start">
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="font-semibold text-xs text-zinc-200 truncate">{contest.contestTitle}</div>
                     <div className="text-[10px] text-zinc-500 font-mono mt-1">
                       {attended ? (
@@ -324,6 +341,25 @@ export const Contest = () => {
                         "Rank n/a · 0/4 solved"
                       )}
                     </div>
+                    {localAnalysis && (localAnalysis.panicIndex || localAnalysis.chokingIndex || localAnalysis.staminaDropoff) && (
+                      <div className="flex gap-1.5 mt-2 flex-wrap font-mono text-[8px] font-bold">
+                        {localAnalysis.panicIndex && (
+                          <span className={`px-1.5 py-0.5 rounded border ${getMetricBadgeColor(localAnalysis.panicIndex)}`}>
+                            PANIC: {localAnalysis.panicIndex.toUpperCase()}
+                          </span>
+                        )}
+                        {localAnalysis.chokingIndex && (
+                          <span className={`px-1.5 py-0.5 rounded border ${getMetricBadgeColor(localAnalysis.chokingIndex)}`}>
+                            CHOKE: {localAnalysis.chokingIndex.toUpperCase()}
+                          </span>
+                        )}
+                        {localAnalysis.staminaDropoff && (
+                          <span className={`px-1.5 py-0.5 rounded border ${getMetricBadgeColor(localAnalysis.staminaDropoff)}`}>
+                            STAMINA: {localAnalysis.staminaDropoff.toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="text-right shrink-0">
                     <div className={`font-bold text-xs font-mono ${!attended ? "text-zinc-500" : delta == null ? "text-zinc-500" : delta >= 0 ? "text-emerald-400" : "text-red-400"}`}>

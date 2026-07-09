@@ -1,26 +1,58 @@
+// This file is injected into the page via web_accessible_resources
+// and runs in the MAIN world context synchronously before page scripts.
 (function() {
   if (window.__ALGOVAULT_FETCH_PATCHED__) return;
   window.__ALGOVAULT_FETCH_PATCHED__ = true;
+
+  // The nonce will be read from the DOM attribute set by submission-interceptor.ts
+  var nonce = document.documentElement.getAttribute("data-algovault-nonce");
+  if (nonce) {
+    document.documentElement.removeAttribute("data-algovault-nonce");
+  } else {
+    // Observe for the attribute in case isolated world script runs slightly after
+    var observer = new MutationObserver(function() {
+      var val = document.documentElement.getAttribute("data-algovault-nonce");
+      if (val) {
+        nonce = val;
+        document.documentElement.removeAttribute("data-algovault-nonce");
+        observer.disconnect();
+      }
+    });
+    observer.observe(document.documentElement, { attributes: true });
+  }
 
   var lastSeenSubmissionId;
   var originalFetch = window.fetch;
 
   function normalizeUrl(input) {
     if (typeof input === 'string') return input;
-    if (input && typeof input.url === 'string') return input.url;
+    if (input) {
+      if (typeof input.url === 'string') return input.url;
+      if (typeof input.href === 'string') return input.href;
+      if (typeof input.toString === 'function') return input.toString();
+    }
     return '';
   }
 
   function emitSubmissionResult(url, data) {
     var body = data && data.data ? data.data : data;
     if (!body || body.state !== 'SUCCESS') return;
+    
     var match = String(url).match(/\/submissions\/detail\/(\d+)\/check/);
     var submissionId = match ? match[1] : undefined;
     if (submissionId && submissionId === lastSeenSubmissionId) return;
     lastSeenSubmissionId = submissionId;
+    
+    // If nonce wasn't available yet, try reading it now
+    if (!nonce) {
+      nonce = document.documentElement.getAttribute("data-algovault-nonce");
+      if (nonce) document.documentElement.removeAttribute("data-algovault-nonce");
+    }
+    
     var captured = window.__ALGOVAULT_LAST_SUBMITTED_CODE__ || {};
     window.postMessage({
       type: 'AV_SUBMISSION_RESULT',
+      nonce: nonce,
       detail: {
         submissionId: submissionId,
         statusCode: body.status_code,
@@ -36,78 +68,62 @@
     }, '*');
   }
 
-  // 1. Monkey-patch window.fetch
-  window.fetch = async function() {
-    var args = Array.from(arguments);
-    var url = normalizeUrl(args[0]);
-    var isSubmit = /\/submit\/?$/.test(url) || /\/problems\/[^\/]+\/submit\/?/.test(url);
+  // Monkey-patch window.fetch
+  window.fetch = function(input, init) {
+    var url = normalizeUrl(input);
+    var isSubmit = /\/submit\/?$/.test(url) || /\/problems\/[^\/]+\/submit\//.test(url);
 
     if (isSubmit) {
       try {
-        var init = args[1];
         if (init && init.body) {
           var body = typeof init.body === 'string' ? JSON.parse(init.body) : init.body;
           if (body && body.typed_code) {
             window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = { code: body.typed_code, lang: body.lang };
           }
-        } else if (args[0] && typeof args[0] === 'object' && args[0].clone) {
-          // If first argument is a Request object, clone it to read body asynchronously without consuming original stream
-          var clonedReq = args[0].clone();
-          clonedReq.text().then(function(text) {
-            try {
-              var body = JSON.parse(text);
-              if (body && body.typed_code) {
-                window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = { code: body.typed_code, lang: body.lang };
-              }
-            } catch (e) {}
-          }).catch(function() {});
         }
-      } catch (e) {
-        console.warn("AlgoVault: Failed to extract fetch submission code", e);
+      } catch(e) {}
+    }
+
+    return originalFetch.apply(this, arguments).then(function(response) {
+      // Match both specific check URL pattern and generic /check/ path
+      if (/\/submissions\/detail\/\d+\/check/.test(url) || (typeof url === 'string' && url.indexOf('/check') !== -1)) {
+        try {
+          response.clone().json().then(function(data) {
+            emitSubmissionResult(url, data);
+          }).catch(function() {});
+        } catch(e) {}
       }
-    }
-
-    var response = await originalFetch.apply(this, args);
-
-    // Intercept submission check polling responses
-    if (/\/submissions\/detail\/\d+\/check/.test(url)) {
-      response.clone().json().then(function(data) {
-        emitSubmissionResult(url, data);
-      }).catch(function() {});
-    }
-
-    return response;
+      return response;
+    });
   };
 
-  // 2. Monkey-patch XMLHttpRequest (fallback/redundancy for older or localized clients)
+  // Monkey-patch XMLHttpRequest
   var originalXhrOpen = XMLHttpRequest.prototype.open;
   var originalXhrSend = XMLHttpRequest.prototype.send;
 
   XMLHttpRequest.prototype.open = function(method, url) {
-    this._url = url;
-    this._method = method;
+    this._avUrl = typeof url === 'string' ? url : (url && url.href ? url.href : String(url));
+    this._avMethod = method;
     return originalXhrOpen.apply(this, arguments);
   };
 
   XMLHttpRequest.prototype.send = function(body) {
-    var url = this._url || '';
-    var isSubmit = /\/submit\/?$/.test(url) || /\/problems\/[^\/]+\/submit\/?/.test(url);
+    var url = this._avUrl || '';
+    var isSubmit = /\/submit\/?$/.test(url) || /\/problems\/[^\/]+\/submit\//.test(url);
     if (isSubmit && body) {
       try {
         var payload = typeof body === 'string' ? JSON.parse(body) : body;
         if (payload && payload.typed_code) {
           window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = { code: payload.typed_code, lang: payload.lang };
         }
-      } catch (e) {
-        console.warn("AlgoVault: Failed to extract XHR submission code", e);
-      }
+      } catch(e) {}
     }
-    if (/\/submissions\/detail\/\d+\/check/.test(url)) {
+    if (/\/submissions\/detail\/\d+\/check/.test(url) || url.indexOf('/check') !== -1) {
       this.addEventListener('loadend', function() {
         try {
           if (this.status < 200 || this.status >= 300 || !this.responseText) return;
           emitSubmissionResult(url, JSON.parse(this.responseText));
-        } catch (e) {}
+        } catch(e) {}
       });
     }
     return originalXhrSend.apply(this, arguments);

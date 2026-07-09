@@ -1,5 +1,6 @@
 package com.algovault.repository;
 import com.algovault.model.VaultEntry;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -8,16 +9,18 @@ import java.util.List;
 
 @Repository
 public interface VaultEntryRepository extends JpaRepository<VaultEntry, Long> {
+    @EntityGraph(attributePaths = {"problem"})
     List<VaultEntry> findByUserIdOrderByUpdatedAtDesc(Long userId);
-    @Query("""
-        select entry from VaultEntry entry
-        where entry.user.id = :userId
+    @Query(value = """
+        select * from vault_entries entry
+        where entry.user_id = :userId
           and (
-            lower(entry.content) like lower(concat('%', :query, '%'))
-            or lower(coalesce(entry.tags, '')) like lower(concat('%', :query, '%'))
+            lower(entry.title) like lower(concat('%', :query, '%'))
+            or lower(entry.content) like lower(concat('%', :query, '%'))
+            or lower(array_to_string(entry.tags, ',')) like lower(concat('%', :query, '%'))
           )
-        order by entry.updatedAt desc
-        """)
+        order by entry.updated_at desc
+        """, nativeQuery = true)
     List<VaultEntry> searchForUser(@Param("userId") Long userId, @Param("query") String query);
     Integer countByUserId(Long userId);
 }

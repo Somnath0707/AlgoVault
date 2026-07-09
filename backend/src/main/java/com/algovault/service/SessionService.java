@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @Service
+@org.springframework.transaction.annotation.Transactional
 @RequiredArgsConstructor
 public class SessionService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SessionService.class);
@@ -39,14 +40,19 @@ public class SessionService {
 
     @Transactional
     public SessionResponse startSession(User user, String mode) {
-        // Natural place to also auto-close old sessions during startup
-        closeStaleSessions();
 
-        sessionRepository.findFirstByUserIdAndEndedAtIsNullOrderByStartedAtDesc(user.getId())
-            .ifPresent(existing -> {
-                existing.setEndedAt(LocalDateTime.now());
-                sessionRepository.save(existing);
-            });
+        Optional<Session> existingOpt = sessionRepository.findFirstByUserIdAndEndedAtIsNullOrderByStartedAtDesc(user.getId());
+        if (existingOpt.isPresent()) {
+            Session existing = existingOpt.get();
+            if (existing.getProblemsAttempted() != null && existing.getProblemsAttempted() == 0 &&
+                existing.getProblemsSolved() != null && existing.getProblemsSolved() == 0 &&
+                existing.getMode() != null && existing.getMode().equals(normalizeMode(mode)) &&
+                existing.getStartedAt() != null && existing.getStartedAt().isAfter(LocalDateTime.now().minusMinutes(1))) {
+                return toResponse(existing);
+            }
+            existing.setEndedAt(LocalDateTime.now());
+            sessionRepository.save(existing);
+        }
 
         Session session = sessionRepository.save(Session.builder()
             .user(user)

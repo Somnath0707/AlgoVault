@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 import org.springframework.cache.annotation.Cacheable;
 
 @Service
+@org.springframework.transaction.annotation.Transactional
 @RequiredArgsConstructor
 public class WeaknessService {
     private final TagMasteryRepository tagMasteryRepository;
@@ -54,22 +55,30 @@ public class WeaknessService {
         double maxRating = baselineRating + 250;
 
         List<WeaknessResponse.RecommendedProblem> recommendations = new ArrayList<>();
+        java.util.Set<String> recommendedSlugs = new java.util.HashSet<>();
         for (WeaknessResponse.WeakTag weakTag : weakTags) {
             List<Problem> problems = problemRepository.findRecommendedUnsolved(userId, weakTag.getTag(), minRating, maxRating, 4);
-            recommendations.addAll(problems.stream()
-                .filter(Objects::nonNull)
-                .map(p -> WeaknessResponse.RecommendedProblem.builder()
-                    .title(p.getTitle())
-                    .titleSlug(p.getTitleSlug())
-                    .difficulty(p.getDifficulty())
-                    .actualRating(p.getActualRating())
-                    .build())
-                .toList());
+            for (Problem p : problems) {
+                if (p != null && !recommendedSlugs.contains(p.getTitleSlug())) {
+                    recommendedSlugs.add(p.getTitleSlug());
+                    recommendations.add(WeaknessResponse.RecommendedProblem.builder()
+                        .title(p.getTitle())
+                        .titleSlug(p.getTitleSlug())
+                        .difficulty(p.getDifficulty())
+                        .actualRating(p.getActualRating())
+                        .build());
+                }
+            }
         }
 
         return WeaknessResponse.builder()
             .weakTags(weakTags)
             .recommendations(recommendations.stream().limit(12).collect(Collectors.toList()))
             .build();
+    }
+
+    @org.springframework.cache.annotation.CacheEvict(value = "weakness", key = "#userId")
+    public void evictWeaknessCache(Long userId) {
+        // Just evicts the cache
     }
 }

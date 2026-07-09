@@ -12,15 +12,14 @@ import java.util.stream.Collectors;
 import com.algovault.dto.PredictionEvaluationResponse;
 
 @Service
+@org.springframework.transaction.annotation.Transactional
 @RequiredArgsConstructor
 @Slf4j
 public class PredictionEvaluationService {
     private final AnalyticsMetricRepository repository;
 
     public PredictionEvaluationResponse getEvaluation(Long userId) {
-        List<AnalyticsMetric> resolvedMetrics = repository.findByActualResultIsNotNull().stream()
-            .filter(m -> m.getUser().getId().equals(userId))
-            .collect(Collectors.toList());
+        List<AnalyticsMetric> resolvedMetrics = repository.findByUserIdAndActualResultIsNotNull(userId);
 
         if (resolvedMetrics.isEmpty()) {
             return PredictionEvaluationResponse.builder()

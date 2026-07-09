@@ -8,4 +8,5 @@ import java.util.List;
 public interface AnalyticsMetricRepository extends JpaRepository<AnalyticsMetric, Long> {
     List<AnalyticsMetric> findByUserIdAndActualResultIsNull(Long userId);
     List<AnalyticsMetric> findByActualResultIsNotNull();
+    List<AnalyticsMetric> findByUserIdAndActualResultIsNotNull(Long userId);
 }

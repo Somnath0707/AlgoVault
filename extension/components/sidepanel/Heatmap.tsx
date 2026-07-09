@@ -50,6 +50,61 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
+const CustomLegend = () => {
+  return (
+    <div className="flex justify-end gap-4 text-[10px] font-mono text-zinc-500 pb-4 pr-1 select-none">
+      <div className="flex items-center gap-1.5">
+        <span className="w-2 h-2 rounded-full bg-[#2d2d30] border border-zinc-700/50"></span>
+        <span>Attempted</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="w-2 h-2 rounded-full bg-[#dfa054]"></span>
+        <span>Solved</span>
+      </div>
+    </div>
+  );
+};
+
+const NestedBarShape = (props: any) => {
+  const { x, y, width, height, payload } = props;
+  if (width === 0) return null;
+
+  const attempted = payload.attempted || 0;
+  const solved = payload.solved || 0;
+  const solvedWidth = attempted > 0 ? (solved / attempted) * width : 0;
+  
+  const barHeight = 10;
+  const offset = (height - barHeight) / 2;
+  const barY = y + offset;
+
+  return (
+    <g>
+      {/* Attempted backdrop (Thicker) */}
+      <rect
+        x={x}
+        y={barY}
+        width={width}
+        height={barHeight}
+        rx={5}
+        ry={5}
+        fill="url(#attemptedGrad)"
+      />
+      {/* Solved overlay (Thinner, centered nested progress) */}
+      {solvedWidth > 0 && (
+        <rect
+          x={x}
+          y={barY + (barHeight - 4) / 2}
+          width={solvedWidth}
+          height={4}
+          rx={2}
+          ry={2}
+          fill="url(#solvedGrad)"
+        />
+      )}
+    </g>
+  );
+};
+
 export const Heatmap = () => {
   const [data, setData] = useState<any[]>([]);
   const [dashboard, setDashboard] = useState<any>(null);
@@ -83,14 +138,25 @@ export const Heatmap = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  // Sort by rating bucket ascending
-  const sortedData = [...data].sort((a, b) => a.bucketRating - b.bucketRating);
+  // Sort by rating bucket ascending and filter out empty buckets to avoid bloat
+  const sortedData = useMemo(() => {
+    return [...data]
+      .filter((d) => d.attempted > 0)
+      .sort((a, b) => a.bucketRating - b.bucketRating);
+  }, [data]);
+
   const achievements = useMemo(() => {
     return getAchievements(buildAchievementStats(dashboard || {}, sortedData))
   }, [dashboard, sortedData])
 
+  // Dynamically calculate height to keep vertical rows perfectly spaced and prevent crowding
+  const chartHeight = useMemo(() => {
+    if (sortedData.length === 0) return 200;
+    return Math.max(200, sortedData.length * 28 + 20);
+  }, [sortedData]);
+
   if (loading) return <div className="p-4 text-center text-zinc-500 text-sm font-mono animate-pulse">Loading heatmap analytics...</div>;
-  if (!data || data.length === 0) {
+  if (!data || data.length === 0 || sortedData.length === 0) {
     return (
       <div className="grid gap-4 font-sans">
         <Card className="text-center py-10">
@@ -106,20 +172,47 @@ export const Heatmap = () => {
 
   return (
     <div className="grid gap-4 font-sans">
-      <Card>
-        <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-1.5">Solve vs Attempted Heatmap</h3>
-        <p className="text-[11px] text-zinc-500 mb-4 font-mono leading-relaxed">
-          Compare unique solved count against overall attempted problems across rating categories.
+      <Card className="bg-[#111112] border border-zinc-800/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+        <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-1.5 px-1">Solve vs Attempted</h3>
+        <p className="text-[11px] text-zinc-500 mb-6 font-mono leading-relaxed px-1">
+          Visual comparison of unique solves nested within total attempts per difficulty rating.
         </p>
-        <div className="h-[260px] w-full">
+        <CustomLegend />
+        <div style={{ height: chartHeight }} className="w-full transition-all duration-300">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={sortedData} layout="vertical" margin={{ top: 0, right: 10, left: -25, bottom: 0 }}>
+            <BarChart 
+              data={sortedData} 
+              layout="vertical" 
+              margin={{ top: 0, right: 15, left: -20, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="solvedGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#d97706" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#dfa054" stopOpacity={1} />
+                </linearGradient>
+                <linearGradient id="attemptedGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#1e1e20" stopOpacity={0.8} />
+                  <stop offset="100%" stopColor="#2d2d30" stopOpacity={1} />
+                </linearGradient>
+              </defs>
               <XAxis type="number" hide />
-              <YAxis dataKey="bucketRating" type="category" axisLine={false} tickLine={false} tick={{fill: '#71717a', fontSize: 10, fontFamily: 'monospace'}} />
-              <Tooltip cursor={{fill: 'rgba(255,255,255,0.01)'}} content={<CustomTooltip />} />
-              <Legend verticalAlign="top" height={32} iconType="circle" iconSize={6} wrapperStyle={{ fontSize: 10, color: '#a1a1aa', fontFamily: 'monospace' }} />
-              <Bar dataKey="attempted" fill="#27272a" radius={[0, 3, 3, 0]} barSize={6} name="Attempted" />
-              <Bar dataKey="solved" fill="#dfa054" radius={[0, 3, 3, 0]} barSize={6} name="Solved" />
+              <YAxis 
+                dataKey="bucketRating" 
+                type="category" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fill: '#71717a', fontSize: 10, fontFamily: 'monospace' }} 
+              />
+              <Tooltip 
+                cursor={{ fill: 'rgba(255,255,255,0.02)' }} 
+                content={<CustomTooltip />} 
+              />
+              {/* Single Bar rendering both Attempted and Solved nested */}
+              <Bar 
+                dataKey="attempted" 
+                shape={<NestedBarShape />} 
+                name="Progress"
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>

@@ -74,10 +74,15 @@ export default function RankingOverlay() {
     }
 
     scan()
-    const observer = new MutationObserver(scan)
+    let scanTimeout: number | null = null;
+    const observer = new MutationObserver(() => {
+      if (scanTimeout) window.clearTimeout(scanTimeout);
+      scanTimeout = window.setTimeout(scan, 200);
+    })
     observer.observe(document.body, { childList: true, subtree: true })
     return () => {
       disposed = true
+      if (scanTimeout) window.clearTimeout(scanTimeout);
       observer.disconnect()
     }
   }, [])

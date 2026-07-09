@@ -22,8 +22,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@org.springframework.transaction.annotation.Transactional
 @RequiredArgsConstructor
 public class DashboardService {
     private final UserRepository userRepository;
@@ -31,6 +33,7 @@ public class DashboardService {
     private final SubmissionRepository submissionRepository;
     private final SessionRepository sessionRepository;
 
+    @Transactional(readOnly = true)
     @Cacheable(value = "dashboard", key = "#userId")
     public DashboardResponse getDashboard(Long userId) {
         User user = userRepository.findById(userId).orElseThrow();
@@ -58,6 +61,7 @@ public class DashboardService {
         }
 
         List<DashboardResponse.RecentSolve> recentSolves = recentSubs.stream()
+            .filter(s -> s.getProblem() != null)
             .map(s -> DashboardResponse.RecentSolve.builder()
                 .title(s.getProblem().getTitle())
                 .titleSlug(s.getProblem().getTitleSlug())
@@ -66,10 +70,11 @@ public class DashboardService {
                 .build())
             .collect(Collectors.toList());
 
-        List<LocalDateTime> acceptedDates = submissionRepository.findAcceptedDatesDesc(userId);
+        List<LocalDateTime> acceptedDates = submissionRepository.findAcceptedDatesSinceDesc(userId, LocalDateTime.now().minusDays(90));
 
         return DashboardResponse.builder()
             .lcRating(user.getLcRating())
+            .virtualRating(user.getVirtualRating())
             .lastSyncTime(meta.getLastSyncTime())
             .totalSolved((int) submissionRepository.countSolvedProblems(userId))
             .totalSubmissions((int) submissionRepository.countByUserId(userId))

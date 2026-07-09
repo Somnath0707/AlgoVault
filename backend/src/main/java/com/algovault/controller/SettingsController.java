@@ -30,6 +30,30 @@ public class SettingsController {
     @PostMapping
     public ResponseEntity<UserSettings> updateSettings(HttpServletRequest request, @RequestBody Map<String, Object> preferences) {
         User user = userContextService.resolveUser(request);
+        
+        if (preferences == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        // Validate keys and values in preferences to prevent injection
+        for (Map.Entry<String, Object> entry : preferences.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+            if ("hideAcceptanceRate".equals(key) || "darkMode".equals(key) || 
+                "dailyPotdEnabled".equals(key) || "reviewNotifications".equals(key) ||
+                "celebrationOverlay".equals(key) || "celebrationSound".equals(key)) {
+                if (value != null && !(value instanceof Boolean)) {
+                    return ResponseEntity.badRequest().build();
+                }
+            } else if ("celebrationTheme".equals(key) || "sessionMode".equals(key)) {
+                if (value != null && (!(value instanceof String) || ((String) value).length() > 50)) {
+                    return ResponseEntity.badRequest().build();
+                }
+            } else {
+                return ResponseEntity.badRequest().build();
+            }
+        }
+
         UserSettings settings = userSettingsRepository.findByUserId(user.getId())
             .orElseGet(() -> UserSettings.builder().user(user).build());
 

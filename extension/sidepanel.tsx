@@ -10,6 +10,7 @@ import { Lists } from "./components/sidepanel/Lists"
 import { Resources } from "./components/sidepanel/Resources"
 import { Settings } from "./components/sidepanel/Settings"
 import { getUsername, storage } from "./lib/storage"
+import { ErrorBoundary } from "./components/ui/ErrorBoundary"
 
 export default function SidePanel() {
   const [activeTab, setActiveTab] = useState<Tab>('Dashboard')
@@ -98,14 +99,16 @@ export default function SidePanel() {
       <TabBar activeTab={activeTab} setActiveTab={setActiveTab} />
       
       <div className="mt-4 pb-8">
-        {activeTab === 'Dashboard' && <Dashboard />}
-        {activeTab === 'Heatmap' && <Heatmap />}
-        {activeTab === 'Mastery' && <Mastery />}
-        {activeTab === 'Weakness' && <Weakness />}
-        {activeTab === 'Contest' && <Contest />}
-        {activeTab === 'Lists' && <Lists />}
-        {activeTab === 'Resources' && <Resources />}
-        {activeTab === 'Settings' && <Settings />}
+        <ErrorBoundary>
+          {activeTab === 'Dashboard' && <Dashboard />}
+          {activeTab === 'Heatmap' && <Heatmap />}
+          {activeTab === 'Mastery' && <Mastery />}
+          {activeTab === 'Weakness' && <Weakness />}
+          {activeTab === 'Contest' && <Contest />}
+          {activeTab === 'Lists' && <Lists />}
+          {activeTab === 'Resources' && <Resources />}
+          {activeTab === 'Settings' && <Settings />}
+        </ErrorBoundary>
       </div>
     </div>
   )

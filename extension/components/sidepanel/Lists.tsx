@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from "react"
 import { Card } from "../ui/Card"
 import { ProgressBar } from "../ui/ProgressBar"
 import { STUDY_LISTS } from "../../lib/study-lists"
+import { normalizeZerotracPayload } from "../../lib/zerotrac"
 
 export const Lists = () => {
   const [activeList, setActiveList] = useState<"neetcode" | "striver" | "zerotrac">("neetcode")
@@ -30,7 +31,7 @@ export const Lists = () => {
       }),
       new Promise<any[]>((resolve) => {
         chrome.runtime.sendMessage({ action: "get_zerotrac" }, (res) => {
-          resolve(Array.isArray(res) ? res : [])
+          resolve(normalizeZerotracPayload(res))
         })
       })
     ]).then(([slugs, zerotrac]) => {
@@ -44,7 +45,7 @@ export const Lists = () => {
   }, [])
 
   // Find NeetCode and Striver list objects
-  const neetcodeList = STUDY_LISTS.find(l => l.id === "neetcode-200")
+  const neetcodeList = STUDY_LISTS.find(l => l.id === "neetcode-150")
   const striverList = STUDY_LISTS.find(l => l.id === "striver-sde")
 
   const currentStudyList = activeList === "neetcode" ? neetcodeList : striverList
@@ -91,8 +92,8 @@ export const Lists = () => {
       // 2. Keyword Match (Title or Slug)
       if (keyword) {
         const query = keyword.toLowerCase()
-        const titleMatch = p.Title && p.Title.toLowerCase().includes(query)
-        const slugMatch = p.TitleSlug && p.TitleSlug.toLowerCase().includes(query)
+        const titleMatch = p.Title && typeof p.Title === "string" && p.Title.toLowerCase().includes(query)
+        const slugMatch = p.TitleSlug && typeof p.TitleSlug === "string" && p.TitleSlug.toLowerCase().includes(query)
         if (!titleMatch && !slugMatch) return false
       }
 
@@ -193,14 +194,14 @@ export const Lists = () => {
         // NeetCode & Striver Lists Rendering
         <div className="grid gap-4">
           {/* Progress Header */}
-          <Card className="p-3.5 bg-zinc-900/10 border-zinc-800/80">
-            <div className="flex justify-between items-center text-xs mb-2">
-              <span className="font-semibold text-zinc-300">{currentStudyList?.name} Progress</span>
-              <span className="font-mono text-[#dfa054] font-bold tabular-nums">
+          <Card className="p-4 bg-[#161616] border border-[#ffffff0a] shadow-[0_4px_12px_rgba(0,0,0,0.2)]">
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-[13px] font-semibold tracking-wide text-zinc-200 uppercase">{currentStudyList?.name} Progress</span>
+              <span className="font-mono text-[#dfa054] font-bold tabular-nums text-[13px]">
                 {listStats.solved} / {listStats.total} <span className="text-zinc-500 font-normal">({listStats.percent}%)</span>
               </span>
             </div>
-            <ProgressBar progress={listStats.percent} />
+            <ProgressBar progress={listStats.percent} segments={15} />
           </Card>
 
           {/* Grouped Topics list */}
@@ -214,41 +215,36 @@ export const Lists = () => {
               return (
                 <Card 
                   key={topic} 
-                  className={`overflow-hidden border transition-all duration-300 relative ${
+                  className={`overflow-hidden transition-all duration-300 relative border shadow-[0_4px_12px_rgba(0,0,0,0.2)] ${
                     isTopicComplete 
-                      ? 'border-emerald-500/25 bg-emerald-950/5 shadow-[0_2px_12px_rgba(16,185,129,0.02)]' 
+                      ? 'border-[#ffffff0a] bg-[#161616] opacity-90 shadow-[inset_0_1px_0_rgba(16,185,129,0.2)]' 
                       : isExpanded 
-                      ? 'border-zinc-800 bg-zinc-900/10'
-                      : 'border-zinc-900 bg-zinc-950/20 hover:border-zinc-800'
+                      ? 'border-[#ffffff0a] bg-[#161616]'
+                      : 'border-[#ffffff05] bg-[#121212] hover:border-[#ffffff0a] hover:bg-[#161616]'
                   }`}
                 >
-                  {/* Left Complete Indicator Line */}
-                  {isTopicComplete && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500" />
-                  )}
-
                   {/* Topic Header Toggle */}
                   <button
                     onClick={() => toggleTopic(topic)}
-                    className="w-full px-4 py-3.5 flex justify-between items-center hover:bg-zinc-900/20 transition-colors border-b border-zinc-900/10"
+                    className="w-full px-4 py-4 flex justify-between items-center hover:bg-white/5 transition-colors outline-none focus-visible:bg-white/5"
                   >
                     <div className="flex items-center gap-2">
-                      <span className={`text-[8px] transition-transform duration-200 ${isExpanded ? "rotate-90 text-[#dfa054]" : "rotate-0 text-zinc-500"}`}>▶</span>
-                      <span className={`text-xs font-bold ${isTopicComplete ? "text-emerald-400 pl-1" : "text-zinc-200"}`}>{topic}</span>
+                      <span className={`text-[9px] transition-transform duration-300 cubic-bezier(0.2, 0.8, 0.2, 1) ${isExpanded ? "rotate-90 text-[#dfa054]" : "rotate-0 text-zinc-500"}`}>▶</span>
+                      <span className={`text-[13px] font-semibold tracking-wide uppercase ${isTopicComplete ? "text-zinc-400" : "text-zinc-200"}`}>{topic}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-[10px] font-mono text-zinc-500 tabular-nums">
+                      <span className="text-[12px] font-medium text-zinc-500 font-mono tabular-nums">
                         {topicSolved}/{topicTotal} solved
                       </span>
                       {isTopicComplete && (
-                        <span className="text-[8px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider">Complete</span>
+                        <span className="text-[9px] text-emerald-500/80 bg-emerald-500/10 border border-emerald-500/10 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Complete</span>
                       )}
                     </div>
                   </button>
 
                   {/* Topic Problems List */}
                   {isExpanded && (
-                    <div className="px-4 pb-3.5 pt-2 flex flex-col gap-2 bg-zinc-950/15">
+                    <div className="px-4 pb-4 pt-2 flex flex-col gap-1 bg-zinc-950/15">
                       {problems.map((p, idx) => {
                         const isSolved = solvedSlugs.has(p.slug)
                         const difficulty = (p.difficulty || "medium").toLowerCase()
@@ -259,33 +255,42 @@ export const Lists = () => {
                         } else if (difficulty === "hard") {
                           diffColor = "text-red-400 bg-red-500/10 border-red-500/20"
                         }
+                        
+                        // Dim difficulty badges for completed problems to reduce visual clutter
+                        if (isSolved) {
+                          diffColor = "text-zinc-600 border-zinc-800 bg-transparent"
+                        }
 
                         return (
-                          <div key={idx} className="flex items-center justify-between text-xs py-1.5 hover:bg-zinc-900/30 rounded-lg px-2 group transition-colors">
+                          <div key={idx} className="flex items-center justify-between py-2.5 px-3 hover:bg-white/5 rounded-md group transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-[#dfa054]/50">
                             <div className="flex items-center gap-3 min-w-0">
                               {/* Round Checkbox */}
                               <span 
-                                className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                                className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
                                   isSolved 
-                                    ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 scale-105" 
-                                    : "border-zinc-800 bg-zinc-950/30 text-transparent group-hover:border-zinc-700"
+                                    ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-500" 
+                                    : "border-zinc-800 bg-zinc-950/30 text-transparent group-hover:border-zinc-600"
                                 }`}
                               >
-                                {isSolved && <span className="text-[9px] leading-none">✔</span>}
+                                {isSolved && (
+                                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+                                  </svg>
+                                )}
                               </span>
                               <a
                                 href={`https://leetcode.com/problems/${p.slug}/`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className={`hover:text-[#dfa054] transition-colors truncate font-sans text-xs ${
-                                  isSolved ? "text-zinc-500 line-through" : "text-zinc-300 font-medium"
+                                className={`truncate font-sans text-[14px] leading-snug ${
+                                  isSolved ? "text-zinc-500 font-medium" : "text-zinc-300 font-medium group-hover:text-zinc-200"
                                 }`}
                                 title={`Open ${p.title} on LeetCode`}
                               >
                                 {p.title}
                               </a>
                             </div>
-                            <span className={`text-[8px] font-mono shrink-0 px-2 py-0.5 rounded border uppercase tracking-wider font-bold ${diffColor}`}>
+                            <span className={`text-[10px] font-bold shrink-0 px-1.5 py-0.5 rounded border uppercase tracking-[0.05em] ${diffColor}`}>
                               {difficulty}
                             </span>
                           </div>

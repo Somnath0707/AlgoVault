@@ -26,11 +26,13 @@ export default function ProblemsetOverlay() {
         const rating = slug ? ratings!.get(slug) : undefined
         if (!slug || !rating) return
 
-        const row = link.closest<HTMLElement>('[role="row"], tr')
+        const row = link.closest<HTMLElement>('div[class*="group"], tr, [role="row"], div.flex')
         if (!row || row.querySelector(`[data-algovault-rating="${slug}"]`)) return
-        const difficulty = Array.from(row.querySelectorAll<HTMLElement>("span, div")).find((node) =>
-          ["Easy", "Medium", "Hard"].includes(node.textContent?.trim() || "")
-        )
+        const difficulty = Array.from(row.querySelectorAll<HTMLElement>("*")).find((node) => {
+          if (node.children.length > 0) return false
+          const text = node.textContent?.trim()
+          return text === "Easy" || text === "Medium" || text === "Hard"
+        })
         if (!difficulty) return
 
         const badge = document.createElement("span")

@@ -3,7 +3,7 @@ import cssText from "data-text:~style.css"
 import { useState, useEffect } from "react"
 
 export const config: PlasmoCSConfig = {
-  matches: ["https://leetcode.com/problems/*"]
+  matches: ["https://leetcode.com/problems/*", "https://leetcode.com/contest/*/problems/*"]
 }
 
 export const getStyle = () => {
@@ -142,6 +142,11 @@ export default function SolveCelebration() {
 
     const handleSubmission = (event: MessageEvent) => {
       if (!["AV_SUBMISSION_RESULT", "AV_SUBMISSION_RESULT_CONFIRMED"].includes(event.data?.type)) return
+      
+      const expectedNonce = (window as any).__ALGOVAULT_ISOLATED_NONCE__
+      if (!event.data?.nonce || event.data.nonce !== expectedNonce) {
+        return
+      }
       const detail = event.data.detail || {}
       if (detail.submissionId) {
         const submissionId = String(detail.submissionId)
@@ -162,6 +167,7 @@ export default function SolveCelebration() {
         setType(newType)
 
         chrome.storage.sync.get(["celebrationOverlay", "celebrationSound", "celebrationTheme"], (res) => {
+
           const isOverlay = res.celebrationOverlay !== undefined ? res.celebrationOverlay : true
           const isSound = res.celebrationSound !== undefined ? res.celebrationSound : true
           const theme = res.celebrationTheme || "gta"

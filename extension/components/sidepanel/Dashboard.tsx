@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { ArrowUpRight, CheckCircle2, Clock3, Target, Play, RotateCcw, Square } from "lucide-react"
 import { Card } from "../ui/Card"
 import { Skeleton } from "../ui/Skeleton"
-import { fetchDashboard, fetchHeatmap, fetchPotd, fetchRevisionQueue, fetchWeakness, fetchAllSessions } from "../../lib/api/backend"
+import { fetchDashboard, fetchHeatmap, fetchPotd, fetchRevisionQueue, fetchWeakness, fetchAllSessions, reviewRevisionCard } from "../../lib/api/backend"
 import { 
   getUsername,
   getCachedDashboard,
@@ -17,7 +17,16 @@ import { AchievementShowcase } from "./AchievementShowcase"
 import { buildAchievementStats, getAchievements } from "../../lib/achievements"
 
 function message<T>(payload: Record<string, unknown>): Promise<T> {
-  return new Promise((resolve) => chrome.runtime.sendMessage(payload, resolve))
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(payload, (res) => {
+      if (chrome.runtime.lastError) {
+        console.error(chrome.runtime.lastError);
+        reject(chrome.runtime.lastError);
+      } else {
+        resolve(res);
+      }
+    });
+  });
 }
 
 export const Dashboard = () => {
@@ -36,6 +45,44 @@ export const Dashboard = () => {
   const [liveSession, setLiveSession] = useState<any>(null)
   const [sessionSeconds, setSessionSeconds] = useState<number>(0)
   const [rankingInfo, setRankingInfo] = useState<any>(null)
+  const [reviewingCardId, setReviewingCardId] = useState<number | null>(null)
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+
+  const handleReviewSubmit = async (cardId: number, quality: number) => {
+    setReviewSubmitting(true)
+    try {
+      await reviewRevisionCard(cardId, quality)
+      const username = await getUsername()
+      if (username) {
+        const [dashboard, daily, reviews, weak, sessionsRes] = await Promise.all([
+          fetchDashboard(),
+          fetchPotd().catch(() => []),
+          fetchRevisionQueue().catch(() => []),
+          fetchWeakness(),
+          fetchAllSessions().catch(() => [])
+        ])
+        if (dashboard) {
+          setData(dashboard)
+          setCachedDashboard(dashboard)
+        }
+        setPotd(daily)
+        setQueue(reviews)
+        if (weak) {
+          setWeakness(weak)
+          setCachedWeakness(weak)
+        }
+        if (Array.isArray(sessionsRes)) {
+          setSessions(sessionsRes)
+        }
+      }
+      setReviewingCardId(null)
+    } catch (err) {
+      console.error("Failed to submit review:", err)
+      alert("Failed to submit review.")
+    } finally {
+      setReviewSubmitting(false)
+    }
+  }
 
   const loadSessionsHistory = () => {
     fetchAllSessions()
@@ -168,16 +215,7 @@ export const Dashboard = () => {
         if (state?.isSolved) {
           setSessionSeconds(state.finalSeconds || 0)
         } else if (current) {
-          // Base time is accumulated focusSeconds from backend
-          let seconds = current.focusSeconds || 0
-          
-          // If actively focusing on a problem right now, add the active delta
-          const startTime = res?.["algovault.problemStartTime"]
-          if (startTime) {
-            const diff = Math.max(0, Math.floor((Date.now() - new Date(startTime).getTime()) / 1000))
-            seconds += diff
-          }
-          setSessionSeconds(seconds)
+          setSessionSeconds(current.focusSeconds || 0)
         } else {
           setSessionSeconds(0)
         }
@@ -189,7 +227,6 @@ export const Dashboard = () => {
   }, [])
 
   const range = useMemo(() => {
-    if (!zerotrac || !solved.size) return null
     let baseRating = 1500
     let source = "default"
 
@@ -197,7 +234,12 @@ export const Dashboard = () => {
       // Use official rating if they have contest history
       baseRating = Math.round(rankingInfo.rating)
       source = "official LeetCode contest rating"
+    } else if (data?.virtualRating) {
+      // Use the backend's highly accurate solved-rating-based estimated capability
+      baseRating = data.virtualRating
+      source = "estimated capability rating"
     } else {
+      if (!zerotrac || !solved.size) return null
       // Otherwise, use the 85th percentile of their solved problems to gauge capability
       const ratings: number[] = []
       for (const p of zerotrac) {
@@ -213,7 +255,7 @@ export const Dashboard = () => {
       ratings.sort((a, b) => a - b)
       const index = Math.floor(ratings.length * 0.85)
       baseRating = Math.round(ratings[Math.min(index, ratings.length - 1)])
-      source = "85th percentile of your solved problems"
+      source = "85th percentile of your solved problems (local fallback)"
     }
 
     const low = baseRating
@@ -227,7 +269,7 @@ export const Dashboard = () => {
       evidence: solved.size,
       source
     }
-  }, [zerotrac, solved, rankingInfo])
+  }, [zerotrac, solved, rankingInfo, data])
 
   const achievements = useMemo(() => {
     return getAchievements(buildAchievementStats(data || {}, heatmap))
@@ -236,6 +278,49 @@ export const Dashboard = () => {
   // 4. Calculate history stats and daily session calendar days
   const stats = useMemo(() => {
     const dailyMinutes: Record<string, number> = {}
+    const dailyTabSwitches: Record<string, number> = {}
+    const dailyPasteCount: Record<string, number> = {}
+
+    // Map titleSlug to ZeroTrac rating
+    const ratingsMap = new Map<string, number>()
+    if (Array.isArray(zerotrac)) {
+      for (const p of zerotrac) {
+        if (p.TitleSlug && typeof p.Rating === "number") {
+          ratingsMap.set(p.TitleSlug, p.Rating)
+        }
+      }
+    }
+
+    // Build the list of solved problems per day
+    const dailySolvesList: Record<string, any[]> = {}
+    if (data && Array.isArray(data.recentSolves)) {
+      for (const p of data.recentSolves) {
+        if (p.solvedAt) {
+          try {
+            let dateObj: Date;
+            if (Array.isArray(p.solvedAt)) {
+              const [y, m, d, h = 0, min = 0, sec = 0] = p.solvedAt
+              dateObj = new Date(Date.UTC(y, m - 1, d, h, min, sec))
+            } else {
+              dateObj = new Date(p.solvedAt)
+            }
+            const dateKey = dateObj.toISOString().split("T")[0]
+            if (!dailySolvesList[dateKey]) dailySolvesList[dateKey] = []
+            
+            const rating = ratingsMap.get(p.titleSlug) || (p.difficulty === "Easy" ? 1200 : p.difficulty === "Medium" ? 1600 : 2000)
+            dailySolvesList[dateKey].push({
+              title: p.title,
+              titleSlug: p.titleSlug,
+              difficulty: p.difficulty,
+              rating
+            })
+          } catch (err) {
+            console.warn("Date parsing error for recent solve", p)
+          }
+        }
+      }
+    }
+
     let totalFocusSeconds = 0
     let validSessionCount = 0
 
@@ -247,7 +332,6 @@ export const Dashboard = () => {
         }
         if (s.startedAt) {
           try {
-            // Support both ISO strings and Jackson array formatting from Spring Boot
             let dateObj: Date;
             if (Array.isArray(s.startedAt)) {
               const [y, m, d, h = 0, min = 0, sec = 0] = s.startedAt
@@ -257,6 +341,8 @@ export const Dashboard = () => {
             }
             const dateKey = dateObj.toISOString().split("T")[0]
             dailyMinutes[dateKey] = (dailyMinutes[dateKey] || 0) + Math.floor((s.focusSeconds || 0) / 60)
+            dailyTabSwitches[dateKey] = (dailyTabSwitches[dateKey] || 0) + (s.tabSwitches || 0)
+            dailyPasteCount[dateKey] = (dailyPasteCount[dateKey] || 0) + (s.pasteCount || 0)
           } catch (err) {
             console.warn("Date parsing error for session", s)
           }
@@ -264,14 +350,49 @@ export const Dashboard = () => {
       }
     }
 
+    const currentRating = rankingInfo?.rating || data?.virtualRating || 1500
+
     const calendarDays = Array.from({ length: 28 }).map((_, idx) => {
       const d = new Date()
       d.setDate(d.getDate() - (27 - idx))
       const dateStr = d.toISOString().split("T")[0]
+      const mins = dailyMinutes[dateStr] || 0
+      const solvedProblems = dailySolvesList[dateStr] || []
+      const solved = solvedProblems.length
+      const tabs = dailyTabSwitches[dateStr] || 0
+      const pastes = dailyPasteCount[dateStr] || 0
+
+      let score = 0.0
+      if (mins > 0 || solved > 0) {
+        let solvePoints = 0
+        for (const prob of solvedProblems) {
+          if (prob.rating >= currentRating) {
+            solvePoints += 4.0
+          } else if (prob.rating >= currentRating - 200) {
+            solvePoints += 2.5
+          } else {
+            solvePoints += 1.5
+          }
+        }
+
+        if (solved === 0 && mins > 0) {
+          solvePoints = 0
+        }
+
+        const timePoints = (mins / 30) * 1.0
+        const penalty = (tabs > 10 || pastes > 3) ? 1.0 : 0.0
+        score = Math.min(10.0, Math.max(0.0, solvePoints + timePoints - penalty))
+      }
+
       return {
         dateStr,
         dateLabel: d.toLocaleDateString(undefined, { month: "short", day: "numeric", weekday: "short" }),
-        minutes: dailyMinutes[dateStr] || 0
+        minutes: mins,
+        solved,
+        problems: solvedProblems,
+        tabSwitches: tabs,
+        pasteCount: pastes,
+        score: Number(score.toFixed(1))
       }
     })
 
@@ -285,7 +406,39 @@ export const Dashboard = () => {
       dailyAvgMin,
       calendarDays
     }
-  }, [sessions])
+  }, [sessions, data, zerotrac, rankingInfo])
+
+  const todayStats = useMemo(() => {
+    if (!stats?.calendarDays || stats.calendarDays.length === 0) {
+      return { score: 0, minutes: 0, solved: 0, tabSwitches: 0, pasteCount: 0, badgeText: "Rest Day", badgeColor: "text-zinc-500 bg-zinc-950 border-zinc-900", barColor: "bg-zinc-800" }
+    }
+    const today = stats.calendarDays[stats.calendarDays.length - 1]
+    
+    let badgeText = "Rest Day"
+    let badgeColor = "text-zinc-500 bg-zinc-950 border-zinc-900"
+    let barColor = "bg-zinc-800"
+    
+    if (today.score >= 8.0) {
+      badgeText = "Elite Practice"
+      badgeColor = "text-amber-400 bg-amber-950/20 border-amber-500/30"
+      barColor = "bg-gradient-to-r from-emerald-500 to-[#dfa054] shadow-[0_0_12px_rgba(223,160,84,0.35)]"
+    } else if (today.score >= 4.0) {
+      badgeText = "Productive"
+      badgeColor = "text-emerald-400 bg-emerald-950/20 border-emerald-500/30"
+      barColor = "bg-gradient-to-r from-blue-500 to-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.2)]"
+    } else if (today.score > 0.0) {
+      badgeText = "Active"
+      badgeColor = "text-blue-400 bg-blue-950/20 border-blue-500/30"
+      barColor = "bg-blue-500"
+    }
+    
+    return {
+      ...today,
+      badgeText,
+      badgeColor,
+      barColor
+    }
+  }, [stats])
 
   if (loading) return <div className="grid gap-3"><Skeleton className="h-28" /><Skeleton className="h-20" /><Skeleton className="h-48" /></div>
 
@@ -317,9 +470,9 @@ export const Dashboard = () => {
 
   const weakest = weakness?.weakTags?.[0]
   const plan = [
-    queue[0] && { type: "Review", title: queue[0].title || queue[0].problemTitle, slug: queue[0].titleSlug },
+    queue[0] && { type: "Review", id: queue[0].id, title: queue[0].title || queue[0].problemTitle, slug: queue[0].titleSlug },
     potd[0] && { type: potd[0].type || "Practice", title: potd[0].title, slug: potd[0].titleSlug, reason: potd[0].reason },
-    weakest && { type: "Weak topic", title: weakest.tag, reason: `${Math.round(weakest.successRate ?? weakest.masteryScore ?? 0)}% current evidence score` }
+    weakest && { type: "Weak topic", title: weakest.tag, reason: `${Math.round(weakest.masteryScore ?? 0)} rating evidence score` }
   ].filter(Boolean) as any[]
 
   const allSolvedStat = profile?.submitStats?.acSubmissionNum?.find((item: any) => item.difficulty === "All")
@@ -416,9 +569,9 @@ export const Dashboard = () => {
       </Card>
 
       {/* 📊 Session Analytics & Calendar Heatmap */}
-      <Card className="p-4 flex flex-col gap-3">
+      <Card className="p-4 flex flex-col gap-3.5 bg-gradient-to-b from-[#141416] to-[#0a0a0b] border border-zinc-850 shadow-lg">
         <div className="flex items-center justify-between border-b border-zinc-900 pb-2.5">
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-zinc-500">
+          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
             <Clock3 size={13} /> Practice Telemetry
           </div>
           <div className="text-[9px] font-mono text-zinc-500">Last 28 Days</div>
@@ -426,30 +579,66 @@ export const Dashboard = () => {
 
         {/* History Stats Grid */}
         <div className="grid grid-cols-3 gap-2 text-center font-mono">
-          <div className="bg-zinc-900/10 border border-zinc-900/60 p-2 rounded-lg">
+          <div className="bg-zinc-950/40 border border-zinc-900/60 p-2 rounded-lg">
             <span className="text-[8px] text-zinc-500 block uppercase">Total Hours</span>
             <span className="text-xs font-bold text-zinc-200 mt-0.5 block">{stats.totalHours.toFixed(1)}h</span>
           </div>
-          <div className="bg-zinc-900/10 border border-zinc-900/60 p-2 rounded-lg">
+          <div className="bg-zinc-950/40 border border-zinc-900/60 p-2 rounded-lg">
             <span className="text-[8px] text-zinc-500 block uppercase">Avg Session</span>
             <span className="text-xs font-bold text-zinc-200 mt-0.5 block">{stats.avgSessionMin}m</span>
           </div>
-          <div className="bg-zinc-900/10 border border-zinc-900/60 p-2 rounded-lg">
+          <div className="bg-zinc-950/40 border border-zinc-900/60 p-2 rounded-lg">
             <span className="text-[8px] text-zinc-500 block uppercase">Daily Avg</span>
             <span className="text-xs font-bold text-zinc-200 mt-0.5 block">{stats.dailyAvgMin}m</span>
           </div>
         </div>
 
+        {/* Daily Performance Score Indicator Card */}
+        <div className="bg-zinc-950/50 border border-zinc-900 p-3 rounded-xl flex flex-col gap-2.5">
+          <div className="flex justify-between items-center">
+            <div>
+              <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest block font-mono">Today's Daily Rating</span>
+              <span className="text-lg font-black font-mono text-zinc-100 tabular-nums">{todayStats.score} <span className="text-xs text-zinc-500 font-normal">/ 10.0</span></span>
+            </div>
+            <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider font-mono ${todayStats.badgeColor}`}>
+              {todayStats.badgeText}
+            </span>
+          </div>
+
+          {/* Progress Bar Gauge */}
+          <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full transition-all duration-500 ${todayStats.barColor}`} style={{ width: `${todayStats.score * 10}%` }} />
+          </div>
+
+          {/* Breakdown parameters list */}
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 pt-1.5 border-t border-zinc-900/40 text-[9px] font-mono text-zinc-400">
+            <div className="flex justify-between">
+              <span>Focus Mins:</span>
+              <span className="text-zinc-200 font-bold">{todayStats.minutes}m <span className="text-zinc-500 text-[8px] font-normal">(+{((todayStats.minutes / 30) * 1.0).toFixed(1)} pts)</span></span>
+            </div>
+            <div className="flex justify-between">
+              <span>Solved Count:</span>
+              <span className="text-zinc-200 font-bold">{todayStats.solved} <span className="text-zinc-500 text-[8px] font-normal">(+{(todayStats.solved * 2.5).toFixed(1)} pts)</span></span>
+            </div>
+            {todayStats.tabSwitches > 0 && (
+              <div className="flex justify-between col-span-2 text-red-400">
+                <span>Anti-Cheat Penalty (Tab Switches):</span>
+                <span className="font-bold">-{todayStats.tabSwitches > 10 ? "1.0" : "0.0"} pts ({todayStats.tabSwitches} switches)</span>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Premium Calendar Heatmap Grid */}
-        <div className="flex flex-col gap-2 pt-1 border-t border-zinc-900 mt-2">
-          <div className="flex justify-between items-center text-[9px] font-mono font-bold uppercase tracking-widest text-zinc-600 mb-1">
+        <div className="flex flex-col gap-2 pt-1 border-t border-zinc-900/60 mt-1">
+          <div className="flex justify-between items-center text-[9px] font-mono font-bold uppercase tracking-widest text-zinc-650 mb-1">
             <span>Activity Map</span>
             <span>28 Days</span>
           </div>
           
           <div className="flex">
             {/* Y-axis days (optional, commonly Mon/Wed/Fri) */}
-            <div className="grid grid-rows-4 gap-1.5 text-[7px] font-mono text-zinc-600 pr-2 pb-1 uppercase font-bold justify-items-end pt-1">
+            <div className="grid grid-rows-4 gap-1.5 text-[7px] font-mono text-zinc-600 pr-2.5 pb-1 uppercase font-bold justify-items-end pt-1">
               <span className="flex items-center">Sun</span>
               <span className="flex items-center">Mon</span>
               <span className="flex items-center">Tue</span>
@@ -458,13 +647,13 @@ export const Dashboard = () => {
 
             <div className="grid grid-cols-7 grid-rows-4 grid-flow-col gap-1.5 flex-1">
               {stats.calendarDays.map((day) => {
-                const minutes = day.minutes
+                const score = day.score
                 let colorClass = "bg-zinc-900/60 border border-zinc-900 hover:border-zinc-700"
-                if (minutes > 45) {
+                if (score >= 8.0) {
                   colorClass = "bg-emerald-500/80 border border-emerald-400/30 hover:bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.25)]"
-                } else if (minutes > 15) {
+                } else if (score >= 4.0) {
                   colorClass = "bg-emerald-600/60 border border-emerald-500/20 hover:bg-emerald-500"
-                } else if (minutes > 0) {
+                } else if (score > 0.0) {
                   colorClass = "bg-emerald-900/50 border border-emerald-800/20 hover:bg-emerald-700/60"
                 }
 
@@ -474,17 +663,56 @@ export const Dashboard = () => {
                     className={`w-full aspect-square rounded-sm cursor-help transition-all duration-300 relative group ${colorClass}`}
                   >
                     {/* Glassmorphic Tooltip */}
-                    <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 hidden group-hover:block z-50 p-2.5 rounded-lg border border-zinc-800 bg-zinc-950/95 backdrop-blur shadow-2xl whitespace-nowrap min-w-[120px]">
+                    <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 hidden group-hover:block z-50 p-2.5 rounded-lg border border-zinc-800 bg-zinc-950/95 backdrop-blur shadow-2xl whitespace-nowrap min-w-[140px]">
                       {/* Tooltip triangle pointer */}
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-solid border-t-zinc-800 border-t-8 border-x-transparent border-x-8 border-b-0"></div>
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-solid border-t-zinc-850 border-t-8 border-x-transparent border-x-8 border-b-0"></div>
                       
-                      <div className="text-[10px] font-bold text-zinc-300 border-b border-zinc-900 pb-1 mb-1">{day.dateLabel}</div>
-                      <div className="text-[11px] font-mono font-bold text-emerald-400">{minutes} <span className="text-[9px] text-zinc-500 font-sans font-normal">minutes</span></div>
+                      <div className="text-[10px] font-bold text-zinc-300 border-b border-zinc-900 pb-1 mb-1.5">{day.dateLabel}</div>
+                      <div className="flex flex-col gap-1 text-[9px] font-mono">
+                        <div className="flex justify-between items-center text-zinc-400 gap-3">
+                          <span>Focus Time:</span>
+                          <span className="text-zinc-200 font-bold">{day.minutes} min</span>
+                        </div>
+                        <div className="flex justify-between items-center text-zinc-400 gap-3 border-b border-zinc-900/60 pb-1 mb-1">
+                          <span>Solved:</span>
+                          <span className="text-zinc-200 font-bold">{day.solved}</span>
+                        </div>
+                        {day.problems && day.problems.length > 0 && (
+                          <div className="flex flex-col gap-1 mb-1 text-[8px] text-zinc-400 leading-snug border-b border-zinc-900/40 pb-1">
+                            {day.problems.map((prob: any, idx: number) => (
+                              <div key={idx} className="flex justify-between gap-3">
+                                <span className="truncate max-w-[80px]">{prob.title}</span>
+                                <span className="text-[#dfa054] shrink-0 font-bold">{Math.round(prob.rating)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {day.tabSwitches > 0 && (
+                          <div className="flex justify-between items-center text-red-400 gap-3">
+                            <span>Tab Switches:</span>
+                            <span className="font-bold">{day.tabSwitches}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center text-[#dfa054] border-t border-zinc-900 pt-1.5 mt-1 font-bold text-[10px]">
+                          <span>Daily Score:</span>
+                          <span>{day.score}/10</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )
               })}
             </div>
+          </div>
+
+          {/* Legend scale */}
+          <div className="flex justify-end items-center gap-1.5 mt-2.5 text-[8px] font-mono text-zinc-500 uppercase">
+            <span>Rest</span>
+            <div className="w-2.5 h-2.5 rounded-sm bg-zinc-900/60 border border-zinc-900" />
+            <div className="w-2.5 h-2.5 rounded-sm bg-emerald-900/50 border border-emerald-800/20" />
+            <div className="w-2.5 h-2.5 rounded-sm bg-emerald-600/60 border border-emerald-500/20" />
+            <div className="w-2.5 h-2.5 rounded-sm bg-emerald-500/80 border border-emerald-400/30 animate-pulse" />
+            <span>Elite</span>
           </div>
         </div>
       </Card>
@@ -500,6 +728,88 @@ export const Dashboard = () => {
           {plan.length === 0 && <div className="p-3 text-xs text-zinc-500">No recommendations are available yet.</div>}
         </div>
       </section>
+
+      {/* 🔄 Spaced Repetition Review Queue */}
+      {queue.length > 0 && (
+        <Card className="p-4 bg-zinc-950/20 border border-zinc-900 shadow-inner flex flex-col gap-3">
+          <div className="flex items-center justify-between border-b border-zinc-900 pb-2 mb-1">
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-zinc-500">
+              <RotateCcw size={13} className="text-[#dfa054]" /> Review Queue ({queue.length} Due)
+            </div>
+            <span className="text-[9px] font-mono text-zinc-500">SM-2 Scheduled</span>
+          </div>
+
+          <div className="flex justify-between items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <a 
+                href={`https://leetcode.com/problems/${queue[0].titleSlug}/`} 
+                target="_blank" 
+                rel="noreferrer"
+                className="font-bold text-xs text-zinc-200 hover:text-[#dfa054] transition-colors flex items-center gap-1"
+              >
+                {queue[0].title || queue[0].problemTitle} <ArrowUpRight size={11} className="text-zinc-600 animate-pulse" />
+              </a>
+              <p className="text-[9px] text-zinc-500 font-mono mt-0.5">
+                Interval: {queue[0].intervalDays?.toFixed(1) || "1.0"}d · Reviews: {queue[0].reviewCount || 0}
+              </p>
+            </div>
+
+            {reviewingCardId === queue[0].id ? (
+              <div className="flex gap-1">
+                <button 
+                  onClick={() => setReviewingCardId(null)}
+                  className="px-2 py-1 bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 text-[10px] rounded-md transition-all font-mono cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={() => setReviewingCardId(queue[0].id)}
+                className="px-2.5 py-1 bg-[#dfa054]/10 hover:bg-[#dfa054]/20 border border-[#dfa054]/20 text-[#dfa054] text-[10px] font-bold rounded-md transition-all font-mono uppercase cursor-pointer"
+              >
+                Log Review
+              </button>
+            )}
+          </div>
+
+          {reviewingCardId === queue[0].id && (
+            <div className="flex flex-col gap-2 bg-zinc-900/30 border border-zinc-900/60 p-2.5 rounded-lg mt-1">
+              <div className="text-[9px] font-mono text-zinc-400 font-bold uppercase">Rate your recall quality:</div>
+              <div className="grid grid-cols-4 gap-1.5 font-mono text-[9px] font-bold">
+                <button 
+                  disabled={reviewSubmitting}
+                  onClick={() => handleReviewSubmit(queue[0].id, 1)}
+                  className="bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 py-1.5 rounded transition-all cursor-pointer text-center"
+                >
+                  Forgot (1)
+                </button>
+                <button 
+                  disabled={reviewSubmitting}
+                  onClick={() => handleReviewSubmit(queue[0].id, 3)}
+                  className="bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 text-amber-400 py-1.5 rounded transition-all cursor-pointer text-center"
+                >
+                  Hard (3)
+                </button>
+                <button 
+                  disabled={reviewSubmitting}
+                  onClick={() => handleReviewSubmit(queue[0].id, 4)}
+                  className="bg-blue-500/10 border border-blue-500/20 hover:bg-blue-500/20 text-blue-400 py-1.5 rounded transition-all cursor-pointer text-center"
+                >
+                  Good (4)
+                </button>
+                <button 
+                  disabled={reviewSubmitting}
+                  onClick={() => handleReviewSubmit(queue[0].id, 5)}
+                  className="bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-400 py-1.5 rounded transition-all cursor-pointer text-center"
+                >
+                  Easy (5)
+                </button>
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
     </div>
   )
 }

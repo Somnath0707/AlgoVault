@@ -13,12 +13,16 @@ import {
   endSession,
   fetchContests,
   syncLeetcode,
-  fetchEntrantHubRankingPredictionBackend
+  fetchEntrantHubRankingPredictionBackend,
+  fetchZerotracRatingsBackend,
+  addToVault
 } from "../lib/api/backend"
 
 export {}
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((error) => console.error(error))
+
+let isSyncing = false;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "open_side_panel" && sender.tab) {
@@ -104,7 +108,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "sync_history") {
-    runSync(message.username, message.startOffset || 0).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }))
+    if (isSyncing) {
+      sendResponse({ ok: false, error: "A sync operation is already in progress." })
+      return true
+    }
+    isSyncing = true
+    runSync(message.username, message.startOffset || 0)
+      .then((res) => {
+        isSyncing = false
+        sendResponse(res)
+      })
+      .catch((error) => {
+        isSyncing = false
+        sendResponse({ ok: false, error: error.message })
+      })
     return true
   }
 
@@ -192,7 +209,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "add_to_vault") {
-    import("../lib/api/backend").then(m => m.addToVault(message.payload))
+    addToVault(message.payload)
       .then(() => sendResponse({ ok: true }))
       .catch((err) => sendResponse({ ok: false, error: err.message }))
     return true
@@ -600,7 +617,7 @@ async function getSolvedProblemSlugs(): Promise<string[]> {
   }
 
   const unique = Array.from(new Set(slugs))
-  await storage.set("algovault.solvedSlugs", { fetchedAt: Date.now(), slugs: unique })
+  await storage.set("algovault.solvedSlugs", { ...cached, fetchedAt: Date.now(), slugs: unique })
   return unique
 }
 
@@ -625,13 +642,31 @@ async function getCachedZerotracRatings() {
     getZerotracLastFetched()
   ])
   if (cached && fetchedAt && Date.now() - fetchedAt < 24 * 60 * 60 * 1000) {
-    return cached
+    if (cached.length === 0 || (cached[0].Title && cached[0].Title !== cached[0].TitleSlug)) {
+      return cached
+    }
   }
 
-  const response = await fetch("https://zerotrac.github.io/leetcode_problem_rating/data.json")
-  if (!response.ok) throw new Error(`ZeroTrac request failed: ${response.status}`)
-  const data = await response.json()
-  if (!Array.isArray(data)) throw new Error("ZeroTrac returned an invalid payload")
+  const mapData = await fetchZerotracRatingsBackend()
+  if (!mapData || typeof mapData !== "object" || Array.isArray(mapData)) throw new Error("ZeroTrac returned an invalid payload")
+  
+  const data = Object.entries(mapData).map(([slug, details]: [string, any]) => {
+    // Handle both legacy (details is just a number rating) and new (details is ZerotracInfo object)
+    const isObject = details && typeof details === "object";
+    const rating = isObject ? (details.rating ?? 1500) : (typeof details === "number" ? details : 1500);
+    const title = isObject ? (details.title ?? slug) : slug;
+    const contestId = isObject ? (details.contestId ?? "") : "";
+    
+    return {
+      TitleSlug: slug,
+      Rating: rating,
+      Title: title,
+      ContestID_en: contestId,
+      ContestSlug: contestId ? contestId.toLowerCase().replace(/\s+/g, '-') : "",
+      ProblemIndex: isObject ? (details.problemIndex ?? "?") : "?"
+    };
+  })
+  
   await setZerotracData(data)
   return data
 }

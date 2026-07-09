@@ -9,6 +9,7 @@ import java.util.List;
 @Builder
 public class DashboardResponse {
     private Integer lcRating;
+    private Integer virtualRating;
     private LocalDateTime lastSyncTime;
     private Integer totalSolved;
     private Integer totalSubmissions;

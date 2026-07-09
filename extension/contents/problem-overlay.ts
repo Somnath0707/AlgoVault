@@ -1,8 +1,9 @@
 import type { PlasmoCSConfig } from "plasmo"
 import { STUDY_LISTS } from "../lib/study-lists"
+import { buildZerotracRatingMap, getZerotracProblemBySlug } from "../lib/zerotrac"
 
 export const config: PlasmoCSConfig = {
-  matches: ["https://leetcode.com/problems/*"],
+  matches: ["https://leetcode.com/problems/*", "https://leetcode.com/contest/*/problems/*"],
   run_at: "document_idle"
 }
 
@@ -11,6 +12,12 @@ let ratingInjected = false;
 let acceptanceHidden = false;
 let predictionInjected = false;
 let predictionData: any = null;
+let zerotracRatingMap: Map<string, number> | null = null;
+
+function getCurrentProblemSlug() {
+  const contestMatch = window.location.pathname.match(/\/problems\/([^\/]+)/)
+  return contestMatch?.[1] ?? null
+}
 
 const fetchPrediction = async () => {
   const slug = window.location.pathname.split('/')[2];
@@ -104,39 +111,49 @@ const injectAlgoVaultOverlay = () => {
   }
 
   // 2. Inject Rating (Replacing Difficulty Tag)
-  const diffTag = Array.from(document.querySelectorAll("*")).find(el => {
+  const diffTag = Array.from(document.querySelectorAll('div[class*="text-difficulty"]')).find(el => {
     const text = el.textContent?.trim();
-    if (text !== "Easy" && text !== "Medium" && text !== "Hard") return false;
-    const className = el.className || "";
-    if (typeof className !== "string") return false;
-    return className.includes("text-") || className.includes("difficulty") || className.includes("sd-");
+    return text === "Easy" || text === "Medium" || text === "Hard";
   }) as HTMLElement;
 
-  if (diffTag && !diffTag.hasAttribute('data-algovault-rating')) {
-    diffTag.setAttribute('data-algovault-rating', 'true');
+  const currentSlug = getCurrentProblemSlug();
+  const injectedSlug = diffTag?.getAttribute("data-algovault-rating");
 
-    // Fetch rating from zerotrac via background to bypass CSP
-    chrome.runtime.sendMessage({ action: "get_zerotrac" }, (data) => {
-      if (data && !data.error) {
-        const urlPath = window.location.pathname;
-        const slugMatch = urlPath.match(/\/problems\/([^\/]+)/);
-        if (slugMatch) {
-          const slug = slugMatch[1];
-          const prob = data.find((p: any) => p.TitleSlug === slug);
-          if (prob && prob.Rating) {
-            const rating = Math.round(prob.Rating);
-            if (!diffTag.querySelector(".av-rating")) {
-              const badge = document.createElement("span");
-              badge.className = "av-rating ml-2 font-mono font-bold opacity-90";
-              badge.textContent = ` (${rating})`;
-              diffTag.appendChild(badge);
-            }
-          }
+  if (diffTag && currentSlug && injectedSlug !== currentSlug) {
+    diffTag.setAttribute("data-algovault-rating", currentSlug);
+    diffTag.querySelector(".av-rating")?.remove();
+
+    const applyRating = (payload: unknown) => {
+      const problem = getZerotracProblemBySlug(payload, currentSlug)
+      const rating = problem?.Rating
+      if (!Number.isFinite(rating)) return
+
+      const rounded = Math.round(Number(rating))
+      const existing = diffTag.querySelector(".av-rating")
+      if (existing) existing.remove()
+
+      const badge = document.createElement("span")
+      badge.className = "av-rating ml-2 font-mono font-bold opacity-90"
+      badge.dataset.algovaultRating = currentSlug
+      badge.textContent = ` (${rounded})`
+      badge.title = "ZeroTrac contest rating"
+      diffTag.appendChild(badge)
+      ratingInjected = true
+    }
+
+    if (zerotracRatingMap) {
+      applyRating(Array.from(zerotracRatingMap.entries()).map(([TitleSlug, Rating]) => ({ TitleSlug, Rating })))
+    } else {
+      // Fetch rating from ZeroTrac via background to bypass CSP.
+      chrome.runtime.sendMessage({ action: "get_zerotrac" }, (data) => {
+        if (!data || data.error) {
+          console.error("AlgoVault: Failed to fetch ZeroTrac rating", data?.error)
+          return
         }
-      } else {
-        console.error("AlgoVault: Failed to fetch ZeroTrac rating", data?.error);
-      }
-    });
+        zerotracRatingMap = buildZerotracRatingMap(data)
+        applyRating(data)
+      })
+    }
   }
 
   // Compact study-list membership entry point.
@@ -229,13 +246,20 @@ const injectAlgoVaultOverlay = () => {
   }
 }
 
+let observerTimeout: number | null = null;
 const observer = new MutationObserver(() => {
   if (ratingInjected && !document.querySelector('div[class*="text-difficulty"] span')) ratingInjected = false;
   if (predictionInjected && !document.getElementById('av-solve-chance-bubble')) predictionInjected = false;
-  injectAlgoVaultOverlay();
+  
+  if (observerTimeout) window.clearTimeout(observerTimeout);
+  observerTimeout = window.setTimeout(() => {
+    injectAlgoVaultOverlay();
+  }, 100);
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
+
+window.addEventListener("beforeunload", () => observer.disconnect());
 
 // Start process
 setTimeout(() => {

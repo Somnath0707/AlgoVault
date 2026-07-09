@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Service
+@org.springframework.transaction.annotation.Transactional
 @RequiredArgsConstructor
 public class ExportService {
     private final SubmissionRepository submissionRepository;

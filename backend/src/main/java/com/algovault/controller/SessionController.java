@@ -20,7 +20,7 @@ public class SessionController {
     private final SessionService sessionService;
 
     @PostMapping("/start")
-    public ResponseEntity<SessionResponse> start(HttpServletRequest servletRequest, @RequestBody(required = false) SessionRequests.StartSessionRequest request) {
+    public ResponseEntity<SessionResponse> start(HttpServletRequest servletRequest, @RequestBody(required = false) @jakarta.validation.Valid SessionRequests.StartSessionRequest request) {
         User user = userContextService.resolveUser(servletRequest);
         String mode = request != null ? request.getMode() : null;
         return ResponseEntity.ok(sessionService.startSession(user, mode));
@@ -33,25 +33,25 @@ public class SessionController {
     }
 
     @PostMapping("/event")
-    public ResponseEntity<SessionResponse> event(HttpServletRequest servletRequest, @RequestBody SessionRequests.EventRequest request) {
+    public ResponseEntity<SessionResponse> event(HttpServletRequest servletRequest, @RequestBody @jakarta.validation.Valid SessionRequests.EventRequest request) {
         User user = userContextService.resolveUser(servletRequest);
         return ResponseEntity.ok(sessionService.recordEvent(user, request));
     }
 
     @PostMapping("/heartbeat")
-    public ResponseEntity<SessionResponse> heartbeat(HttpServletRequest servletRequest, @RequestBody SessionRequests.HeartbeatRequest request) {
+    public ResponseEntity<SessionResponse> heartbeat(HttpServletRequest servletRequest, @RequestBody @jakarta.validation.Valid SessionRequests.HeartbeatRequest request) {
         User user = userContextService.resolveUser(servletRequest);
         return ResponseEntity.ok(sessionService.heartbeat(user, request));
     }
 
     @PostMapping("/submission")
-    public ResponseEntity<SessionResponse> submission(HttpServletRequest servletRequest, @RequestBody SessionRequests.SubmissionResultRequest request) {
+    public ResponseEntity<SessionResponse> submission(HttpServletRequest servletRequest, @RequestBody @jakarta.validation.Valid SessionRequests.SubmissionResultRequest request) {
         User user = userContextService.resolveUser(servletRequest);
         return ResponseEntity.ok(sessionService.recordSubmission(user, request));
     }
 
     @PostMapping("/self-report")
-    public ResponseEntity<Void> selfReport(HttpServletRequest servletRequest, @RequestBody SessionRequests.SelfReportRequest request) {
+    public ResponseEntity<Void> selfReport(HttpServletRequest servletRequest, @RequestBody @jakarta.validation.Valid SessionRequests.SelfReportRequest request) {
         User user = userContextService.resolveUser(servletRequest);
         sessionService.recordSelfReport(user, request);
         return ResponseEntity.ok().build();

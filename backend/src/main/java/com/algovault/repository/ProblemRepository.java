@@ -12,6 +12,7 @@ import java.util.Optional;
 @Repository
 public interface ProblemRepository extends JpaRepository<Problem, Long> {
     Optional<Problem> findByTitleSlug(String titleSlug);
+    List<Problem> findByTitleSlugIn(List<String> slugs);
 
     @Query(value = """
         SELECT p.*
@@ -24,7 +25,7 @@ public interface ProblemRepository extends JpaRepository<Problem, Long> {
                 AND s.user_id = :userId
                 AND s.verdict = 'Accepted'
           )
-        ORDER BY p.actual_rating ASC
+        ORDER BY RANDOM()
         LIMIT :limit
         """, nativeQuery = true)
     List<Problem> findRecommendedUnsolved(

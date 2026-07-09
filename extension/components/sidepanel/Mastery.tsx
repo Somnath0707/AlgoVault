@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react"
 import { Card } from "../ui/Card"
 import { ProgressBar } from "../ui/ProgressBar"
 import { fetchMastery } from "../../lib/api/backend"
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { getCachedMastery, setCachedMastery } from "../../lib/storage"
 
 export const Mastery = () => {
@@ -41,16 +41,54 @@ export const Mastery = () => {
   return (
     <div className="grid gap-4">
       {radarData.length >= 3 && (
-        <Card className="p-0 overflow-hidden">
-          <h3 className="text-xs font-semibold text-zinc-400 p-4 pb-0 uppercase tracking-widest">Glicko-2 Tag Ratings</h3>
-          <div className="h-[250px] w-full mt-1.5">
+        <Card className="p-0 overflow-hidden bg-gradient-to-br from-zinc-900/40 to-zinc-950/40 border-zinc-800/60 shadow-lg">
+          <h3 className="text-xs font-semibold text-zinc-400 p-4 pb-0 uppercase tracking-widest flex items-center justify-between">
+            <span>Glicko-2 Tag Ratings</span>
+            <span className="text-[9px] bg-zinc-800/50 text-zinc-400 px-2 py-0.5 rounded-full border border-zinc-700/50">Radar</span>
+          </h3>
+          <div className="h-[250px] w-full mt-1.5 relative">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#dfa054]/5 via-transparent to-transparent pointer-events-none" />
             <ResponsiveContainer width="100%" height="100%">
-              <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
-                <PolarGrid stroke="#27272a" />
-                <PolarAngleAxis dataKey="subject" tick={{ fill: '#a1a1aa', fontSize: 9, fontFamily: 'monospace' }} />
-                <Radar name="Rating" dataKey="rating" stroke="#dfa054" fill="#dfa054" fillOpacity={0.12} />
-                <Tooltip contentStyle={{ backgroundColor: '#141416', border: '1px solid #27272a', borderRadius: '8px', fontSize: 11, fontFamily: 'monospace' }} />
+              <RadarChart cx="50%" cy="50%" outerRadius="65%" data={radarData}>
+                <PolarGrid stroke="#3f3f46" strokeDasharray="3 3" />
+                <PolarAngleAxis dataKey="subject" tick={{ fill: '#a1a1aa', fontSize: 10, fontFamily: 'monospace', fontWeight: 600 }} />
+                <Radar name="Rating" dataKey="rating" stroke="#dfa054" strokeWidth={2} fill="url(#colorRating)" fillOpacity={1} />
+                <defs>
+                  <linearGradient id="colorRating" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#dfa054" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#dfa054" stopOpacity={0.05}/>
+                  </linearGradient>
+                </defs>
+                <Tooltip 
+                  contentStyle={{ backgroundColor: 'rgba(20, 20, 22, 0.95)', border: '1px solid #3f3f46', borderRadius: '8px', fontSize: 12, fontFamily: 'monospace', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)' }} 
+                  itemStyle={{ color: '#dfa054', fontWeight: 'bold' }}
+                />
               </RadarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      )}
+
+      {data.length > 0 && (
+        <Card className="p-0 overflow-hidden bg-gradient-to-br from-[#121820] to-[#0a0d14] border-sky-900/30 shadow-lg">
+          <h3 className="text-xs font-semibold text-sky-400/80 p-4 pb-0 uppercase tracking-widest flex items-center justify-between">
+            <span>Solved vs Attempted</span>
+            <span className="text-[9px] bg-sky-900/30 text-sky-300 px-2 py-0.5 rounded-full border border-sky-800/40">Top 8</span>
+          </h3>
+          <div className="h-[220px] w-full mt-4 pr-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data.slice(0, 8)} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                <XAxis dataKey="tag" tick={{ fill: '#64748b', fontSize: 9, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#64748b', fontSize: 9, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+                <Tooltip 
+                  cursor={{ fill: '#1e293b', opacity: 0.4 }}
+                  contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', border: '1px solid #334155', borderRadius: '8px', fontSize: 11, fontFamily: 'monospace', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)' }}
+                />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: 10, fontFamily: 'monospace', color: '#94a3b8' }} />
+                <Bar dataKey="totalAttempted" name="Attempted" fill="#334155" radius={[4, 4, 0, 0]} barSize={12} />
+                <Bar dataKey="totalSolved" name="Solved" fill="#38bdf8" radius={[4, 4, 0, 0]} barSize={12} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </Card>

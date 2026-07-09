@@ -8,7 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -17,6 +17,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
+@org.springframework.transaction.annotation.Transactional
 @RequiredArgsConstructor
 @Slf4j
 public class SyncService {
@@ -31,8 +32,8 @@ public class SyncService {
     private final AnalyticsMetricRepository analyticsMetricRepository;
     private final ZerotracService zerotracService;
     private final RevisionCardRepository revisionCardRepository;
+    private final TransactionTemplate transactionTemplate;
 
-    @Transactional
     @Caching(evict = {
         @CacheEvict(value = "dashboard", key = "#userId"),
         @CacheEvict(value = "heatmap", key = "#userId"),
@@ -56,35 +57,52 @@ public class SyncService {
             .build());
 
         try {
-            User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
-            updateUserProfile(user, request);
+            Map<String, Double> zerotracRatings;
+            try {
+                zerotracRatings = zerotracService.getRatingsBySlug();
+            } catch (Exception e) {
+                log.error("Failed to fetch ZeroTrac ratings, fallback to empty ratings map", e);
+                zerotracRatings = new HashMap<>();
+            }
 
-            Map<String, Double> zerotracRatings = zerotracService.getRatingsBySlug();
-            ProblemUpsertResult problemUpsert = upsertSolvedProblems(request, zerotracRatings);
-            Map<String, Problem> problemCache = problemUpsert.problemCache();
-            upsertMissingSubmissionProblems(request, zerotracRatings, problemCache);
-            int newProblems = problemUpsert.newProblems();
+            final Map<String, Double> finalRatings = zerotracRatings;
 
-            int newSubmissions = upsertSubmissions(user, request, problemCache);
-            resolvePredictionMetrics(userId, request);
-            int newContests = upsertContestHistory(user, request);
-            updateSyncMetadata(user, request);
+            transactionTemplate.execute(status -> {
+                User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+                updateUserProfile(user, request);
 
-            syncLog.setStatus("SUCCESS");
-            syncLog.setNewProblems(newProblems);
-            syncLog.setNewSubmissions(newSubmissions);
-            syncLog.setNewContests(newContests);
-            syncLog.setFinishedAt(LocalDateTime.now());
-            syncLog.setDurationMs(java.time.Duration.between(startTime, syncLog.getFinishedAt()).toMillis());
-            syncLogRepository.save(syncLog);
+                ProblemUpsertResult problemUpsert = upsertSolvedProblems(request, finalRatings);
+                Map<String, Problem> problemCache = problemUpsert.problemCache();
+                upsertMissingSubmissionProblems(request, finalRatings, problemCache);
+                int newProblems = problemUpsert.newProblems();
+
+                int newSubmissions = upsertSubmissions(user, request, problemCache);
+                resolvePredictionMetrics(userId, request);
+                int newContests = upsertContestHistory(user, request);
+                updateSyncMetadata(user, request);
+
+                syncLog.setStatus("SUCCESS");
+                syncLog.setNewProblems(newProblems);
+                syncLog.setNewSubmissions(newSubmissions);
+                syncLog.setNewContests(newContests);
+                syncLog.setFinishedAt(LocalDateTime.now());
+                syncLog.setDurationMs(java.time.Duration.between(startTime, syncLog.getFinishedAt()).toMillis());
+                syncLogRepository.save(syncLog);
+                return null;
+            });
 
             analyticsService.recomputeAll(userId);
         } catch (Exception e) {
-            syncLog.setStatus("FAILED");
-            syncLog.setErrorMessage(e.getMessage());
-            syncLog.setFinishedAt(LocalDateTime.now());
-            syncLog.setDurationMs(java.time.Duration.between(startTime, syncLog.getFinishedAt()).toMillis());
-            syncLogRepository.save(syncLog);
+            try {
+                SyncLog freshLog = syncLogRepository.findById(syncLog.getId()).orElse(syncLog);
+                freshLog.setStatus("FAILED");
+                freshLog.setErrorMessage(e.getMessage());
+                freshLog.setFinishedAt(LocalDateTime.now());
+                freshLog.setDurationMs(java.time.Duration.between(startTime, freshLog.getFinishedAt()).toMillis());
+                syncLogRepository.save(freshLog);
+            } catch (Exception logEx) {
+                log.error("Failed to write FAILED status to sync log", logEx);
+            }
             throw e;
         }
     }
@@ -111,17 +129,31 @@ public class SyncService {
 
     private ProblemUpsertResult upsertSolvedProblems(SyncLeetcodeRequest request, Map<String, Double> zerotracRatings) {
         Map<String, Problem> problemCache = new HashMap<>();
+        List<SyncLeetcodeRequest.ProblemInfo> pInfos = Optional.ofNullable(request.getSolvedProblems()).orElse(List.of());
+        
+        List<String> slugs = pInfos.stream()
+            .map(SyncLeetcodeRequest.ProblemInfo::getTitleSlug)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
+            
+        Map<String, Problem> existingProblems = slugs.isEmpty() ? new HashMap<>() : 
+            problemRepository.findByTitleSlugIn(slugs).stream()
+                .collect(Collectors.toMap(Problem::getTitleSlug, p -> p));
+                
+        List<Problem> toSave = new ArrayList<>();
         int newProblems = 0;
-        for (SyncLeetcodeRequest.ProblemInfo pInfo : Optional.ofNullable(request.getSolvedProblems()).orElse(List.of())) {
+        
+        for (SyncLeetcodeRequest.ProblemInfo pInfo : pInfos) {
             if (pInfo.getTitleSlug() == null || pInfo.getTitle() == null) {
                 continue;
             }
 
             boolean isNew = false;
-            Problem problem = problemRepository.findByTitleSlug(pInfo.getTitleSlug()).orElse(null);
+            Problem problem = existingProblems.get(pInfo.getTitleSlug());
             if (problem == null) {
                 problem = new Problem();
                 problem.setTitleSlug(pInfo.getTitleSlug());
+                existingProblems.put(pInfo.getTitleSlug(), problem);
                 isNew = true;
             }
 
@@ -139,27 +171,56 @@ public class SyncService {
                 problem.setActualRating(rating);
             }
 
-            problem = problemRepository.save(problem);
             if (isNew) {
                 log.debug("Created problem {}", problem.getTitleSlug());
                 newProblems++;
             }
-            problemCache.put(problem.getTitleSlug(), problem);
+            toSave.add(problem);
         }
+        
+        if (!toSave.isEmpty()) {
+            problemRepository.saveAll(toSave).forEach(p -> problemCache.put(p.getTitleSlug(), p));
+        }
+        
         return new ProblemUpsertResult(problemCache, newProblems);
     }
 
     private int upsertSubmissions(User user, SyncLeetcodeRequest request, Map<String, Problem> problemCache) {
         int newSubmissions = 0;
-        for (SyncLeetcodeRequest.SubmissionInfo sInfo : Optional.ofNullable(request.getSubmissions()).orElse(List.of())) {
+        Set<String> processedLcIds = new HashSet<>();
+        Set<String> processedTuples = new HashSet<>();
+        Set<Long> processedRevisionProblems = new HashSet<>();
+        
+        List<SyncLeetcodeRequest.SubmissionInfo> sInfos = Optional.ofNullable(request.getSubmissions()).orElse(List.of());
+        Set<String> requestLcIds = sInfos.stream()
+            .map(SyncLeetcodeRequest.SubmissionInfo::getId)
+            .filter(id -> id != null && !id.isBlank())
+            .collect(Collectors.toSet());
+        Set<String> existingLcIds = requestLcIds.isEmpty() ? new HashSet<>() :
+            submissionRepository.findLeetcodeSubmissionIdsByUserIdAndLeetcodeSubmissionIdIn(user.getId(), requestLcIds);
+
+        for (SyncLeetcodeRequest.SubmissionInfo sInfo : sInfos) {
             if (sInfo.getTitleSlug() == null || sInfo.getTimestamp() == null || sInfo.getStatusDisplay() == null || sInfo.getLang() == null) {
                 continue;
             }
 
-            LocalDateTime submittedAt = LocalDateTime.ofInstant(
-                Instant.ofEpochSecond(Long.parseLong(sInfo.getTimestamp())),
-                ZoneId.systemDefault()
-            );
+            if (sInfo.getId() != null && !sInfo.getId().isBlank()) {
+                if (processedLcIds.contains(sInfo.getId())) {
+                    continue;
+                }
+                processedLcIds.add(sInfo.getId());
+            }
+
+            LocalDateTime submittedAt;
+            try {
+                submittedAt = LocalDateTime.ofInstant(
+                    Instant.ofEpochSecond(Long.parseLong(sInfo.getTimestamp())),
+                    ZoneId.systemDefault()
+                );
+            } catch (Exception e) {
+                log.warn("Failed to parse submission timestamp: {}", sInfo.getTimestamp(), e);
+                continue;
+            }
 
             Problem problem = problemCache.computeIfAbsent(
                 sInfo.getTitleSlug(),
@@ -169,10 +230,17 @@ public class SyncService {
                 continue;
             }
 
+            Integer runtimeMs = parseRuntimeMs(sInfo.getRuntime());
+            String tupleKey = problem.getId() + "_" + sInfo.getStatusDisplay() + "_" + sInfo.getTimestamp() + "_" + runtimeMs;
+            if (processedTuples.contains(tupleKey)) {
+                continue;
+            }
+            processedTuples.add(tupleKey);
+
             boolean exists = sInfo.getId() != null && !sInfo.getId().isBlank()
-                && submissionRepository.findByUserIdAndLeetcodeSubmissionId(user.getId(), sInfo.getId()).isPresent();
+                && existingLcIds.contains(sInfo.getId());
             if (!exists) {
-                exists = submissionRepository.existsByTighterTuple(user.getId(), problem.getId(), sInfo.getStatusDisplay(), submittedAt, parseRuntimeMs(sInfo.getRuntime()));
+                exists = submissionRepository.existsByTighterTuple(user.getId(), problem.getId(), sInfo.getStatusDisplay(), submittedAt, runtimeMs);
             }
             if (exists) {
                 continue;
@@ -184,7 +252,7 @@ public class SyncService {
                 .leetcodeSubmissionId(sInfo.getId())
                 .verdict(sInfo.getStatusDisplay())
                 .language(sInfo.getLang())
-                .runtimeMs(parseRuntimeMs(sInfo.getRuntime()))
+                .runtimeMs(runtimeMs)
                 .memoryKb(parseMemoryKb(sInfo.getMemory()))
                 .source("HISTORY_SYNC")
                 .submittedAt(submittedAt)
@@ -192,7 +260,7 @@ public class SyncService {
             submissionRepository.save(sub);
 
             if ("Accepted".equals(sInfo.getStatusDisplay())) {
-                ensureRevisionCard(user, problem, submittedAt);
+                ensureRevisionCard(user, problem, submittedAt, processedRevisionProblems);
             }
             newSubmissions++;
         }
@@ -204,19 +272,42 @@ public class SyncService {
         Map<String, Double> zerotracRatings,
         Map<String, Problem> problemCache
     ) {
-        for (SyncLeetcodeRequest.SubmissionInfo submission : Optional.ofNullable(request.getSubmissions()).orElse(List.of())) {
+        List<SyncLeetcodeRequest.SubmissionInfo> subs = Optional.ofNullable(request.getSubmissions()).orElse(List.of());
+        List<String> missingSlugs = subs.stream()
+            .map(SyncLeetcodeRequest.SubmissionInfo::getTitleSlug)
+            .filter(slug -> slug != null && !slug.isBlank() && !problemCache.containsKey(slug))
+            .distinct()
+            .collect(Collectors.toList());
+            
+        if (missingSlugs.isEmpty()) return;
+        
+        Map<String, Problem> existingMissing = problemRepository.findByTitleSlugIn(missingSlugs).stream()
+            .collect(Collectors.toMap(Problem::getTitleSlug, p -> p));
+            
+        List<Problem> toSave = new ArrayList<>();
+        
+        for (SyncLeetcodeRequest.SubmissionInfo submission : subs) {
             String slug = submission.getTitleSlug();
             if (slug == null || slug.isBlank() || problemCache.containsKey(slug)) {
                 continue;
             }
-            Problem problem = problemRepository.findByTitleSlug(slug).orElseGet(() -> Problem.builder()
-                .titleSlug(slug)
-                .title(submission.getTitle() != null && !submission.getTitle().isBlank() ? submission.getTitle() : slug)
-                .build());
+            Problem problem = existingMissing.get(slug);
+            if (problem == null) {
+                problem = Problem.builder()
+                    .titleSlug(slug)
+                    .title(submission.getTitle() != null && !submission.getTitle().isBlank() ? submission.getTitle() : slug)
+                    .build();
+                existingMissing.put(slug, problem);
+            }
             if (problem.getActualRating() == null) {
                 problem.setActualRating(zerotracRatings.get(slug));
             }
-            problemCache.put(slug, problemRepository.save(problem));
+            toSave.add(problem);
+            problemCache.put(slug, problem); // Optimistically cache it
+        }
+        
+        if (!toSave.isEmpty()) {
+            problemRepository.saveAll(toSave).forEach(p -> problemCache.put(p.getTitleSlug(), p));
         }
     }
 
@@ -245,6 +336,7 @@ public class SyncService {
         history.sort(Comparator.comparing(c -> c.getContest() != null ? c.getContest().getStartTime() : 0L));
 
         List<SyncLeetcodeRequest.SubmissionInfo> subs = Optional.ofNullable(request.getSubmissions()).orElse(List.of());
+        Set<String> processedContestTitles = new HashSet<>();
 
         for (SyncLeetcodeRequest.ContestHistoryInfo cInfo : history) {
             if (!Boolean.TRUE.equals(cInfo.getAttended()) || cInfo.getContest() == null || cInfo.getContest().getTitle() == null) {
@@ -252,6 +344,11 @@ public class SyncService {
             }
 
             String title = cInfo.getContest().getTitle();
+            if (processedContestTitles.contains(title)) {
+                continue;
+            }
+            processedContestTitles.add(title);
+
             long startTime = cInfo.getContest().getStartTime();
             long endTime = startTime + 5400; // 90 mins
 
@@ -324,7 +421,12 @@ public class SyncService {
         syncMetadataRepository.save(metadata);
     }
 
-    private void ensureRevisionCard(User user, Problem problem, LocalDateTime solvedAt) {
+    private void ensureRevisionCard(User user, Problem problem, LocalDateTime solvedAt, Set<Long> processedRevisionProblems) {
+        if (processedRevisionProblems.contains(problem.getId())) {
+            return;
+        }
+        processedRevisionProblems.add(problem.getId());
+
         revisionCardRepository.findByUserIdAndProblemId(user.getId(), problem.getId())
             .orElseGet(() -> revisionCardRepository.save(RevisionCard.builder()
                 .user(user)
@@ -339,18 +441,28 @@ public class SyncService {
 
     private Integer parseRuntimeMs(String runtime) {
         if (runtime == null) return null;
-        String digits = runtime.replaceAll("[^0-9]", "");
-        return digits.isEmpty() ? null : Integer.parseInt(digits);
+        try {
+            String digits = runtime.replaceAll("[^0-9]", "");
+            return digits.isEmpty() ? null : Integer.parseInt(digits);
+        } catch (NumberFormatException e) {
+            log.warn("Failed to parse runtime: {}", runtime, e);
+            return null;
+        }
     }
 
     private Integer parseMemoryKb(String memory) {
         if (memory == null) return null;
-        String normalized = memory.trim().toUpperCase(Locale.ROOT);
-        String number = normalized.replaceAll("[^0-9.]", "");
-        if (number.isEmpty()) return null;
-        double value = Double.parseDouble(number);
-        if (normalized.contains("MB")) return (int) Math.round(value * 1024);
-        return (int) Math.round(value);
+        try {
+            String normalized = memory.trim().toUpperCase(Locale.ROOT);
+            String number = normalized.replaceAll("[^0-9.]", "");
+            if (number.isEmpty()) return null;
+            double value = Double.parseDouble(number);
+            if (normalized.contains("MB")) return (int) Math.round(value * 1024);
+            return (int) Math.round(value);
+        } catch (NumberFormatException e) {
+            log.warn("Failed to parse memory: {}", memory, e);
+            return null;
+        }
     }
 
     private record ProblemUpsertResult(Map<String, Problem> problemCache, int newProblems) {}

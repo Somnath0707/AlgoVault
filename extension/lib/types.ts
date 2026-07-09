@@ -21,6 +21,7 @@ export interface PredictionResult {
 
 export interface DashboardData {
   lcRating?: number | null;
+  virtualRating?: number | null;
   lastSyncTime?: string;
   totalSolved: number;
   totalSubmissions: number;
@@ -94,6 +95,9 @@ export interface ZerotracProblem {
   Rating: number;
   ID?: string | number;
   Title?: string;
+  ContestID_en?: string;
+  ContestSlug?: string;
+  ProblemIndex?: string;
 }
 
 export interface SessionData {

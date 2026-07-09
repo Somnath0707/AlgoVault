@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 @Service
+@org.springframework.transaction.annotation.Transactional
 public class JwtService {
 
     @Value("${jwt.secret}")

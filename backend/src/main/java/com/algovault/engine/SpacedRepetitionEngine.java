@@ -39,7 +39,7 @@ public class SpacedRepetitionEngine {
         card.setLastReviewed(java.time.LocalDateTime.now());
         card.setNextReview(java.time.LocalDateTime.now().plusDays(interval));
         card.setReviewCount(card.getReviewCount() != null ? card.getReviewCount() + 1 : 1);
-        card.setConfidence(5); // Reset confidence to 100% after review
+        card.setConfidence(quality == 0 ? 1 : quality); // Map quality to confidence
 
         return card;
     }

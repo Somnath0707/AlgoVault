@@ -3,7 +3,7 @@ import type { PlasmoCSConfig, PlasmoGetStyle } from "plasmo"
 import { useEffect, useState } from "react"
 
 export const config: PlasmoCSConfig = {
-  matches: ["https://leetcode.com/problems/*"]
+  matches: ["https://leetcode.com/problems/*", "https://leetcode.com/contest/*/problems/*"]
 }
 
 export const getStyle: PlasmoGetStyle = () => {
@@ -36,10 +36,13 @@ const FloatingButton = () => {
       })
     }
     load()
-    const interval = window.setInterval(() => {
-      load()
-    }, 1000)
-    return () => window.clearInterval(interval)
+    const listener = (changes: any, areaName: string) => {
+      if (areaName === "local" && (changes["algovault.currentSession"] || changes["algovault.sessionState"] || changes["algovault.problemStartTime"])) {
+        load();
+      }
+    }
+    chrome.storage.onChanged.addListener(listener)
+    return () => chrome.storage.onChanged.removeListener(listener)
   }, [])
 
   useEffect(() => {

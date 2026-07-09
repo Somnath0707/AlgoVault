@@ -16,7 +16,9 @@ import org.springframework.beans.factory.annotation.Value;
 import jakarta.annotation.PostConstruct;
 
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -31,10 +33,10 @@ public class AuthController {
     @PostConstruct
     public void logWarning() {
         if ("single-user".equalsIgnoreCase(authMode)) {
-            System.err.println("****************************************************************");
-            System.err.println("WARNING: SINGLE-USER MODE ACTIVE. AUTHENTICATION BYPASS ENABLED.");
-            System.err.println("THIS MODE IS ONLY SAFE ON A MACHINE ONLY YOU CAN REACH.");
-            System.err.println("****************************************************************");
+            log.warn("****************************************************************");
+            log.warn("WARNING: SINGLE-USER MODE ACTIVE. AUTHENTICATION BYPASS ENABLED.");
+            log.warn("THIS MODE IS ONLY SAFE ON A MACHINE ONLY YOU CAN REACH.");
+            log.warn("****************************************************************");
         }
     }
 
@@ -81,9 +83,12 @@ public class AuthController {
         if (!"single-user".equalsIgnoreCase(authMode)) {
             return ResponseEntity.status(403).body("Extension login bypass is disabled. OAuth required.");
         }
+        if (request == null) {
+            return ResponseEntity.badRequest().body("Request body required");
+        }
         String username = request.get("username");
-        if (username == null || username.isBlank()) {
-            return ResponseEntity.badRequest().body("Username required");
+        if (username == null || username.isBlank() || username.length() > 100) {
+            return ResponseEntity.badRequest().body("Username required and must be under 100 characters");
         }
         username = username.trim();
         String normalizedUsername = username;
