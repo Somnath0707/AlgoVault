@@ -23,6 +23,7 @@
 
   var lastSeenSubmissionId;
   var originalFetch = window.fetch;
+  window.__ALGOVAULT_SUBMISSIONS__ = window.__ALGOVAULT_SUBMISSIONS__ || {};
 
   function normalizeUrl(input) {
     if (typeof input === 'string') return input;
@@ -40,8 +41,18 @@
     
     var match = String(url).match(/\/submissions\/detail\/(\d+)\/check/);
     var submissionId = match ? match[1] : undefined;
-    if (submissionId && submissionId === lastSeenSubmissionId) return;
+    if (!submissionId) return;
+
+    // Only process checks that correspond to a real Submit action (registered in our submissions object)
+    if (!window.__ALGOVAULT_SUBMISSIONS__[String(submissionId)]) {
+      return;
+    }
+    
+    if (submissionId === lastSeenSubmissionId) return;
     lastSeenSubmissionId = submissionId;
+    
+    // Clean up key to prevent memory growth
+    delete window.__ALGOVAULT_SUBMISSIONS__[String(submissionId)];
     
     // If nonce wasn't available yet, try reading it now
     if (!nonce) {
@@ -84,7 +95,22 @@
       } catch(e) {}
     }
 
-    return originalFetch.apply(this, arguments).then(function(response) {
+    var fetchPromise = originalFetch.apply(this, arguments);
+
+    // If it's a submit, intercept the returned submission_id
+    if (isSubmit) {
+      fetchPromise.then(function(response) {
+        if (response.ok) {
+          response.clone().json().then(function(data) {
+            if (data && data.submission_id) {
+              window.__ALGOVAULT_SUBMISSIONS__[String(data.submission_id)] = true;
+            }
+          }).catch(function() {});
+        }
+      }).catch(function() {});
+    }
+
+    return fetchPromise.then(function(response) {
       // Match both specific check URL pattern and generic /check/ path
       if (/\/submissions\/detail\/\d+\/check/.test(url) || (typeof url === 'string' && url.indexOf('/check') !== -1)) {
         try {
@@ -118,6 +144,21 @@
         }
       } catch(e) {}
     }
+    
+    // Intercept XHR submit response
+    if (isSubmit) {
+      this.addEventListener('load', function() {
+        try {
+          if (this.status >= 200 && this.status < 300 && this.responseText) {
+            var data = JSON.parse(this.responseText);
+            if (data && data.submission_id) {
+              window.__ALGOVAULT_SUBMISSIONS__[String(data.submission_id)] = true;
+            }
+          }
+        } catch(e) {}
+      });
+    }
+
     if (/\/submissions\/detail\/\d+\/check/.test(url) || url.indexOf('/check') !== -1) {
       this.addEventListener('loadend', function() {
         try {
