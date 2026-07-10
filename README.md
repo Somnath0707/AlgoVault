@@ -309,10 +309,5 @@ Tracks keyboard metrics (manual typing vs copy-paste detection), tab focus switc
 
 ---
 
-## 💾 Replay Evidence & Verification Files (Logs)
 
-Verification walkthrough logs, redesign proposals, and checklist trackers generated during the architecture audits:
-- **Redesign Blueprint:** [Trophy Cabinet Design Artifact](file:///Users/somnathghorpade/.gemini/antigravity/brain/3bdba3b2-baf3-4c71-8cae-f00709ce90b5/trophy_cabinet_redesign_proposal.md)
-- **Checklist Tracker:** [Task list checklist](file:///Users/somnathghorpade/.gemini/antigravity/brain/3bdba3b2-baf3-4c71-8cae-f00709ce90b5/task.md)
-- **Audit Walkthrough:** [walkthrough.md](file:///Users/somnathghorpade/.gemini/antigravity/brain/3bdba3b2-baf3-4c71-8cae-f00709ce90b5/walkthrough.md)
 
