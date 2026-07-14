@@ -1,3 +1,7 @@
+import { exchangeGithubCode } from "./backend";
+
+export const GITHUB_CLIENT_ID = process.env.PLASMO_PUBLIC_GITHUB_CLIENT_ID || 'beb4f0aa19ab8faf5004'; // default fallback for demonstration
+
 /**
  * Commits a solution code file to the user's GitHub repository.
  *
@@ -102,3 +106,43 @@ export function getExtensionForLanguage(lang?: string): string {
   if (l.includes("sql")) return "sql";
   return "txt";
 }
+
+/**
+ * Initiates the GitHub OAuth flow using the Chrome Identity API,
+ * retrieves the authorization code, and exchanges it via the backend.
+ */
+export async function authenticateGithub(): Promise<{ ok: boolean; token?: string; message?: string }> {
+  try {
+    const redirectUri = chrome.identity.getRedirectURL();
+    const authUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo`;
+    
+    return new Promise((resolve) => {
+      chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true }, async (responseUrl) => {
+        if (chrome.runtime.lastError || !responseUrl) {
+          return resolve({ ok: false, message: chrome.runtime.lastError?.message || "OAuth flow was canceled or failed" });
+        }
+        
+        try {
+          const urlParams = new URLSearchParams(new URL(responseUrl).search);
+          const code = urlParams.get('code');
+          if (!code) {
+            return resolve({ ok: false, message: "No authorization code returned from GitHub" });
+          }
+
+          // Send code to backend to exchange for access token
+          const res = await exchangeGithubCode(code);
+          if (res.token) {
+            resolve({ ok: true, token: res.token });
+          } else {
+            resolve({ ok: false, message: "Backend did not return a valid token" });
+          }
+        } catch (err: any) {
+          resolve({ ok: false, message: err.message || "Failed to exchange code" });
+        }
+      });
+    });
+  } catch (e: any) {
+    return { ok: false, message: e.message || "Failed to start OAuth flow" };
+  }
+}
+

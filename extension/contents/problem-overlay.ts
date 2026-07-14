@@ -1,6 +1,7 @@
 import type { PlasmoCSConfig } from "plasmo"
 import { STUDY_LISTS } from "../lib/study-lists"
 import { buildZerotracRatingMap, getZerotracProblemBySlug } from "../lib/zerotrac"
+import { showZenithQuestModal } from "./ZenithSystemOverlay"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://leetcode.com/problems/*", "https://leetcode.com/contest/*/problems/*"],
@@ -174,6 +175,42 @@ const injectAlgoVaultOverlay = () => {
     titleH1.appendChild(listsBtn);
   }
 
+  // Inject Start Zenith button if not already in Zenith session
+  if (titleH1 && !document.getElementById('av-start-zenith-btn')) {
+    chrome.storage.local.get("algovault.isZenith", (res) => {
+      const active = !!res["algovault.isZenith"];
+      if (active) return;
+
+      const startZenithBtn = document.createElement('button');
+      startZenithBtn.id = 'av-start-zenith-btn';
+      startZenithBtn.textContent = '⚔️ Start Zenith';
+      startZenithBtn.className = 'ml-3 text-xs px-2.5 py-1 rounded bg-[#dfa054]/10 text-[#dfa054] border border-[#dfa054]/25 hover:bg-[#dfa054]/20 transition-colors font-medium cursor-pointer';
+      startZenithBtn.onclick = () => {
+        showZenithQuestModal(
+          () => {
+            // Synchronously request fullscreen on user click
+            document.documentElement.requestFullscreen().catch((err) => {
+              console.warn("Fullscreen request rejected:", err);
+            });
+            chrome.storage.local.set({
+              "algovault.isZenith": true,
+              "algovault.zenithGrade": "S_PLUS",
+              "algovault.zenithReason": "Pure Solve",
+              "algovault.zenithFocusScore": 100,
+              "algovault.problemStartTime": new Date().toISOString()
+            }, () => {
+              startZenithBtn.remove();
+            });
+          },
+          () => {
+            // Cancel
+          }
+        );
+      };
+      titleH1.appendChild(startZenithBtn);
+    });
+  }
+
   // Early return if we don't have prediction data yet
   if (!predictionData || predictionData.error) return;
 
@@ -208,6 +245,7 @@ const injectAlgoVaultOverlay = () => {
       chanceBubble.id = 'av-solve-chance-bubble';
       chanceBubble.className = 'flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full';
       chanceBubble.style.display = 'inline-flex';
+      chanceBubble.style.whiteSpace = 'nowrap';
       chanceBubble.style.backgroundColor = assessmentBg;
       chanceBubble.style.border = `1px solid ${assessmentBorder}`;
       chanceBubble.style.color = assessmentColor;
@@ -215,25 +253,12 @@ const injectAlgoVaultOverlay = () => {
       chanceBubble.innerHTML = `⚡ Solve Chance: <strong style="font-weight:700; margin-left:2px; margin-right:2px;">${assessment}</strong> (${roundedSolveChance}%)`;
       container.appendChild(chanceBubble);
 
-      // 2. Target Bubble
-      if (expectedTimeMinutes) {
-        const targetBubble = document.createElement('div');
-        targetBubble.id = 'av-target-bubble';
-        targetBubble.className = 'flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full';
-        targetBubble.style.display = 'inline-flex';
-        targetBubble.style.backgroundColor = 'rgba(255, 255, 255, 0.03)';
-        targetBubble.style.border = '1px solid rgba(255, 255, 255, 0.08)';
-        targetBubble.style.color = '#c2c2c2';
-        targetBubble.style.marginLeft = '8px';
-        targetBubble.innerHTML = `⏱ Target: <strong style="font-weight:700; margin-left:2px;">~${Math.round(expectedTimeMinutes)}m</strong>`;
-        container.appendChild(targetBubble);
-      }
-
-      // 3. Confidence Bubble
+      // 2. Confidence Bubble
       const confBubble = document.createElement('div');
       confBubble.id = 'av-confidence-bubble';
       confBubble.className = 'flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full';
       confBubble.style.display = 'inline-flex';
+      confBubble.style.whiteSpace = 'nowrap';
       confBubble.style.backgroundColor = 'rgba(255, 255, 255, 0.03)';
       confBubble.style.border = '1px solid rgba(255, 255, 255, 0.08)';
       confBubble.style.color = '#c2c2c2';

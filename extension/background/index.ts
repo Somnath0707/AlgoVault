@@ -183,22 +183,52 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "submission_result") {
     const payload = message.payload;
     
-    // Trigger GitHub sync independently in the background so backend failures don't block it
-    if (payload.statusDisplay === "Accepted") {
-      syncAcceptedSubmissionToGithub(payload, "PENDING_SELF_REPORT").catch((gitErr) => {
-        console.error("Error during GitHub sync operation:", gitErr)
-      })
-    }
+    chrome.storage.local.get([
+      "algovault.isZenith",
+      "algovault.zenithGrade",
+      "algovault.zenithReason",
+      "algovault.zenithFocusScore",
+      "algovault.problemStartTime"
+    ], (res) => {
+      const isZenith = !!res["algovault.isZenith"];
+      let helpType: "NONE" | "PENDING_SELF_REPORT" = "PENDING_SELF_REPORT";
 
-    sendSubmissionResult(payload)
-      .then((data) => {
-        storage.set("algovault.currentSession", data)
-        sendResponse({ ok: true, data })
-      })
-      .catch((err) => {
-        console.error("Backend submission report failed:", err)
-        sendResponse({ ok: false, error: err.message })
-      })
+      if (isZenith) {
+        payload.isZenith = true;
+        payload.grade = res["algovault.zenithGrade"] || "S_PLUS";
+        payload.reason = res["algovault.zenithReason"] || "Pure Solve";
+        payload.focusScore = res["algovault.zenithFocusScore"] ?? 100.0;
+        
+        const startTime = res["algovault.problemStartTime"];
+        payload.timeSpentSeconds = startTime 
+          ? Math.max(0, Math.floor((Date.now() - new Date(startTime).getTime()) / 1000))
+          : 0;
+        payload.codeSubmitted = payload.code || "";
+
+        // Reset Zenith state since solve is done
+        chrome.storage.local.set({ "algovault.isZenith": false });
+        helpType = "NONE";
+      }
+
+      // Trigger GitHub sync independently in the background so backend failures don't block it
+      if (payload.statusDisplay === "Accepted") {
+        syncAcceptedSubmissionToGithub(payload, helpType).catch((gitErr) => {
+          console.error("Error during GitHub sync operation:", gitErr)
+        })
+      }
+
+      sendSubmissionResult(payload)
+        .then((data) => {
+          storage.set("algovault.currentSession", data)
+          sendResponse({ ok: true, data })
+          // Broadcast to any open sidepanel dashboard to refresh fresh data
+          chrome.runtime.sendMessage({ action: "dashboard_refresh" })
+        })
+        .catch((err) => {
+          console.error("Backend submission report failed:", err)
+          sendResponse({ ok: false, error: err.message })
+        })
+    });
     return true
   }
 
@@ -335,40 +365,12 @@ async function buildGithubArtifact(payload: any, helpType: string, sessionData?:
     syncedAt: new Date().toISOString()
   }
 
-  const topicText = tags.length ? tags.map((tag: string) => `\`${tag}\``).join(", ") : "N/A"
-  const codeFence = markdownLanguage(language)
-  const solutionBlock = payload.code
-    ? ["```" + codeFence, payload.code, "```"].join("\n")
-    : "Code was not captured from the LeetCode submit response. The metadata and solve record were still saved."
-
-  const readme = [
-    `# ${qId ? `${qId}. ` : ""}${qTitle}`,
-    "",
-    `- Link: https://leetcode.com/problems/${payload.titleSlug}/`,
-    `- Difficulty: ${difficulty}`,
-    `- Topics: ${topicText}`,
-    `- Language: ${language}`,
-    `- Verdict: ${payload.statusDisplay || "Accepted"}`,
-    `- Help used: ${helpTypeLabel(helpType)}`,
-    `- Runtime: ${formatMs(payload.runtimeMs)}`,
-    `- Memory: ${formatMb(payload.memoryKb)}`,
-    `- Test cases: ${payload.totalCorrect ?? "?"}/${payload.totalTestcases ?? "?"}`,
-    `- Focus time: ${timeSpentSeconds != null ? `${Math.round(timeSpentSeconds / 60)} min` : "N/A"}`,
-    `- Solved at: ${payload.submittedAt}`,
-    "",
-    "## Solution",
-    "",
-    solutionBlock,
-    "",
-    "## AlgoVault Notes",
-    "",
-    "This folder was generated from a real accepted LeetCode submission event. Help-used data is updated after the post-solve self report."
-  ].join("\n")
+  const readme = `<h2><a href="https://leetcode.com/problems/${payload.titleSlug}/">${qId ? `${qId}. ` : ""}${qTitle}</a></h2><h3>${difficulty}</h3><hr>${meta?.content || "Problem description not found."}`;
 
   const codeContent = payload.code || [
     "AlgoVault could not capture source code for this accepted event.",
     "The problem, telemetry, and self-report metadata are still recorded in README.md and metadata.json."
-  ].join("\n")
+  ].join("\n");
 
   return {
     folder,
@@ -403,10 +405,13 @@ async function syncAcceptedSubmissionToGithub(payload: any, helpType = "PENDING_
   repo = stripWrappingQuotes(repo)
 
   const commitPrefix = `${artifact.metadata.frontendQuestionId ? `${artifact.metadata.frontendQuestionId}. ` : ""}${artifact.metadata.title}`
+  const timeStr = payload.runtimeMs != null ? `${payload.runtimeMs} ms` : "N/A"
+  const spaceStr = payload.memoryKb != null ? `${Math.round(payload.memoryKb / 10.24) / 100} MB` : "N/A"
+  
   const writes = [
     {
       path: artifact.codePath,
-      message: `Sync accepted solution for ${commitPrefix}`,
+      message: `Time: ${timeStr}, Space: ${spaceStr} - AlgoVault`,
       content: artifact.codeContent
     },
     {

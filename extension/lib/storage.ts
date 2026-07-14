@@ -158,27 +158,11 @@ export async function setCachedWeakness(data: any): Promise<void> {
 // ─── GitHub Credentials ───────────────────────────────────────────
 
 export async function getGithubPat(): Promise<string | null> {
-  return new Promise((resolve) => {
-    if (chrome.storage.session) {
-      chrome.storage.session.get(STORAGE_KEYS.GITHUB_PAT, (res) => {
-        resolve(res[STORAGE_KEYS.GITHUB_PAT] || null)
-      })
-    } else {
-      resolve(getTyped<string>(STORAGE_KEYS.GITHUB_PAT))
-    }
-  })
+  return getTyped<string>(STORAGE_KEYS.GITHUB_PAT)
 }
 
 export async function setGithubPat(pat: string): Promise<void> {
-  return new Promise((resolve) => {
-    if (chrome.storage.session) {
-      chrome.storage.session.set({ [STORAGE_KEYS.GITHUB_PAT]: pat }, () => {
-        storage.remove(STORAGE_KEYS.GITHUB_PAT).then(resolve)
-      })
-    } else {
-      setTyped(STORAGE_KEYS.GITHUB_PAT, pat).then(resolve)
-    }
-  })
+  await setTyped(STORAGE_KEYS.GITHUB_PAT, pat)
 }
 
 export async function getGithubRepo(): Promise<string | null> {

@@ -125,32 +125,7 @@ export const Dashboard = () => {
     })
   }
 
-  useEffect(() => {
-    // 1. Immediately load from cache to populate UI instantly
-    Promise.all([
-      getCachedDashboard().catch(() => null),
-      getCachedHeatmap().catch(() => []),
-      getCachedWeakness().catch(() => null),
-      new Promise<any>((resolve) => chrome.storage.local.get("algovault.solvedSlugs", (res) => {
-        resolve(res?.["algovault.solvedSlugs"]?.slugs || [])
-      })),
-      getLastSync().catch(() => null)
-    ]).then(([cachedDashboard, cachedHeatmap, cachedWeakness, solvedSlugs, storedLastSync]) => {
-      if (cachedDashboard) {
-        setData(cachedDashboard)
-      }
-      if (cachedHeatmap && cachedHeatmap.length) {
-        setHeatmap(cachedHeatmap)
-      }
-      if (cachedWeakness) {
-        setWeakness(cachedWeakness)
-      }
-      setSolved(new Set(solvedSlugs))
-      setLastSync(storedLastSync)
-      setLoading(false)
-    })
-
-    // 2. Fetch fresh data in the background and update caches
+  const loadFreshData = () => {
     getUsername().then((username) => {
       Promise.all([
         fetchDashboard(),
@@ -202,6 +177,44 @@ export const Dashboard = () => {
         })
       })
     })
+  }
+
+  useEffect(() => {
+    // 1. Immediately load from cache to populate UI instantly
+    Promise.all([
+      getCachedDashboard().catch(() => null),
+      getCachedHeatmap().catch(() => []),
+      getCachedWeakness().catch(() => null),
+      new Promise<any>((resolve) => chrome.storage.local.get("algovault.solvedSlugs", (res) => {
+        resolve(res?.["algovault.solvedSlugs"]?.slugs || [])
+      })),
+      getLastSync().catch(() => null)
+    ]).then(([cachedDashboard, cachedHeatmap, cachedWeakness, solvedSlugs, storedLastSync]) => {
+      if (cachedDashboard) {
+        setData(cachedDashboard)
+      }
+      if (cachedHeatmap && cachedHeatmap.length) {
+        setHeatmap(cachedHeatmap)
+      }
+      if (cachedWeakness) {
+        setWeakness(cachedWeakness)
+      }
+      setSolved(new Set(solvedSlugs))
+      setLastSync(storedLastSync)
+      setLoading(false)
+    })
+
+    // 2. Fetch fresh data in the background and update caches
+    loadFreshData()
+
+    // 3. Listen to dashboard refreshes broadcasted by solve event completion
+    const refreshListener = (msg: any) => {
+      if (msg.action === "dashboard_refresh") {
+        loadFreshData()
+      }
+    }
+    chrome.runtime.onMessage.addListener(refreshListener)
+    return () => chrome.runtime.onMessage.removeListener(refreshListener)
   }, [])
 
   // 3. Keep live session ticking in sync with extension storage and backend logic
@@ -480,6 +493,71 @@ export const Dashboard = () => {
 
   return (
     <div className="grid gap-3.5 select-none">
+      {/* Zenith Mode Achievements Card */}
+      {data?.interviewIndex !== undefined && (
+        <Card className="p-4 bg-zinc-950/40 border border-cyan-950/40 shadow-[0_0_15px_rgba(6,182,212,0.05)]">
+          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-cyan-400">
+            <Target size={13} /> Zenith Rank Board
+          </div>
+          <div className="mt-2.5 flex items-baseline justify-between">
+            <div>
+              <span className="text-[9px] font-mono text-zinc-500 uppercase block">Interview Index (II)</span>
+              <div className="text-3xl font-black font-mono text-cyan-400 tabular-nums tracking-tight drop-shadow-[0_0_8px_rgba(34,211,238,0.3)]">
+                {Math.round(data.interviewIndex)}
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-[8px] font-mono text-zinc-500 uppercase block">Rank Classification</span>
+              <span className="text-xs font-bold font-mono text-[#dfa054] bg-[#dfa054]/10 border border-[#dfa054]/20 px-2 py-0.5 rounded">
+                {data.interviewIndex >= 2200 ? "S-Tier Hunter" : data.interviewIndex >= 1800 ? "A-Tier Hunter" : data.interviewIndex >= 1400 ? "B-Tier Hunter" : "C-Tier Hunter"}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-zinc-900/60">
+            <div className="text-[9px] font-mono font-bold uppercase text-zinc-500 mb-2">Solved Rank Index</div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left font-mono text-[10px]">
+                <thead>
+                  <tr className="text-zinc-600 border-b border-zinc-900/60 pb-1.5 text-[8px] uppercase">
+                    <th className="py-1">Grade</th>
+                    <th className="py-1 text-center">&lt;1600</th>
+                    <th className="py-1 text-center">1600-2000</th>
+                    <th className="py-1 text-center">2000+</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-900/40 text-zinc-300">
+                  {["S_PLUS", "S", "A", "B"].map((grade) => {
+                    const diffMap = data.solvedRankGrid?.[grade] || {};
+                    const formattedGrade = grade.replace("S_PLUS", "S+");
+                    
+                    let gradeColor = "text-[#dfa054]";
+                    if (grade === "S") gradeColor = "text-cyan-400";
+                    else if (grade === "A") gradeColor = "text-emerald-400";
+                    else if (grade === "B") gradeColor = "text-blue-400";
+
+                    return (
+                      <tr key={grade} className="hover:bg-zinc-900/20">
+                        <td className={`py-1.5 font-bold ${gradeColor}`}>{formattedGrade}</td>
+                        <td className="py-1.5 text-center font-bold tabular-nums">
+                          {diffMap.EASY || <span className="text-zinc-700 font-normal">·</span>}
+                        </td>
+                        <td className="py-1.5 text-center font-bold tabular-nums">
+                          {diffMap.MEDIUM || <span className="text-zinc-700 font-normal">·</span>}
+                        </td>
+                        <td className="py-1.5 text-center font-bold tabular-nums">
+                          {diffMap.HARD || <span className="text-zinc-700 font-normal">·</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Solve range card */}
       <Card className="p-4 bg-zinc-950/20 border border-zinc-900 shadow-inner">
         <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500"><Target size={13} />Target Rating Range</div>

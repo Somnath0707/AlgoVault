@@ -23,6 +23,19 @@ async function getAuthToken(username: string): Promise<string> {
   return data.token;
 }
 
+export const exchangeGithubCode = async (code: string) => {
+  const res = await fetch(`${BACKEND_URL}/api/auth/github-exchange`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code })
+  });
+  if (!res.ok) {
+    const errorMsg = await res.text().catch(() => "");
+    throw new Error(`GitHub token exchange failed: ${res.status} ${errorMsg}`);
+  }
+  return res.json();
+}
+
 async function backendFetch(path: string, init: RequestInit = {}) {
   const username = await getUsername()
   const jwt = await getJwtToken()

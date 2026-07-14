@@ -33,6 +33,7 @@ public class SessionService {
     private final ZerotracService zerotracService;
     private final ProblemService problemService;
     private final AnalyticsMetricRepository analyticsMetricRepository;
+    private final ZenithSessionRepository zenithSessionRepository;
 
     private Problem problemFromRequest(String titleSlug, String title) {
         return problemService.getOrCreate(titleSlug, title);
@@ -209,6 +210,26 @@ public class SessionService {
             event.setSolved(true);
             event.setClosedAt(submittedAt);
             ensureRevisionCard(user, problem, submittedAt);
+
+            if (Boolean.TRUE.equals(request.getIsZenith())) {
+                ZenithSession zs = zenithSessionRepository.findByUserIdAndProblemId(user.getId(), problem.getId())
+                    .orElse(new ZenithSession());
+                zs.setUser(user);
+                zs.setProblem(problem);
+                zs.setGrade(request.getGrade() != null ? request.getGrade() : "S_PLUS");
+                zs.setFocusScore(request.getFocusScore() != null ? request.getFocusScore() : 100.0);
+                zs.setTimeSpentSeconds(request.getTimeSpentSeconds() != null ? request.getTimeSpentSeconds() : 0);
+                
+                String g = zs.getGrade();
+                boolean isVerified = "S_PLUS".equals(g) || "S".equals(g) || "A".equals(g) || "B".equals(g);
+                zs.setIsVerified(isVerified);
+                
+                zs.setReason(request.getReason());
+                zs.setSolvedAt(submittedAt);
+                zs.setCodeSubmitted(request.getCodeSubmitted());
+                zs.setProblemRating(problem.getActualRating());
+                zenithSessionRepository.save(zs);
+            }
         }
         problemOpenEventRepository.save(event);
 

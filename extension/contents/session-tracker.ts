@@ -1,4 +1,5 @@
 import type { PlasmoCSConfig } from "plasmo"
+import { showZenithQuestModal, showZenithAlarmModal, showZenithToast } from "./ZenithSystemOverlay"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://leetcode.com/problems/*", "https://leetcode.com/contest/*/problems/*"],
@@ -23,8 +24,101 @@ const IDLE_TIMEOUT_MS = 2 * 60 * 1000 // 2 minutes
 let isSolved = false
 let isWindowFocused = !document.hidden && document.hasFocus()
 
-// Reset solved sessionState on new page load
-chrome.storage.local.remove("algovault.sessionState")
+// Zenith Mode State
+let isZenith = false
+let currentGrade = "S_PLUS"
+let gradeReason = "Pure Solve"
+let copyHistory: Array<{ hash: string; timestamp: number }> = []
+
+function simpleStringHash(str: string): string {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i)
+    hash |= 0
+  }
+  return String(hash)
+}
+
+function updateZenithGrade(newGrade: string, reason: string) {
+  currentGrade = newGrade
+  gradeReason = reason
+  chrome.storage.local.set({ "algovault.zenithGrade": newGrade, "algovault.zenithReason": reason })
+}
+
+// Reset or recover solved sessionState on page load
+const initialSlug = currentSlug()
+if (initialSlug) {
+  chrome.storage.local.get(["algovault.solvedSlugs", "algovault.sessionState", "algovault.isZenith", "algovault.zenithGrade", "algovault.zenithReason"], (result) => {
+    const cached = result["algovault.solvedSlugs"] || {}
+    const slugs = Array.isArray(cached?.slugs) ? cached.slugs : []
+    if (slugs.includes(initialSlug)) {
+      isSolved = true
+      const existingState = result["algovault.sessionState"]
+      if (!existingState || !existingState.isSolved) {
+        chrome.storage.local.set({ "algovault.sessionState": { isSolved: true, finalSeconds: 0 } })
+      }
+    } else {
+      chrome.storage.local.remove("algovault.sessionState")
+    }
+
+    isZenith = !!result["algovault.isZenith"]
+    if (isZenith) {
+      currentGrade = result["algovault.zenithGrade"] || "S_PLUS"
+      gradeReason = result["algovault.zenithReason"] || "Pure Solve"
+      showZenithToast(`Zenith Mode Active: [Grade: ${currentGrade}]`)
+    }
+  })
+} else {
+  chrome.storage.local.remove("algovault.sessionState")
+}
+
+// Storage listener to dynamically sync Zenith Mode state changes across script instances
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local") {
+    if (changes["algovault.isZenith"]) {
+      const active = !!changes["algovault.isZenith"].newValue
+      isZenith = active
+      if (active) {
+        currentGrade = "S_PLUS"
+        gradeReason = "Pure Solve"
+        copyHistory = []
+        openedAt = new Date()
+        focusSeconds = 0
+        tabSwitches = 0
+        pasteCount = 0
+        showZenithToast("Zenith Mode Activated: [Grade: S+]")
+      } else {
+        showZenithToast("Zenith Mode Deactivated.")
+      }
+    }
+    if (changes["algovault.zenithGrade"]) {
+      currentGrade = changes["algovault.zenithGrade"].newValue || "S_PLUS"
+    }
+    if (changes["algovault.zenithReason"]) {
+      gradeReason = changes["algovault.zenithReason"].newValue || "Pure Solve"
+    }
+  }
+})
+
+// Listen to fullscreen changes to warn/penalize users escaping fullscreen in Zenith Mode
+document.addEventListener("fullscreenchange", () => {
+  if (isZenith && !document.fullscreenElement && !isSolved) {
+    showZenithAlarmModal(
+      "Fullscreen exited.",
+      "Your Zenith solve grade will become practice INVALID.",
+      () => {
+        updateZenithGrade("INVALID", "Fullscreen exited")
+        showZenithToast("Telemetry degraded: Grade is now INVALID")
+      },
+      () => {
+        document.documentElement.requestFullscreen().catch(() => {
+          showZenithToast("Failed to re-enter fullscreen. Grade invalidated.")
+          updateZenithGrade("INVALID", "Fullscreen exited")
+        })
+      }
+    )
+  }
+})
 
 if ((window as any).__av_abort_controller) {
   (window as any).__av_abort_controller.abort();
@@ -112,6 +206,12 @@ function heartbeat(titleSlug = trackedSlug, title = trackedTitle) {
   if (isSolved) return
   addFocusedTime(isWindowFocused)
   if (!titleSlug) return
+
+  if (isZenith) {
+    const elapsedSeconds = Math.max(1, Math.floor((Date.now() - openedAt.getTime()) / 1000))
+    const score = Math.min(100, Math.round((focusSeconds / elapsedSeconds) * 100))
+    chrome.storage.local.set({ "algovault.zenithFocusScore": score })
+  }
  
   runWhenSessionReady(() => {
     chrome.runtime.sendMessage({
@@ -181,6 +281,43 @@ document.addEventListener("paste", (event) => {
   if (isSolved) return
   const pasted = event.clipboardData?.getData("text") || ""
   const charCount = pasted.length
+
+  if (isZenith && charCount > 0) {
+    const textHash = simpleStringHash(pasted)
+    const now = Date.now()
+    // Verify against Copy Token history (valid within 2 hours)
+    const isValid = copyHistory.some(h => h.hash === textHash && (now - h.timestamp < 2 * 60 * 60 * 1000))
+
+    if (!isValid) {
+      event.preventDefault()
+      event.stopPropagation()
+
+      showZenithAlarmModal(
+        "External paste detected.",
+        "Your solve grade will become practice INVALID.",
+        () => {
+          updateZenithGrade("INVALID", "External paste detected")
+          
+          // Paste text manually into Monaco text field
+          const activeEl = document.activeElement as HTMLTextAreaElement | HTMLInputElement
+          if (activeEl && (activeEl.tagName === "TEXTAREA" || activeEl.tagName === "INPUT")) {
+            const start = activeEl.selectionStart || 0
+            const end = activeEl.selectionEnd || 0
+            const text = activeEl.value
+            activeEl.value = text.substring(0, start) + pasted + text.substring(end)
+            activeEl.selectionStart = activeEl.selectionEnd = start + pasted.length
+            activeEl.dispatchEvent(new Event("input", { bubbles: true }))
+          }
+          showZenithToast("Telemetry degraded: Grade is now INVALID")
+        },
+        () => {
+          showZenithToast("Obeyed constraints: Paste blocked")
+        }
+      )
+      return
+    }
+  }
+
   const classification = charCount < 20 ? "NATURAL" : charCount <= 100 ? "PARTIAL" : "FULL"
   pasteCount += 1
   sendEvent("PASTE", { charCount, classification, pasteCount })
@@ -190,8 +327,128 @@ document.addEventListener("copy", (event) => {
   if (isSolved) return
   const selectedText = window.getSelection()?.toString() || ""
   const charCount = selectedText.length
+
+  if (isZenith && charCount > 0) {
+    const token = Math.random().toString(36).substring(2, 7)
+    const textHash = simpleStringHash(selectedText)
+    copyHistory.push({ hash: textHash, timestamp: Date.now() })
+    showZenithToast(`Copy Token [${token}] Registered`)
+  }
+
   sendEvent("COPY", { charCount })
 }, { capture: true, signal })
+
+// Click interceptor to warning user when clicking on tags, hints, discussions, editorial
+document.addEventListener("click", (event) => {
+  if (!isZenith || isSolved) return
+
+  const target = event.target as HTMLElement
+  const link = target.closest("a")
+
+  if (link) {
+    const href = link.getAttribute("href") || ""
+    const isEditorial = href.includes("/editorial") || href.includes("/solution")
+    const isDiscussion = href.includes("/discussion") || href.includes("/discuss")
+
+    if (isEditorial && currentGrade !== "D" && currentGrade !== "INVALID") {
+      event.preventDefault()
+      event.stopPropagation()
+      showZenithAlarmModal(
+        "Opening editorial.",
+        "Your solve grade will degrade to D.",
+        () => {
+          updateZenithGrade("D", "Editorial opened")
+          showZenithToast("Telemetry degraded: Grade is now D")
+          window.location.href = link.href
+        },
+        () => {
+          showZenithToast("Obeyed constraints: Access canceled")
+        }
+      )
+      return
+    }
+
+    if (isDiscussion && !["C", "D", "INVALID"].includes(currentGrade)) {
+      event.preventDefault()
+      event.stopPropagation()
+      showZenithAlarmModal(
+        "Opening discussions.",
+        "Your solve grade will degrade to C.",
+        () => {
+          updateZenithGrade("C", "Discussion opened")
+          showZenithToast("Telemetry degraded: Grade is now C")
+          window.location.href = link.href
+        },
+        () => {
+          showZenithToast("Obeyed constraints: Access canceled")
+        }
+      )
+      return
+    }
+  }
+
+  // Intercept tags expand clicks (Topics / Companies headers)
+  const isTagsBtn = target.textContent?.trim() === "Topics" || target.textContent?.trim() === "Companies" ||
+                    target.closest("div")?.textContent?.trim() === "Topics" || target.closest("div")?.textContent?.trim() === "Companies"
+
+  if (isTagsBtn && currentGrade === "S_PLUS") {
+    const isExpanded = target.getAttribute("aria-expanded") === "true" || target.closest("div")?.getAttribute("aria-expanded") === "true"
+    if (!isExpanded) {
+      event.preventDefault()
+      event.stopPropagation()
+      showZenithAlarmModal(
+        "Viewing topic tags.",
+        "Your solve grade will degrade to S.",
+        () => {
+          updateZenithGrade("S", "Tags viewed")
+          showZenithToast("Telemetry degraded: Grade is now S")
+          const temp = isZenith
+          isZenith = false
+          target.click()
+          isZenith = temp
+        },
+        () => {
+          showZenithToast("Obeyed constraints: Access canceled")
+        }
+      )
+      return
+    }
+  }
+
+  // Intercept hints expansion clicks
+  const hintText = target.textContent?.trim() || ""
+  const isHintBtn = hintText.startsWith("Hint ") && hintText.length < 10
+  if (isHintBtn) {
+    const hintNum = hintText.split(" ")[1]
+    const targetGrade = hintNum === "1" ? "A" : "B"
+    const targetReason = hintNum === "1" ? "Used one hint" : "Used multiple hints"
+
+    const gradeRanks = { S_PLUS: 0, S: 1, A: 2, B: 3, C: 4, D: 5, INVALID: 6 }
+    const currentRank = gradeRanks[currentGrade as keyof typeof gradeRanks] || 0
+    const targetRank = gradeRanks[targetGrade as keyof typeof gradeRanks] || 0
+
+    if (targetRank > currentRank) {
+      event.preventDefault()
+      event.stopPropagation()
+      showZenithAlarmModal(
+        `Viewing ${hintText}.`,
+        `Your solve grade will degrade to ${targetGrade}.`,
+        () => {
+          updateZenithGrade(targetGrade, targetReason)
+          showZenithToast(`Telemetry degraded: Grade is now ${targetGrade}`)
+          const temp = isZenith
+          isZenith = false
+          target.click()
+          isZenith = temp
+        },
+        () => {
+          showZenithToast("Obeyed constraints: Access canceled")
+        }
+      )
+      return
+    }
+  }
+}, true)
 
 // Stop timer immediately on Accepted submission
 // Listen for postMessage from MAIN world (events cross world boundary, CustomEvents do NOT)
@@ -209,6 +466,13 @@ window.addEventListener("message", ((event: MessageEvent) => {
     isWindowFocused = false
     sendEvent("SOLVED", { focusSeconds, tabSwitches, pasteCount })
 
+    if (isZenith) {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {})
+      }
+      showZenithToast("Quest Cleared! Zenith Mode Deactivated.")
+    }
+
     // Save solving time to local storage so floating-button and overlay panel stop the timer
     const finalSeconds = Math.max(0, Math.floor((Date.now() - openedAt.getTime()) / 1000))
     chrome.storage.local.set({ 
@@ -225,22 +489,106 @@ if ((window as any).__av_session_intervals) {
 // Detect SPA route navigation instantly (every 1 second)
 const routeInterval = setInterval(() => {
   if (location.href !== lastUrl) {
-    if (!isSolved) heartbeat(trackedSlug, trackedTitle)
-    sendEvent("CLOSE", { url: lastUrl }, trackedSlug, trackedTitle)
+    const newSlug = currentSlug()
+    const oldSlug = trackedSlug
     lastUrl = location.href
-    trackedSlug = currentSlug()
-    trackedTitle = currentTitle()
-    openedAt = new Date()
-    chrome.storage.local.set({ "algovault.problemStartTime": openedAt.toISOString() })
-    focusBaseline = focusSeconds
-    tabSwitchBaseline = tabSwitches
-    pasteBaseline = pasteCount
-    isSolved = false
-    isWindowFocused = !document.hidden && document.hasFocus()
-    chrome.storage.local.remove("algovault.sessionState")
-    sendEvent("OPEN", { url: location.href })
-    // Send immediate heartbeat for the new page
-    heartbeat()
+
+    if (newSlug !== oldSlug) {
+      if (!isSolved && oldSlug) heartbeat(oldSlug, trackedTitle)
+      if (oldSlug) sendEvent("CLOSE", { url: lastUrl }, oldSlug, trackedTitle)
+
+      trackedSlug = newSlug
+      trackedTitle = currentTitle()
+
+      if (newSlug) {
+        openedAt = new Date()
+        chrome.storage.local.set({ "algovault.problemStartTime": openedAt.toISOString() })
+
+        // Check if this new problem is already solved
+        chrome.storage.local.get("algovault.solvedSlugs", (result) => {
+          const cached = result["algovault.solvedSlugs"] || {}
+          const slugs = Array.isArray(cached?.slugs) ? cached.slugs : []
+          if (slugs.includes(newSlug)) {
+            isSolved = true
+            chrome.storage.local.set({ "algovault.sessionState": { isSolved: true, finalSeconds: 0 } })
+          } else {
+            isSolved = false
+            chrome.storage.local.remove("algovault.sessionState")
+          }
+        })
+
+        focusBaseline = focusSeconds
+        tabSwitchBaseline = tabSwitches
+        pasteBaseline = pasteCount
+        isWindowFocused = !document.hidden && document.hasFocus()
+        sendEvent("OPEN", { url: location.href })
+        heartbeat()
+      } else {
+        chrome.storage.local.remove("algovault.problemStartTime")
+        chrome.storage.local.remove("algovault.sessionState")
+        isSolved = false
+      }
+    } else {
+      // Same problem slug, just updated the sub-URL (description/editorial/submissions/etc.)
+      const newTitle = currentTitle()
+      if (newTitle && newTitle !== trackedTitle) {
+        trackedTitle = newTitle
+      }
+
+      // Check if Zenith Mode is active and they navigated directly to a prohibited path
+      if (isZenith) {
+        const path = location.pathname
+        if (path.includes("/solutions")) {
+          if (currentGrade !== "D" && currentGrade !== "INVALID") {
+            showZenithAlarmModal(
+              "Accessing solutions page.",
+              "Your solve grade will degrade to D.",
+              () => {
+                updateZenithGrade("D", "Solutions page opened")
+                showZenithToast("Telemetry degraded: Grade is now D")
+              },
+              () => {
+                const safeUrl = window.location.href.replace(/\/solutions.*|\/editorial.*|\/discuss.*|\/comments.*/, "/description/")
+                window.location.href = safeUrl
+                showZenithToast("Access blocked: Returning to description")
+              }
+            )
+          }
+        } else if (path.includes("/editorial")) {
+          if (currentGrade !== "D" && currentGrade !== "INVALID") {
+            showZenithAlarmModal(
+              "Accessing editorial page.",
+              "Your solve grade will degrade to D.",
+              () => {
+                updateZenithGrade("D", "Editorial page opened")
+                showZenithToast("Telemetry degraded: Grade is now D")
+              },
+              () => {
+                const safeUrl = window.location.href.replace(/\/solutions.*|\/editorial.*|\/discuss.*|\/comments.*/, "/description/")
+                window.location.href = safeUrl
+                showZenithToast("Access blocked: Returning to description")
+              }
+            )
+          }
+        } else if (path.includes("/discuss") || path.includes("/discussion")) {
+          if (!["C", "D", "INVALID"].includes(currentGrade)) {
+            showZenithAlarmModal(
+              "Accessing discussions page.",
+              "Your solve grade will degrade to C.",
+              () => {
+                updateZenithGrade("C", "Discussions page opened")
+                showZenithToast("Telemetry degraded: Grade is now C")
+              },
+              () => {
+                const safeUrl = window.location.href.replace(/\/solutions.*|\/editorial.*|\/discuss.*|\/comments.*/, "/description/")
+                window.location.href = safeUrl
+                showZenithToast("Access blocked: Returning to description")
+              }
+            )
+          }
+        }
+      }
+    }
   }
 }, 1000)
 

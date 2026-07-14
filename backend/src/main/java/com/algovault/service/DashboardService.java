@@ -24,6 +24,9 @@ import java.util.stream.Collectors;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.algovault.model.ZenithSession;
+import com.algovault.repository.ZenithSessionRepository;
+
 @Service
 @org.springframework.transaction.annotation.Transactional
 @RequiredArgsConstructor
@@ -32,6 +35,7 @@ public class DashboardService {
     private final SyncMetadataRepository syncMetadataRepository;
     private final SubmissionRepository submissionRepository;
     private final SessionRepository sessionRepository;
+    private final ZenithSessionRepository zenithSessionRepository;
 
     @Transactional(readOnly = true)
     @Cacheable(value = "dashboard", key = "#userId")
@@ -72,6 +76,50 @@ public class DashboardService {
 
         List<LocalDateTime> acceptedDates = submissionRepository.findAcceptedDatesSinceDesc(userId, LocalDateTime.now().minusDays(90));
 
+        // Calculate Zenith Metrics
+        List<ZenithSession> zenithSessions = zenithSessionRepository.findByUserId(userId);
+        double interviewIndex = 0.0;
+        java.util.Map<String, java.util.Map<String, Integer>> solvedRankGrid = new java.util.HashMap<>();
+        String[] grades = {"S_PLUS", "S", "A", "B"};
+        String[] difficulties = {"EASY", "MEDIUM", "HARD"};
+        for (String g : grades) {
+            java.util.Map<String, Integer> diffMap = new java.util.HashMap<>();
+            for (String d : difficulties) {
+                diffMap.put(d, 0);
+            }
+            solvedRankGrid.put(g, diffMap);
+        }
+
+        for (ZenithSession zs : zenithSessions) {
+            String grade = zs.getGrade();
+            double weight = 0.0;
+            if ("S_PLUS".equals(grade)) weight = 1.0;
+            else if ("S".equals(grade)) weight = 0.9;
+            else if ("A".equals(grade)) weight = 0.7;
+            else if ("B".equals(grade)) weight = 0.5;
+
+            double rating = zs.getProblemRating() != null ? zs.getProblemRating() : 0.0;
+            if (rating == 0.0 && zs.getProblem() != null) {
+                String diff = zs.getProblem().getDifficulty();
+                if ("Easy".equalsIgnoreCase(diff)) rating = 1200.0;
+                else if ("Medium".equalsIgnoreCase(diff)) rating = 1600.0;
+                else if ("Hard".equalsIgnoreCase(diff)) rating = 2100.0;
+            }
+
+            interviewIndex += rating * weight;
+
+            if (solvedRankGrid.containsKey(grade)) {
+                String level = "EASY";
+                if (rating >= 2000.0) {
+                    level = "HARD";
+                } else if (rating >= 1600.0) {
+                    level = "MEDIUM";
+                }
+                java.util.Map<String, Integer> diffMap = solvedRankGrid.get(grade);
+                diffMap.put(level, diffMap.get(level) + 1);
+            }
+        }
+
         return DashboardResponse.builder()
             .lcRating(user.getLcRating())
             .virtualRating(user.getVirtualRating())
@@ -87,6 +135,8 @@ public class DashboardService {
             .currentMode(currentSession.map(Session::getMode).orElse("PRACTICE"))
             .currentStreak(computeCurrentStreak(acceptedDates))
             .recentSolves(recentSolves)
+            .interviewIndex(interviewIndex)
+            .solvedRankGrid(solvedRankGrid)
             .build();
     }
 

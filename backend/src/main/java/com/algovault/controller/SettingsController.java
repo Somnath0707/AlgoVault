@@ -49,6 +49,10 @@ public class SettingsController {
                 if (value != null && (!(value instanceof String) || ((String) value).length() > 50)) {
                     return ResponseEntity.badRequest().build();
                 }
+            } else if ("githubPat".equals(key) || "githubRepo".equals(key)) {
+                if (value != null && (!(value instanceof String) || ((String) value).length() > 255)) {
+                    return ResponseEntity.badRequest().build();
+                }
             } else {
                 return ResponseEntity.badRequest().build();
             }

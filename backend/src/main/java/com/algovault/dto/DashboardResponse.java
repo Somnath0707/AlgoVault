@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Data;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -22,6 +23,10 @@ public class DashboardResponse {
     private String currentMode;
     private Integer currentStreak;
     private List<RecentSolve> recentSolves;
+
+    // Zenith metrics
+    private Double interviewIndex;
+    private Map<String, Map<String, Integer>> solvedRankGrid;
 
     @Data
     @Builder

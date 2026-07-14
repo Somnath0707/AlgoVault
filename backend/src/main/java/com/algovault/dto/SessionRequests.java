@@ -53,6 +53,14 @@ public class SessionRequests {
         @Min(0)
         private Integer totalTestcases;
         private LocalDateTime submittedAt;
+        
+        // Zenith Mode Telemetry
+        private Boolean isZenith;
+        private String grade;
+        private Double focusScore;
+        private Integer timeSpentSeconds;
+        private String reason;
+        private String codeSubmitted;
     }
 
     @Data

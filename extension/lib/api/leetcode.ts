@@ -93,6 +93,7 @@ export const fetchProblemMetadata = async (titleSlugs: string[]) => {
       title
       titleSlug
       difficulty
+      content
       topicTags {
         name
         slug

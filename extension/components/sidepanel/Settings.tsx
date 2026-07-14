@@ -63,6 +63,14 @@ export const Settings = () => {
                 setCelebrationTheme(prefs.celebrationTheme);
                 chrome.storage.sync.set({ celebrationTheme: prefs.celebrationTheme });
               }
+              if (prefs.githubPat !== undefined) {
+                setGithubPat(prefs.githubPat);
+                persistGithubPat(prefs.githubPat);
+              }
+              if (prefs.githubRepo !== undefined) {
+                setGithubRepo(prefs.githubRepo);
+                persistGithubRepo(prefs.githubRepo);
+              }
             }
           })
           .catch((e) => console.log("Failed to load settings from server:", e));
@@ -74,13 +82,24 @@ export const Settings = () => {
     getGithubRepo().then((value) => setGithubRepo(value || ""));
     getLastSync().then(setLastSync).catch(() => setLastSync(null));
     
+    const parseGitSyncStatus = (raw: any) => {
+      if (typeof raw === "string") {
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return null;
+        }
+      }
+      return raw || null;
+    };
+
     chrome.storage.local.get("algovault.gitSyncStatus", (res) => {
-      setGitSyncStatus(res["algovault.gitSyncStatus"] || null);
+      setGitSyncStatus(parseGitSyncStatus(res["algovault.gitSyncStatus"]));
     });
 
     const gitListener = (changes: any) => {
       if (changes["algovault.gitSyncStatus"]?.newValue) {
-        setGitSyncStatus(changes["algovault.gitSyncStatus"].newValue);
+        setGitSyncStatus(parseGitSyncStatus(changes["algovault.gitSyncStatus"].newValue));
       }
     };
     chrome.storage.onChanged.addListener(gitListener);
@@ -173,11 +192,21 @@ export const Settings = () => {
     setSyncStatus({ status: 'RUNNING', message: 'Starting sync...', count: 0, subCount: 0 });
   };
 
-  const handleGithubSave = () => {
+  const handleGithubSave = async () => {
     persistGithubPat(githubPat.trim());
     persistGithubRepo(githubRepo.trim());
     setGithubSaved(true);
     setTimeout(() => setGithubSaved(false), 2000);
+    if (hasJwt) {
+      try {
+        await updateSettings({
+          githubPat: githubPat.trim(),
+          githubRepo: githubRepo.trim()
+        });
+      } catch (e) {
+        console.error("Failed to sync github credentials to server:", e);
+      }
+    }
   };
 
   const handleSyncSettings = async () => {
@@ -461,7 +490,7 @@ export const Settings = () => {
 
           <button
             onClick={handleGithubSave}
-            className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white font-semibold text-xs py-2 px-4 rounded-lg transition-colors border border-zinc-700 font-mono tracking-wider uppercase mt-1"
+            className="w-full bg-[#dfa054] hover:bg-[#e5b376] text-zinc-950 font-semibold text-xs py-2 px-4 rounded-lg transition-colors border border-[#dfa054]/20 font-mono tracking-wider uppercase mt-2"
           >
             {githubSaved ? "Saved ✔" : "Save Credentials"}
           </button>

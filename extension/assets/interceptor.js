@@ -23,6 +23,7 @@
 
   var lastSeenSubmissionId;
   var originalFetch = window.fetch;
+  window.__ALGOVAULT_IS_SUBMITTING__ = false;
 
   function normalizeUrl(input) {
     if (typeof input === 'string') return input;
@@ -38,10 +39,16 @@
     var body = data && data.data ? data.data : data;
     if (!body || body.state !== 'SUCCESS') return;
     
+    // Only fire if the submit action was active (ignores run code)
+    if (!window.__ALGOVAULT_IS_SUBMITTING__) return;
+    
     var match = String(url).match(/\/submissions\/detail\/(\d+)\/check/);
     var submissionId = match ? match[1] : undefined;
     if (submissionId && submissionId === lastSeenSubmissionId) return;
     lastSeenSubmissionId = submissionId;
+
+    // Reset submit state once the terminal SUCCESS state is captured
+    window.__ALGOVAULT_IS_SUBMITTING__ = false;
     
     // If nonce wasn't available yet, try reading it now
     if (!nonce) {
@@ -71,9 +78,10 @@
   // Monkey-patch window.fetch
   window.fetch = function(input, init) {
     var url = normalizeUrl(input);
-    var isSubmit = /\/submit\/?$/.test(url) || /\/problems\/[^\/]+\/submit\//.test(url);
+    var isSubmit = /\/submit(\/|\?|$)/.test(url);
 
     if (isSubmit) {
+      window.__ALGOVAULT_IS_SUBMITTING__ = true;
       try {
         if (init && init.body) {
           var body = typeof init.body === 'string' ? JSON.parse(init.body) : init.body;
@@ -109,14 +117,17 @@
 
   XMLHttpRequest.prototype.send = function(body) {
     var url = this._avUrl || '';
-    var isSubmit = /\/submit\/?$/.test(url) || /\/problems\/[^\/]+\/submit\//.test(url);
-    if (isSubmit && body) {
-      try {
-        var payload = typeof body === 'string' ? JSON.parse(body) : body;
-        if (payload && payload.typed_code) {
-          window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = { code: payload.typed_code, lang: payload.lang };
-        }
-      } catch(e) {}
+    var isSubmit = /\/submit(\/|\?|$)/.test(url);
+    if (isSubmit) {
+      window.__ALGOVAULT_IS_SUBMITTING__ = true;
+      if (body) {
+        try {
+          var payload = typeof body === 'string' ? JSON.parse(body) : body;
+          if (payload && payload.typed_code) {
+            window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = { code: payload.typed_code, lang: payload.lang };
+          }
+        } catch(e) {}
+      }
     }
     if (/\/submissions\/detail\/\d+\/check/.test(url) || url.indexOf('/check') !== -1) {
       this.addEventListener('loadend', function() {
