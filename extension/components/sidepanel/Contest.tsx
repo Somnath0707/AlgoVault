@@ -35,7 +35,7 @@ function getMetricBadgeColor(val: string) {
 }
 
 export const Contest = () => {
-  const [activeTab, setActiveTab] = useState<"history" | "predicted" | "upcoming">("history")
+  const [activeTab, setActiveTab] = useState<"stats" | "history" | "upcoming">("stats")
   const [data, setData] = useState<ContestLifecycleItem[]>([])
   const [predictedResult, setPredictedResult] = useState<PredictedContestResult | null>(null)
   const [loadingPredicted, setLoadingPredicted] = useState(false)
@@ -240,9 +240,9 @@ export const Contest = () => {
   return (
     <div className="grid gap-3.5">
       <div className="flex bg-zinc-900/50 p-1 rounded-lg border border-zinc-800">
-        <button onClick={() => setActiveTab("history")} className={`flex-1 text-[11px] font-bold py-1.5 rounded-md ${activeTab === "history" ? "bg-zinc-800 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"}`}>History</button>
-        <button onClick={() => setActiveTab("predicted")} className={`flex-1 text-[11px] font-bold py-1.5 rounded-md ${activeTab === "predicted" ? "bg-zinc-800 text-[#dfa054]" : "text-zinc-500 hover:text-zinc-300"}`}>Predicted</button>
-        <button onClick={() => setActiveTab("upcoming")} className={`flex-1 text-[11px] font-bold py-1.5 rounded-md ${activeTab === "upcoming" ? "bg-zinc-800 text-emerald-400" : "text-zinc-500 hover:text-zinc-300"}`}>Upcoming</button>
+        <button onClick={() => setActiveTab("stats")} className={`flex-1 text-[11px] font-bold py-1.5 rounded-md transition-all ${activeTab === "stats" ? "bg-zinc-800 text-zinc-100 shadow-sm" : "text-zinc-500 hover:text-zinc-300"}`}>Stats</button>
+        <button onClick={() => setActiveTab("history")} className={`flex-1 text-[11px] font-bold py-1.5 rounded-md transition-all ${activeTab === "history" ? "bg-zinc-800 text-zinc-100 shadow-sm" : "text-zinc-500 hover:text-zinc-300"}`}>History</button>
+        <button onClick={() => setActiveTab("upcoming")} className={`flex-1 text-[11px] font-bold py-1.5 rounded-md transition-all ${activeTab === "upcoming" ? "bg-zinc-800 text-emerald-400 shadow-sm" : "text-zinc-500 hover:text-zinc-300"}`}>Upcoming</button>
       </div>
 
       {activeTab === "upcoming" ? <UpcomingContests /> : <>
@@ -253,8 +253,8 @@ export const Contest = () => {
         </div>
         {error && <div className="text-xs text-red-400 border border-red-900/50 bg-red-950/20 p-3 rounded-md">{error}</div>}
 
-        {activeTab === "history" && (
-          <div className="grid gap-3.5">
+        {activeTab === "stats" && (
+          <div className="grid gap-3.5 animate-fadeIn">
             {/* Avatar / Profile Info header */}
             <div className="flex items-center gap-3.5 bg-zinc-900/40 p-4 border border-zinc-800 rounded-lg">
               <img 
@@ -314,39 +314,39 @@ export const Contest = () => {
             <div className="grid grid-cols-3 gap-2 mt-2">
               <Card className="p-2 bg-zinc-950/25 border-zinc-900 text-center font-mono">
                 <div className="text-[7.5px] uppercase text-zinc-500 font-bold">Avg Solved</div>
-                <div className="text-sm font-extrabold text-zinc-200 mt-0.5">{contestStats.avgSolved.toFixed(2)}</div>
+                <div className="text-xs font-extrabold text-zinc-200 mt-0.5">{contestStats.avgSolved.toFixed(2)}</div>
               </Card>
               <Card className="p-2 bg-zinc-950/25 border-zinc-900 text-center font-mono">
                 <div className="text-[7.5px] uppercase text-zinc-500 font-bold">Highest Rank</div>
-                <div className="text-sm font-extrabold text-[#dfa054] mt-0.5">{contestStats.highestRank !== "n/a" ? `#${contestStats.highestRank.toLocaleString()}` : "n/a"}</div>
+                <div className="text-xs font-extrabold text-[#dfa054] mt-0.5">{contestStats.highestRank !== "n/a" ? `#${contestStats.highestRank.toLocaleString()}` : "n/a"}</div>
               </Card>
               <Card className="p-2 bg-zinc-950/25 border-zinc-900 text-center font-mono">
                 <div className="text-[7.5px] uppercase text-zinc-500 font-bold">Lowest Rank</div>
-                <div className="text-sm font-extrabold text-zinc-400 mt-0.5">{contestStats.lowestRank !== "n/a" ? `#${contestStats.lowestRank.toLocaleString()}` : "n/a"}</div>
+                <div className="text-xs font-extrabold text-zinc-400 mt-0.5">{contestStats.lowestRank !== "n/a" ? `#${contestStats.lowestRank.toLocaleString()}` : "n/a"}</div>
               </Card>
               <Card className="p-2 bg-zinc-950/25 border-zinc-900 text-center font-mono">
                 <div className="text-[7.5px] uppercase text-zinc-500 font-bold">Active Month</div>
-                <div className="text-sm font-extrabold text-zinc-200 mt-0.5">{contestStats.mostActiveMonth}</div>
+                <div className="text-xs font-extrabold text-zinc-200 mt-0.5">{contestStats.mostActiveMonth}</div>
               </Card>
               <Card className="p-2 bg-zinc-950/25 border-zinc-900 text-center font-mono">
                 <div className="text-[7.5px] uppercase text-zinc-500 font-bold">All Killed</div>
-                <div className="text-sm font-extrabold text-emerald-400 mt-0.5">{contestStats.allKilled}x</div>
+                <div className="text-xs font-extrabold text-emerald-400 mt-0.5">{contestStats.allKilled}x</div>
               </Card>
               <Card className="p-2 bg-zinc-950/25 border-zinc-900 text-center font-mono">
                 <div className="text-[7.5px] uppercase text-zinc-500 font-bold">3 Solved</div>
-                <div className="text-sm font-extrabold text-blue-400 mt-0.5">{contestStats.threeSolved}x</div>
+                <div className="text-xs font-extrabold text-blue-400 mt-0.5">{contestStats.threeSolved}x</div>
               </Card>
               <Card className="p-2 bg-zinc-950/25 border-zinc-900 text-center font-mono">
                 <div className="text-[7.5px] uppercase text-zinc-500 font-bold font-mono">Half Solved</div>
-                <div className="text-sm font-extrabold text-amber-500 mt-0.5">{contestStats.twoSolved}x</div>
+                <div className="text-xs font-extrabold text-amber-500 mt-0.5">{contestStats.twoSolved}x</div>
               </Card>
               <Card className="p-2 bg-zinc-950/25 border-zinc-900 text-center font-mono">
                 <div className="text-[7.5px] uppercase text-zinc-500 font-bold font-mono">1 Solved</div>
-                <div className="text-sm font-extrabold text-zinc-400 mt-0.5">{contestStats.oneSolved}x</div>
+                <div className="text-xs font-extrabold text-zinc-400 mt-0.5">{contestStats.oneSolved}x</div>
               </Card>
               <Card className="p-2 bg-zinc-950/25 border-zinc-900 text-center font-mono">
                 <div className="text-[7.5px] uppercase text-zinc-500 font-bold font-mono">0 Solved</div>
-                <div className="text-sm font-extrabold text-red-400 mt-0.5">{contestStats.noneSolved}x</div>
+                <div className="text-xs font-extrabold text-red-400 mt-0.5">{contestStats.noneSolved}x</div>
               </Card>
             </div>
 
@@ -379,124 +379,127 @@ export const Contest = () => {
               </div>
             </Card>
 
-            <h3 className="text-[10px] uppercase font-bold text-zinc-500 font-mono tracking-wider mt-2.5">All Finalized Contests</h3>
-          </div>
-        )}
-
-        {activeTab === "predicted" && (
-          <div className="grid gap-3">
-            <Card className="p-3.5 flex justify-between items-center bg-[#dfa054]/5 border border-[#dfa054]/25">
-              <div>
-                <div className="text-xs font-semibold text-[#dfa054] uppercase tracking-wider">Predicted Contests</div>
-                <div className="text-[10px] text-zinc-400 mt-1 leading-relaxed">Only contests with EntrantHub realtime ratings that are not official yet.</div>
-              </div>
-              <div className="text-xl font-bold font-mono text-[#dfa054] tabular-nums shrink-0">{pendingCount}</div>
-            </Card>
-
-            {loadingPredicted && (
-              <div className="rounded-md border border-zinc-800 bg-zinc-900/25 px-3 py-10 text-center text-xs text-zinc-500">
-                <RefreshCw size={20} className="animate-spin text-zinc-500 mx-auto mb-2.5" />
-                Calculating realtime predictions...
-              </div>
-            )}
-
-            {!loadingPredicted && (!predictedResult || predictedResult.contests.length === 0) && (
-              <div className="rounded-md border border-zinc-800 bg-zinc-900/25 px-3 py-8 text-center text-xs text-zinc-500">
-                No predicted ratings available.
-              </div>
-            )}
-
-            {!loadingPredicted && predictedResult && predictedResult.contests.map((contest) => (
-              <Card key={contest.titleSlug} className="p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-zinc-100">{contest.contestName}</div>
-                    <div className="mt-1 flex items-center gap-2 text-[10px] font-semibold text-[#dfa054]">
-                      <span className="rounded-full border border-[#dfa054]/30 bg-[#dfa054]/10 px-2 py-0.5 font-bold uppercase tracking-wider">⭐ Predicted</span>
-                      <span className="font-mono text-zinc-500">Rank {contest.predictedRank ?? "n/a"}</span>
-                    </div>
-                  </div>
-                  <div className={`shrink-0 text-right font-mono text-sm font-bold ${contest.predictedDelta >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {contest.predictedDelta >= 0 ? "+" : ""}{Math.round(contest.predictedDelta)}
-                  </div>
+            {/* Predicted Contests */}
+            <div className="grid gap-3">
+              <Card className="p-3.5 flex justify-between items-center bg-[#dfa054]/5 border border-[#dfa054]/25">
+                <div>
+                  <div className="text-xs font-semibold text-[#dfa054] uppercase tracking-wider">Predicted Contests</div>
+                  <div className="text-[10px] text-zinc-400 mt-1 leading-relaxed">Only contests with EntrantHub realtime ratings that are not official yet.</div>
                 </div>
-                <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-md border border-zinc-800 bg-zinc-950/35 p-3">
-                  <div>
-                    <div className="text-[9px] uppercase text-zinc-600 font-bold font-mono">Old Rating</div>
-                    <div className="mt-1 font-mono text-lg font-bold text-zinc-300">{Math.round(contest.oldRating)}</div>
-                  </div>
-                  <div className="text-zinc-600 font-bold">↓</div>
-                  <div className="text-right">
-                    <div className="text-[9px] uppercase text-[#dfa054] font-bold font-mono">Predicted Rating</div>
-                    <div className="mt-1 font-mono text-lg font-bold text-[#dfa054]">{Math.round(contest.predictedRating)}</div>
-                  </div>
-                </div>
+                <div className="text-xl font-bold font-mono text-[#dfa054] tabular-nums shrink-0">{pendingCount}</div>
               </Card>
-            ))}
-          </div>
-        )}
 
-        {activeTab === "history" && latestAnalytics && (
-          <div className="text-[10px] text-zinc-500 font-mono mt-1">
-            Latest behavioral signals: panic {latestAnalytics.panicIndex || "n/a"}, choking {latestAnalytics.chokingIndex || "n/a"}, stamina {latestAnalytics.staminaDropoff || "n/a"}
-          </div>
-        )}
+              {loadingPredicted && (
+                <div className="rounded-md border border-zinc-800 bg-zinc-900/25 px-3 py-10 text-center text-xs text-zinc-500">
+                  <RefreshCw size={20} className="animate-spin text-zinc-500 mx-auto mb-2.5" />
+                  Calculating realtime predictions...
+                </div>
+              )}
 
-        {activeTab === "history" && <div className="flex flex-col gap-2 mt-2">
-          {!loading && filteredContests.length === 0 && <div className="text-xs text-zinc-500 py-4 text-center">No contests found for this view.</div>}
-          {filteredContests.map((contest) => {
-            const delta = contest.status === "FINALIZED" ? contest.ratingDelta : contest.predictedDelta
-            const attended = contest.attended !== false
-            const localAnalysis = analytics.find(
-              (a) => a.contestSlug?.toLowerCase() === contest.contestSlug?.toLowerCase()
-            )
+              {!loadingPredicted && (!predictedResult || predictedResult.contests.length === 0) && (
+                <div className="rounded-md border border-zinc-800 bg-zinc-900/25 px-3 py-8 text-center text-xs text-zinc-500">
+                  No predicted ratings available.
+                </div>
+              )}
 
-            return (
-              <Card key={contest.contestSlug} className="py-2.5 px-3">
-                <div className="flex justify-between gap-3 items-start">
-                  <div className="min-w-0 flex-1">
-                    <div className="font-semibold text-xs text-zinc-200 truncate">{contest.contestTitle}</div>
-                    <div className="text-[10px] text-zinc-500 font-mono mt-1">
-                      {attended ? (
-                        `Rank ${contest.rank ?? contest.predictedRank ?? "n/a"} · ${contest.problemsSolved ?? "?"}/${contest.totalProblems ?? "?"} solved`
-                      ) : (
-                        "Rank n/a · 0/4 solved"
-                      )}
+              {!loadingPredicted && predictedResult && predictedResult.contests.map((contest) => (
+                <Card key={contest.titleSlug} className="p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-zinc-100">{contest.contestName}</div>
+                      <div className="mt-1 flex items-center gap-2 text-[10px] font-semibold text-[#dfa054]">
+                        <span className="rounded-full border border-[#dfa054]/30 bg-[#dfa054]/10 px-2 py-0.5 font-bold uppercase tracking-wider">⭐ Predicted</span>
+                        <span className="font-mono text-zinc-500">Rank {contest.predictedRank ?? "n/a"}</span>
+                      </div>
                     </div>
-                    {localAnalysis && (localAnalysis.panicIndex || localAnalysis.chokingIndex || localAnalysis.staminaDropoff) && (
-                      <div className="flex gap-1.5 mt-2 flex-wrap font-mono text-[8px] font-bold">
-                        {localAnalysis.panicIndex && (
-                          <span className={`px-1.5 py-0.5 rounded border ${getMetricBadgeColor(localAnalysis.panicIndex)}`}>
-                            PANIC: {localAnalysis.panicIndex.toUpperCase()}
-                          </span>
-                        )}
-                        {localAnalysis.chokingIndex && (
-                          <span className={`px-1.5 py-0.5 rounded border ${getMetricBadgeColor(localAnalysis.chokingIndex)}`}>
-                            CHOKE: {localAnalysis.chokingIndex.toUpperCase()}
-                          </span>
-                        )}
-                        {localAnalysis.staminaDropoff && (
-                          <span className={`px-1.5 py-0.5 rounded border ${getMetricBadgeColor(localAnalysis.staminaDropoff)}`}>
-                            STAMINA: {localAnalysis.staminaDropoff.toUpperCase()}
-                          </span>
+                    <div className={`shrink-0 text-right font-mono text-sm font-bold ${contest.predictedDelta >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      {contest.predictedDelta >= 0 ? "+" : ""}{Math.round(contest.predictedDelta)}
+                    </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-md border border-zinc-800 bg-zinc-950/35 p-3">
+                    <div>
+                      <div className="text-[9px] uppercase text-zinc-600 font-bold font-mono">Old Rating</div>
+                      <div className="mt-1 font-mono text-lg font-bold text-zinc-300">{Math.round(contest.oldRating)}</div>
+                    </div>
+                    <div className="text-zinc-600 font-bold">↓</div>
+                    <div className="text-right">
+                      <div className="text-[9px] uppercase text-[#dfa054] font-bold font-mono">Predicted Rating</div>
+                      <div className="mt-1 font-mono text-lg font-bold text-[#dfa054]">{Math.round(contest.predictedRating)}</div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "history" && (
+          <div className="grid gap-3.5 animate-fadeIn">
+            <h3 className="text-[10px] uppercase font-bold text-zinc-500 font-mono tracking-wider">All Finalized Contests</h3>
+            
+            {latestAnalytics && (
+              <div className="text-[10px] text-zinc-500 font-mono -mt-1 border-b border-zinc-900 pb-2 mb-1">
+                Latest behavioral signals: panic {latestAnalytics.panicIndex || "n/a"}, choking {latestAnalytics.chokingIndex || "n/a"}, stamina {latestAnalytics.staminaDropoff || "n/a"}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2">
+              {filteredContests.length === 0 && <div className="text-xs text-zinc-500 py-4 text-center">No contests found for this view.</div>}
+              {filteredContests.map((contest) => {
+                const delta = contest.status === "FINALIZED" ? contest.ratingDelta : contest.predictedDelta
+                const attended = contest.attended !== false
+                const localAnalysis = analytics.find(
+                  (a) => a.contestSlug?.toLowerCase() === contest.contestSlug?.toLowerCase()
+                )
+
+                return (
+                  <Card key={contest.contestSlug} className="py-2.5 px-3">
+                    <div className="flex justify-between gap-3 items-start">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-xs text-zinc-200 truncate">{contest.contestTitle}</div>
+                        <div className="text-[10px] text-zinc-500 font-mono mt-1">
+                          {attended ? (
+                            `Rank ${contest.rank ?? contest.predictedRank ?? "n/a"} · ${contest.problemsSolved ?? "?"}/${contest.totalProblems ?? "?"} solved`
+                          ) : (
+                            "Rank n/a · 0/4 solved"
+                          )}
+                        </div>
+                        {localAnalysis && (localAnalysis.panicIndex || localAnalysis.chokingIndex || localAnalysis.staminaDropoff) && (
+                          <div className="flex gap-1.5 mt-2 flex-wrap font-mono text-[8px] font-bold">
+                            {localAnalysis.panicIndex && (
+                              <span className={`px-1.5 py-0.5 rounded border ${getMetricBadgeColor(localAnalysis.panicIndex)}`}>
+                                PANIC: {localAnalysis.panicIndex.toUpperCase()}
+                              </span>
+                            )}
+                            {localAnalysis.chokingIndex && (
+                              <span className={`px-1.5 py-0.5 rounded border ${getMetricBadgeColor(localAnalysis.chokingIndex)}`}>
+                                CHOKE: {localAnalysis.chokingIndex.toUpperCase()}
+                              </span>
+                            )}
+                            {localAnalysis.staminaDropoff && (
+                              <span className={`px-1.5 py-0.5 rounded border ${getMetricBadgeColor(localAnalysis.staminaDropoff)}`}>
+                                STAMINA: {localAnalysis.staminaDropoff.toUpperCase()}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className={`font-bold text-xs font-mono ${!attended ? "text-zinc-500" : delta == null ? "text-zinc-500" : delta >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                      {attended ? deltaText(contest) : "0 (Unchanged)"}
+                      <div className="text-right shrink-0">
+                        <div className={`font-bold text-xs font-mono ${!attended ? "text-zinc-500" : delta == null ? "text-zinc-500" : delta >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                          {attended ? deltaText(contest) : "0 (Unchanged)"}
+                        </div>
+                        <div className={`text-[9px] mt-1 font-semibold ${!attended ? "text-zinc-500" : contest.status === "FINALIZED" ? "text-emerald-500" : contest.status === "PREDICTED" ? "text-amber-400" : "text-zinc-500"}`}>
+                          {statusText(contest)}
+                        </div>
+                        {contest.predictionError && <div className="mt-1 max-w-[130px] truncate text-[8px] text-zinc-600" title={contest.predictionError}>{contest.predictionError}</div>}
+                      </div>
                     </div>
-                    <div className={`text-[9px] mt-1 font-semibold ${!attended ? "text-zinc-500" : contest.status === "FINALIZED" ? "text-emerald-500" : contest.status === "PREDICTED" ? "text-amber-400" : "text-zinc-500"}`}>
-                      {statusText(contest)}
-                    </div>
-                    {contest.predictionError && <div className="mt-1 max-w-[130px] truncate text-[8px] text-zinc-600" title={contest.predictionError}>{contest.predictionError}</div>}
-                  </div>
-                </div>
-              </Card>
-            )
-          })}
-        </div>}
+                  </Card>
+                )
+              })}
+            </div>
+          </div>
+        )}
         {data[0]?.refreshedAt && <div className="text-[9px] text-zinc-600 text-right mt-1.5">Refreshed {new Date(data[0].refreshedAt).toLocaleString()}</div>}
       </>}
     </div>
