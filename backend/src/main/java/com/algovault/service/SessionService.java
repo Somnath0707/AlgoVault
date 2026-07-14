@@ -34,6 +34,7 @@ public class SessionService {
     private final ProblemService problemService;
     private final AnalyticsMetricRepository analyticsMetricRepository;
     private final ZenithSessionRepository zenithSessionRepository;
+    private final com.algovault.engine.SpacedRepetitionEngine spacedRepetitionEngine;
 
     private Problem problemFromRequest(String titleSlug, String title) {
         return problemService.getOrCreate(titleSlug, title);
@@ -331,16 +332,23 @@ public class SessionService {
     }
 
     private void ensureRevisionCard(User user, Problem problem, LocalDateTime solvedAt) {
-        revisionCardRepository.findByUserIdAndProblemId(user.getId(), problem.getId())
-            .orElseGet(() -> revisionCardRepository.save(RevisionCard.builder()
+        RevisionCard card = revisionCardRepository.findByUserIdAndProblemId(user.getId(), problem.getId()).orElse(null);
+        if (card == null) {
+            revisionCardRepository.save(RevisionCard.builder()
                 .user(user)
                 .problem(problem)
-                .confidence(3)
+                .confidence(4)
                 .intervalDays(1.0)
                 .easeFactor(2.5)
                 .nextReview(solvedAt.plusDays(1))
-                .reviewCount(0)
-                .build()));
+                .reviewCount(1)
+                .build());
+        } else {
+            // Eagerly advance nextReview using Spaced Repetition engine
+            // If they solved it live, we map it as recall quality = 4 ("Good")
+            spacedRepetitionEngine.updateCard(card, 4, 1.0, false);
+            revisionCardRepository.save(card);
+        }
     }
 
     private void syncMetadata(User user) {

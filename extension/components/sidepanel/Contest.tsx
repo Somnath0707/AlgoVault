@@ -41,6 +41,7 @@ export const Contest = () => {
   const [loadingPredicted, setLoadingPredicted] = useState(false)
   const [profile, setProfile] = useState<any>(null)
   const [rankingInfo, setRankingInfo] = useState<any>(null)
+  const [rankingHistory, setRankingHistory] = useState<any[]>([])
   const [analytics, setAnalytics] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -94,6 +95,7 @@ export const Contest = () => {
       }
       if (rankingRes?.ok) {
         setRankingInfo(rankingRes.data?.userContestRanking || null)
+        setRankingHistory(rankingRes.data?.userContestRankingHistory || [])
       }
       setAnalytics(localAnalytics)
       await setCachedContests(lifecycle as any)
@@ -128,6 +130,82 @@ export const Contest = () => {
     if (!rankingInfo || !rankingInfo.attendedContestsCount) return 0
     return (rankingInfo.rating - 1500) / rankingInfo.attendedContestsCount
   }, [rankingInfo])
+
+  const contestStats = useMemo(() => {
+    const attended = rankingHistory.filter(c => c.attended);
+    if (!attended.length) {
+      return {
+        avgSolved: 0,
+        maxRating: 1500,
+        highestRank: "n/a",
+        lowestRank: "n/a",
+        mostActiveMonth: "n/a",
+        allKilled: 0,
+        threeSolved: 0,
+        twoSolved: 0,
+        oneSolved: 0,
+        noneSolved: 0
+      };
+    }
+
+    let totalSolved = 0;
+    let maxRating = 1500;
+    let highestRank = Infinity;
+    let lowestRank = -Infinity;
+    let allKilled = 0;
+    let threeSolved = 0;
+    let twoSolved = 0;
+    let oneSolved = 0;
+    let noneSolved = 0;
+
+    const monthCounts: Record<string, number> = {};
+
+    attended.forEach(c => {
+      totalSolved += c.problemsSolved || 0;
+      if (c.rating > maxRating) maxRating = c.rating;
+      if (c.ranking && c.ranking > 0) {
+        if (c.ranking < highestRank) highestRank = c.ranking;
+        if (c.ranking > lowestRank) lowestRank = c.ranking;
+      }
+      
+      const solved = c.problemsSolved || 0;
+      const total = c.totalProblems || 4; // default LeetCode total is 4
+      if (solved === total && total > 0) allKilled++;
+      else if (solved === 3) threeSolved++;
+      else if (solved === 2) twoSolved++;
+      else if (solved === 1) oneSolved++;
+      else if (solved === 0) noneSolved++;
+
+      if (c.contest?.startTime) {
+        const date = new Date(c.contest.startTime * 1000);
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthLabel = `${months[date.getMonth()]}, ${String(date.getFullYear()).substring(2)}`;
+        monthCounts[monthLabel] = (monthCounts[monthLabel] || 0) + 1;
+      }
+    });
+
+    let mostActiveMonth = "n/a";
+    let maxMonthCount = 0;
+    Object.entries(monthCounts).forEach(([month, count]) => {
+      if (count > maxMonthCount) {
+        maxMonthCount = count;
+        mostActiveMonth = month;
+      }
+    });
+
+    return {
+      avgSolved: attended.length ? (totalSolved / attended.length) : 0,
+      maxRating: Math.round(maxRating),
+      highestRank: highestRank === Infinity ? "n/a" : highestRank,
+      lowestRank: lowestRank === -Infinity ? "n/a" : lowestRank,
+      mostActiveMonth,
+      allKilled,
+      threeSolved,
+      twoSolved,
+      oneSolved,
+      noneSolved
+    };
+  }, [rankingHistory]);
 
   const medianDisplay = useMemo(() => {
     const times = data
@@ -225,6 +303,50 @@ export const Contest = () => {
               <Card className="p-3 bg-zinc-950/25 border-zinc-900">
                 <div className="text-[9px] uppercase text-zinc-500 font-bold font-mono">Median Time</div>
                 <div className="text-lg font-extrabold text-zinc-200 font-mono mt-1">{medianDisplay}</div>
+              </Card>
+              <Card className="p-3 bg-zinc-950/25 border-zinc-900 col-span-2">
+                <div className="text-[9px] uppercase text-zinc-500 font-bold font-mono">Top Percentage</div>
+                <div className="text-lg font-extrabold text-amber-400 font-mono mt-1">{rankingInfo?.topPercentage != null ? `${rankingInfo.topPercentage.toFixed(2)}%` : "n/a"}</div>
+              </Card>
+            </div>
+
+            {/* Extended Analytics Grid */}
+            <div className="grid grid-cols-3 gap-2 mt-2">
+              <Card className="p-2 bg-zinc-950/25 border-zinc-900 text-center font-mono">
+                <div className="text-[7.5px] uppercase text-zinc-500 font-bold">Avg Solved</div>
+                <div className="text-sm font-extrabold text-zinc-200 mt-0.5">{contestStats.avgSolved.toFixed(2)}</div>
+              </Card>
+              <Card className="p-2 bg-zinc-950/25 border-zinc-900 text-center font-mono">
+                <div className="text-[7.5px] uppercase text-zinc-500 font-bold">Highest Rank</div>
+                <div className="text-sm font-extrabold text-[#dfa054] mt-0.5">{contestStats.highestRank !== "n/a" ? `#${contestStats.highestRank.toLocaleString()}` : "n/a"}</div>
+              </Card>
+              <Card className="p-2 bg-zinc-950/25 border-zinc-900 text-center font-mono">
+                <div className="text-[7.5px] uppercase text-zinc-500 font-bold">Lowest Rank</div>
+                <div className="text-sm font-extrabold text-zinc-400 mt-0.5">{contestStats.lowestRank !== "n/a" ? `#${contestStats.lowestRank.toLocaleString()}` : "n/a"}</div>
+              </Card>
+              <Card className="p-2 bg-zinc-950/25 border-zinc-900 text-center font-mono">
+                <div className="text-[7.5px] uppercase text-zinc-500 font-bold">Active Month</div>
+                <div className="text-sm font-extrabold text-zinc-200 mt-0.5">{contestStats.mostActiveMonth}</div>
+              </Card>
+              <Card className="p-2 bg-zinc-950/25 border-zinc-900 text-center font-mono">
+                <div className="text-[7.5px] uppercase text-zinc-500 font-bold">All Killed</div>
+                <div className="text-sm font-extrabold text-emerald-400 mt-0.5">{contestStats.allKilled}x</div>
+              </Card>
+              <Card className="p-2 bg-zinc-950/25 border-zinc-900 text-center font-mono">
+                <div className="text-[7.5px] uppercase text-zinc-500 font-bold">3 Solved</div>
+                <div className="text-sm font-extrabold text-blue-400 mt-0.5">{contestStats.threeSolved}x</div>
+              </Card>
+              <Card className="p-2 bg-zinc-950/25 border-zinc-900 text-center font-mono">
+                <div className="text-[7.5px] uppercase text-zinc-500 font-bold font-mono">Half Solved</div>
+                <div className="text-sm font-extrabold text-amber-500 mt-0.5">{contestStats.twoSolved}x</div>
+              </Card>
+              <Card className="p-2 bg-zinc-950/25 border-zinc-900 text-center font-mono">
+                <div className="text-[7.5px] uppercase text-zinc-500 font-bold font-mono">1 Solved</div>
+                <div className="text-sm font-extrabold text-zinc-400 mt-0.5">{contestStats.oneSolved}x</div>
+              </Card>
+              <Card className="p-2 bg-zinc-950/25 border-zinc-900 text-center font-mono">
+                <div className="text-[7.5px] uppercase text-zinc-500 font-bold font-mono">0 Solved</div>
+                <div className="text-sm font-extrabold text-red-400 mt-0.5">{contestStats.noneSolved}x</div>
               </Card>
             </div>
 
