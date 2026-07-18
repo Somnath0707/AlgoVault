@@ -5,6 +5,11 @@
 @layer base {
   body {
     @apply bg-av-bg-primary text-av-text-primary antialiased;
+    letter-spacing: 0;
+  }
+
+  button, a {
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
@@ -18,9 +23,9 @@
   }
 
   .elevated-card {
-    background-color: #141416;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    background-color: #121214;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02), 0 8px 20px rgba(0, 0, 0, 0.16);
   }
 
   .elevated-floating {
@@ -28,6 +33,19 @@
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.03);
     backdrop-filter: blur(12px);
+  }
+
+  .panel-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #71717a;
+  }
+
+  .metric-value {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
   }
 
   /* Thin premium scrollbar override */
@@ -83,4 +101,13 @@
 
 .animate-shimmer {
   animation: shimmer 5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

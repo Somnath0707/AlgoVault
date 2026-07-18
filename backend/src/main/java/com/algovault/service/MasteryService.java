@@ -119,14 +119,9 @@ public class MasteryService {
                     ? first.getProblem().getActualRating()
                     : 1500.0;
 
-                // Anti-Farming Penalty: Skip rating bumps if the problem is far below current skill level
-                if (opponentRating < currentRating.rating - 300.0 && score > 0.0) {
-                    currentRating = glickoEngine.updateRating(currentRating, java.util.Collections.emptyList());
-                } else {
-                    currentRating = glickoEngine.updateRating(currentRating, List.of(
-                        new Glicko2MasteryEngine.MatchResult(opponentRating, 50.0, score)
-                    ));
-                }
+                currentRating = glickoEngine.updateRating(currentRating, List.of(
+                    new Glicko2MasteryEngine.MatchResult(opponentRating, 50.0, score)
+                ));
             }
 
             if (lastSolvedAt != null) {
@@ -147,18 +142,10 @@ public class MasteryService {
             tm.setFirstAcCount(firstAcCount);
             tm.setSuccessRate(successRate * 100.0);
             tm.setAvgSolveTime(timedSolves > 0 ? totalSolveMinutes / timedSolves : null);
-            // Replaced the overly aggressive 10 / (attempts + 1) penalty with the industry-standard Glicko-2 Lower Confidence Bound (Rating - 2 * RD)
-            // This prevents tags with only 1-2 attempts from mathematically dropping to a score of 800.
+            // Use the Glicko-2 Lower Confidence Bound (Rating - 2 * RD) directly.
+            // The engine naturally increases RD over time, so we don't need a custom decay multiplier.
             double conservativeScore = currentRating.rating - (2.0 * currentRating.rd);
-            double decayMultiplier = 1.0;
-            if (lastSolvedAt != null) {
-                long daysSince = java.time.Duration.between(lastSolvedAt, LocalDateTime.now()).toDays();
-                if (daysSince > 0) {
-                    decayMultiplier = Math.exp(- (Math.log(2.0) / 45.0) * daysSince);
-                }
-            }
-            double decayedScore = 800.0 + (conservativeScore - 800.0) * decayMultiplier;
-            tm.setMasteryScore(Math.max(800.0, decayedScore));
+            tm.setMasteryScore(Math.max(800.0, conservativeScore));
             tm.setRd(currentRating.rd);
             tm.setVolatility(currentRating.volatility);
             tm.setLastSolvedAt(lastSolvedAt);
@@ -269,13 +256,9 @@ public class MasteryService {
                 ? first.getProblem().getActualRating()
                 : 1500.0;
 
-            if (opponentRating < currentRating.rating - 300.0 && score > 0.0) {
-                currentRating = glickoEngine.updateRating(currentRating, java.util.Collections.emptyList());
-            } else {
-                currentRating = glickoEngine.updateRating(currentRating, List.of(
-                    new Glicko2MasteryEngine.MatchResult(opponentRating, 50.0, score)
-                ));
-            }
+            currentRating = glickoEngine.updateRating(currentRating, List.of(
+                new Glicko2MasteryEngine.MatchResult(opponentRating, 50.0, score)
+            ));
         }
 
         if (lastSolvedAt != null) {
@@ -297,16 +280,9 @@ public class MasteryService {
         tm.setSuccessRate(successRate * 100.0);
         tm.setAvgSolveTime(timedSolves > 0 ? totalSolveMinutes / timedSolves : null);
         
+        // Use the Glicko-2 Lower Confidence Bound (Rating - 2 * RD) directly.
         double conservativeScore = currentRating.rating - (2.0 * currentRating.rd);
-        double decayMultiplier = 1.0;
-        if (lastSolvedAt != null) {
-            long daysSince = java.time.Duration.between(lastSolvedAt, LocalDateTime.now()).toDays();
-            if (daysSince > 0) {
-                decayMultiplier = Math.exp(- (Math.log(2.0) / 45.0) * daysSince);
-            }
-        }
-        double decayedScore = 800.0 + (conservativeScore - 800.0) * decayMultiplier;
-        tm.setMasteryScore(Math.max(800.0, decayedScore));
+        tm.setMasteryScore(Math.max(800.0, conservativeScore));
         tm.setRd(currentRating.rd);
         tm.setVolatility(currentRating.volatility);
         tm.setLastSolvedAt(lastSolvedAt);

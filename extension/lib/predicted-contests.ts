@@ -39,6 +39,54 @@ let cache: {
   timestamp: number
 } | null = null
 
+function collectionFrom(payload: unknown): any[] {
+  if (Array.isArray(payload)) return payload
+  if (!payload || typeof payload !== "object") return []
+  const record = payload as Record<string, unknown>
+  for (const key of ["items", "data", "results", "payload"]) {
+    if (Array.isArray(record[key])) return record[key] as any[]
+  }
+  return []
+}
+
+function normalizedSlug(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const slug = value.trim().toLowerCase()
+  return slug || null
+}
+
+function finiteNumber(value: unknown): number | null {
+  const numberValue = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(numberValue) ? numberValue : null
+}
+
+function predictionFromRanking(payload: unknown, username: string) {
+  const direct = payload && typeof payload === "object" && !Array.isArray(payload)
+    ? payload as Record<string, unknown>
+    : null
+  const candidates = collectionFrom(payload)
+  const requestedUser = username.trim().toLowerCase()
+  const row = candidates.find((candidate) => {
+    const candidateUser = normalizedSlug(candidate?.userSlug ?? candidate?.username ?? candidate?.user?.username)
+    return candidateUser === requestedUser
+  }) ?? (candidates.length === 1 ? candidates[0] : direct)
+
+  if (!row || typeof row !== "object") return null
+  const record = row as Record<string, unknown>
+  const oldRating = finiteNumber(record.oldRating ?? record.ratingBefore)
+  const predictedRating = finiteNumber(record.newRating ?? record.predictedRating ?? record.expectedRating)
+  const predictedRank = finiteNumber(record.rank ?? record.ranking)
+  const reportedDelta = finiteNumber(record.deltaRating ?? record.predictedDelta)
+
+  if (oldRating === null || predictedRating === null) return null
+  return {
+    oldRating,
+    predictedRating,
+    predictedDelta: reportedDelta ?? predictedRating - oldRating,
+    predictedRank
+  }
+}
+
 /**
  * Message sending helper to delegate fetches to background script to bypass CORS.
  */
@@ -89,41 +137,26 @@ export async function getPredictedContests(
       })
     ])
 
-    // Stage 2 Logs
-    console.log("predicted-contests.ts: history:", history)
-    console.log("predicted-contests.ts: pastRes:", pastRes)
-
     const pastContests = pastRes?.ok && Array.isArray(pastRes.data) ? pastRes.data : []
-    console.log("predicted-contests.ts: pastContests:", pastContests)
-
     const officialSlugs = new Set(
-      (history || []).map((item: any) => item.titleSlug.toLowerCase().trim())
+      collectionFrom(history)
+        .map((item: any) => normalizedSlug(item?.titleSlug ?? item?.contestTitleSlug))
+        .filter((slug): slug is string => slug !== null)
     )
-
-    console.log("predicted-contests.ts: officialSlugs:", Array.from(officialSlugs))
 
     // Filter to LeetCode platform only and sort newest first
     const sortedContests = (pastContests || [])
       .filter((c: any) => c.platform === "LeetCode")
       .sort((a: any, b: any) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
 
-    console.log("predicted-contests.ts: sortedContests:", sortedContests)
-
     const predictedContests: PredictedContest[] = []
     const limit = Math.min(sortedContests.length, MAX_RECENT_CONTESTS)
-
-    console.log("predicted-contests.ts: limit:", limit)
 
     // 3. Sequential timeout-wrapped prediction checks
     for (let i = 0; i < limit; i++) {
       const contest = sortedContests[i]
-      const contestSlug = contest.id.toLowerCase().trim()
-
-      console.log("predicted-contests.ts: loop details:", {
-        contestId: contest.id,
-        contestName: contest.name,
-        isOfficial: officialSlugs.has(contestSlug)
-      })
+      const contestSlug = normalizedSlug(contest.id)
+      if (!contestSlug) continue
 
       // If already official, skip it
       if (officialSlugs.has(contestSlug)) {
@@ -131,42 +164,24 @@ export async function getPredictedContests(
       }
 
       try {
-        console.log("predicted-contests.ts: before fetchEntrantHubRankingPredictionBackend:", {
-          contestId: contest.id,
-          username
-        })
-
         // Fetch prediction rankings from our backend proxy, raced against a timeout
         const ranking = await withTimeout(
           fetchEntrantHubRankingPredictionBackend(contest.id, username),
           REQUEST_TIMEOUT_MS
         )
 
-        console.log("predicted-contests.ts: after fetchEntrantHubRankingPredictionBackend response:", ranking)
-
-        if (ranking === null) {
-          console.log("predicted-contests.ts: ranking data is null explicitly")
-        }
-
-        if (ranking) {
-          // Debug Logging Groups for Development diagnostics
-          console.group(`AlgoVault EntrantHub Rankings Prediction: ${contest.id}`)
-          console.log("Contest ID/Slug:", contest.id)
-          console.log("Ranking Details:", ranking)
-          console.groupEnd()
-
+        const prediction = predictionFromRanking(ranking, username)
+        if (prediction) {
           const newContest: PredictedContest = {
             titleSlug: contestSlug,
             contestName: contest.name,
-            oldRating: ranking.oldRating,
-            predictedRating: ranking.newRating,
-            predictedDelta: ranking.deltaRating,
-            predictedRank: ranking.rank,
+            oldRating: prediction.oldRating,
+            predictedRating: prediction.predictedRating,
+            predictedDelta: prediction.predictedDelta,
+            predictedRank: prediction.predictedRank,
             predicted: true,
             platform: "LeetCode"
           }
-
-          console.log("predicted-contests.ts: PUSHED:", newContest)
           predictedContests.push(newContest)
         }
       } catch (err) {
@@ -176,8 +191,6 @@ export async function getPredictedContests(
         )
       }
     }
-
-    console.log("predicted-contests.ts: final predictedContests list before returning:", predictedContests)
 
     const result: PredictedContestResult = {
       contests: predictedContests,

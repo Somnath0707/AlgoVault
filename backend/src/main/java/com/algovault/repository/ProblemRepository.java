@@ -19,13 +19,14 @@ public interface ProblemRepository extends JpaRepository<Problem, Long> {
         FROM problems p
         WHERE :tag = ANY(p.tags)
           AND p.actual_rating BETWEEN :minRating AND :maxRating
+          AND (p.is_premium IS NULL OR p.is_premium = false)
           AND NOT EXISTS (
               SELECT 1 FROM submissions s
               WHERE s.problem_id = p.id
                 AND s.user_id = :userId
                 AND s.verdict = 'Accepted'
           )
-        ORDER BY RANDOM()
+        ORDER BY ABS(p.actual_rating - :targetRating) ASC, p.acceptance_rate DESC NULLS LAST, p.frontend_id ASC
         LIMIT :limit
         """, nativeQuery = true)
     List<Problem> findRecommendedUnsolved(
@@ -33,6 +34,7 @@ public interface ProblemRepository extends JpaRepository<Problem, Long> {
         @Param("tag") String tag,
         @Param("minRating") Double minRating,
         @Param("maxRating") Double maxRating,
+        @Param("targetRating") Double targetRating,
         @Param("limit") int limit
     );
 

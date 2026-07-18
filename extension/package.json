@@ -11,6 +11,7 @@
   "dependencies": {
     "@plasmohq/messaging": "^0.6.2",
     "@plasmohq/storage": "^1.11.0",
+    "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.42.2",
     "lucide-react": "^0.395.0",
     "plasmo": "0.89.2",
@@ -19,6 +20,7 @@
     "recharts": "^2.12.7"
   },
   "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
     "@types/chrome": "0.0.268",
     "@types/node": "20.14.9",
     "@types/react": "18.3.3",

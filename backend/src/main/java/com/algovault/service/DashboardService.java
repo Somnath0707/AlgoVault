@@ -78,7 +78,6 @@ public class DashboardService {
 
         // Calculate Zenith Metrics
         List<ZenithSession> zenithSessions = zenithSessionRepository.findByUserId(userId);
-        double interviewIndex = 0.0;
         java.util.Map<String, java.util.Map<String, Integer>> solvedRankGrid = new java.util.HashMap<>();
         String[] grades = {"S_PLUS", "S", "A", "B"};
         String[] difficulties = {"EASY", "MEDIUM", "HARD"};
@@ -105,8 +104,6 @@ public class DashboardService {
                 else if ("Medium".equalsIgnoreCase(diff)) rating = 1600.0;
                 else if ("Hard".equalsIgnoreCase(diff)) rating = 2100.0;
             }
-
-            interviewIndex += rating * weight;
 
             if (solvedRankGrid.containsKey(grade)) {
                 String level = "EASY";
@@ -135,7 +132,6 @@ public class DashboardService {
             .currentMode(currentSession.map(Session::getMode).orElse("PRACTICE"))
             .currentStreak(computeCurrentStreak(acceptedDates))
             .recentSolves(recentSolves)
-            .interviewIndex(interviewIndex)
             .solvedRankGrid(solvedRankGrid)
             .build();
     }

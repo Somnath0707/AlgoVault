@@ -1,31 +1,25 @@
 import React from "react"
+import { motion } from "framer-motion"
 
-export const ProgressBar = ({ progress, segments = 10 }: { progress: number, segments?: number }) => {
+export const ProgressBar = ({ progress }: { progress: number }) => {
   const safeProgress = Math.max(0, Math.min(100, progress))
   
   return (
-    <div className="w-full flex gap-1 h-1.5 mt-2 rounded-full overflow-hidden">
-      {Array.from({ length: segments }).map((_, i) => {
-        const segmentStart = (i / segments) * 100
-        const segmentEnd = ((i + 1) / segments) * 100
-        const isFilled = safeProgress >= segmentEnd
-        const isPartial = safeProgress > segmentStart && safeProgress < segmentEnd
-        const partialWidth = isPartial ? ((safeProgress - segmentStart) / (segmentEnd - segmentStart)) * 100 : 0
-
-        return (
-          <div key={i} className="flex-1 bg-zinc-800/80 relative overflow-hidden h-full rounded-full">
-            {isFilled && (
-              <div className="absolute inset-0 bg-[#dfa054] opacity-90 transition-all duration-500 ease-out" />
-            )}
-            {isPartial && (
-              <div 
-                className="absolute inset-y-0 left-0 bg-[#dfa054] opacity-90 transition-all duration-500 ease-out" 
-                style={{ width: `${partialWidth}%` }} 
-              />
-            )}
-          </div>
-        )
-      })}
+    <div className="w-full h-2 mt-2 bg-zinc-900/60 rounded-full overflow-hidden border border-[#ffffff05] shadow-[inset_0_1px_3px_rgba(0,0,0,0.4)]">
+      <motion.div 
+        className="h-full relative rounded-full"
+        style={{
+          background: "linear-gradient(90deg, #99621e 0%, #dfa054 50%, #f6ce8e 100%)",
+          boxShadow: "0 0 10px rgba(223, 160, 84, 0.4)"
+        }}
+        initial={{ width: 0 }}
+        animate={{ width: `${safeProgress}%` }}
+        transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "linear-gradient(45deg, rgba(255,255,255,0.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.15) 75%, transparent 75%, transparent)", backgroundSize: "1rem 1rem" }}></div>
+        <div className="absolute top-0 right-0 bottom-0 w-4 bg-gradient-to-r from-transparent to-white opacity-40 blur-[2px]"></div>
+      </motion.div>
     </div>
   )
 }
+

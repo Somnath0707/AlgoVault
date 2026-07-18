@@ -1,4 +1,5 @@
 import type { PlasmoCSConfig } from "plasmo"
+import { getLeetCodeProblemSlug } from "../lib/leetcode-url"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://leetcode.com/problems/*", "https://leetcode.com/contest/*/problems/*"],
@@ -24,12 +25,12 @@ type SubmissionPayload = {
 const relayedSubmissionIds = new Set<string>()
 
 function currentSlug() {
-  return window.location.pathname.split("/")[2]
+  return getLeetCodeProblemSlug()
 }
 
 function currentTitle() {
   const heading = document.querySelector("a[href*='/problems/']")?.textContent
-  return heading?.replace(/^\d+\.\s*/, "").trim() || currentSlug()
+  return heading?.replace(/^\d+\.\s*/, "").trim() || currentSlug() || "Problem"
 }
 
 function editorCodeFallback() {

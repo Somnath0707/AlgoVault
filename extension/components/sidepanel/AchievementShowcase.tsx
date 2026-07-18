@@ -3,6 +3,7 @@ import { motion, useMotionValue, useTransform, useSpring, useMotionTemplate } fr
 import { Lock, Sparkles } from "lucide-react"
 import { Card } from "../ui/Card"
 import { getAchievementAssetUrl, type Achievement } from "../../lib/achievements"
+import confetti from "canvas-confetti"
 
 type AchievementShowcaseVariant = "compact" | "gallery"
 
@@ -112,6 +113,29 @@ function VaultTrophy({ achievement, onHover }: { achievement: Achievement, onHov
     onHover(null)
   }
 
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isEarned) return;
+    const rect = e.currentTarget.getBoundingClientRect()
+    const originX = (rect.left + rect.width / 2) / window.innerWidth
+    const originY = (rect.top + rect.height / 2) / window.innerHeight
+    
+    let colors = ['#a1a1aa', '#d4d4d8']
+    if (achievement.tier === "rare") colors = ['#38bdf8', '#7dd3fc']
+    if (achievement.tier === "epic") colors = ['#c084fc', '#e879f9']
+    if (achievement.tier === "legendary") colors = ['#dfa054', '#fcd34d', '#fbbf24']
+
+    confetti({
+      particleCount: achievement.tier === "legendary" ? 120 : 60,
+      spread: achievement.tier === "legendary" ? 100 : 70,
+      origin: { x: originX, y: originY },
+      colors,
+      disableForReducedMotion: true,
+      zIndex: 9999,
+      gravity: 1.2,
+      ticks: 200
+    })
+  }
+
   let borderStyle = "border-[#ffffff04]"
   let shadowStyle = "shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
   
@@ -136,9 +160,12 @@ function VaultTrophy({ achievement, onHover }: { achievement: Achievement, onHov
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       onMouseEnter={() => onHover(achievement, ref.current || undefined)}
-      whileTap={isEarned ? { scale: 0.96, transition: { stiffness: 500, damping: 15 } } : {}}
-      whileHover={isEarned ? { scale: 1.03, transition: { stiffness: 150, damping: 18 } } : { scale: 1.01 }}
-      className={`relative aspect-square rounded-md bg-[#0a0a0a] border cursor-default overflow-hidden transition-colors ${borderStyle} ${isEarned ? shadowStyle : 'border-zinc-900/40'}`}
+      onClick={handleClick}
+      whileTap={isEarned ? { scale: 0.85, rotateZ: (Math.random() - 0.5) * 15, zIndex: 50, transition: { type: "spring", stiffness: 600, damping: 12 } } : {}}
+      whileHover={isEarned ? { scale: 1.12, zIndex: 40, transition: { stiffness: 200, damping: 15 } } : { scale: 1.01 }}
+      animate={isEarned && achievement.tier === "legendary" ? { boxShadow: ["0px 0px 0px rgba(223,160,84,0)", "0px 0px 30px rgba(223,160,84,0.25)", "0px 0px 0px rgba(223,160,84,0)"] } : {}}
+      transition={isEarned && achievement.tier === "legendary" ? { duration: 2, repeat: Infinity, ease: "easeInOut" } : {}}
+      className={`relative aspect-square rounded-md bg-[#0a0a0a] border cursor-pointer overflow-hidden transition-colors ${borderStyle} ${isEarned ? shadowStyle : 'border-zinc-900/40'}`}
     >
       {isEarned && achievement.tier === "legendary" && (
         <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rotate-45 bg-[#dfa054]/60 border border-[#0a0a0a] z-20"></div>
@@ -146,6 +173,29 @@ function VaultTrophy({ achievement, onHover }: { achievement: Achievement, onHov
 
       {isEarned ? (
         <>
+          {achievement.tier === "legendary" && (
+            <>
+              {/* Grand Spotlight Beam */}
+              <div 
+                className="absolute -top-[20%] left-1/2 w-[200%] h-[200%] -translate-x-1/2 pointer-events-none z-0" 
+                style={{ background: "conic-gradient(from 180deg at 50% 0%, transparent 140deg, rgba(223, 160, 84, 0.2) 180deg, transparent 220deg)" }} 
+              />
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-[20%] bg-[#dfa054]/20 blur-xl rounded-full z-0 pointer-events-none" />
+              
+              {/* Floating Sparkles */}
+              <div className="absolute inset-0 z-0 pointer-events-none">
+                <motion.div animate={{ y: [0, -10, 0], opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }} transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }} className="absolute top-[20%] left-[15%] text-[#dfa054]">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z"/></svg>
+                </motion.div>
+                <motion.div animate={{ y: [0, -15, 0], opacity: [0.1, 0.8, 0.1], scale: [1, 1.5, 1] }} transition={{ duration: 3.2, repeat: Infinity, delay: 0.7, ease: "easeInOut" }} className="absolute bottom-[25%] right-[10%] text-[#f6ce8e]">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z"/></svg>
+                </motion.div>
+                <motion.div animate={{ rotate: [0, 90, 180], opacity: [0.4, 1, 0.4] }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }} className="absolute top-[35%] right-[20%] text-[#dfa054]">
+                  <svg width="6" height="6" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z"/></svg>
+                </motion.div>
+              </div>
+            </>
+          )}
           {/* Float the badge inside the container for genuine 3D parallax depth */}
           <div 
             style={{ transform: "translateZ(24px)", transformStyle: "preserve-3d" }}
@@ -160,10 +210,10 @@ function VaultTrophy({ achievement, onHover }: { achievement: Achievement, onHov
           {/* Glare/Shine filter reflecting tilting angle */}
           <motion.div
             style={{
-              background: useMotionTemplate`radial-gradient(circle at ${springGlareX}% ${springGlareY}%, rgba(255,255,255,0.06) 0%, transparent 65%)`,
+              background: useMotionTemplate`radial-gradient(circle at ${springGlareX}% ${springGlareY}%, rgba(255,255,255,0.15) 0%, transparent 55%)`,
               transform: "translateZ(1px)"
             }}
-            className="absolute inset-0 pointer-events-none z-10"
+            className="absolute inset-0 pointer-events-none z-10 mix-blend-overlay"
           />
         </>
       ) : (
@@ -217,38 +267,50 @@ export function AchievementShowcase({ achievements, variant = "gallery" }: Achie
 
   if (variant === "compact") {
     return (
-      <Card className="overflow-hidden p-0">
-        <div className="border-b border-zinc-800/80 bg-[linear-gradient(90deg,rgba(16,185,129,0.12),rgba(223,160,84,0.08),rgba(39,39,42,0.2))] px-3.5 py-3">
+      <Card className="overflow-hidden p-0 border border-zinc-800/80 bg-gradient-to-br from-zinc-900/40 to-zinc-950/60 shadow-xl hover:border-[#dfa054]/25 transition duration-300">
+        <div className="relative border-b border-zinc-800/80 bg-gradient-to-r from-emerald-500/10 via-[#dfa054]/5 to-zinc-900/10 px-4 py-3.5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-semibold text-zinc-100">Achievement Showcase</div>
-              <div className="mt-0.5 text-[10px] text-zinc-500">{earned.length ? "Pinned from earned achievements" : "Closest unlocks shown until your first badge"}</div>
+              <div className="text-xs font-bold uppercase tracking-wider text-zinc-200">Achievement Showcase</div>
+              <div className="mt-0.5 text-[9px] text-zinc-500 font-mono">
+                {earned.length ? "Pinned from earned achievements" : "Closest unlocks shown until your first badge"}
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 rounded-full border border-zinc-700/70 bg-zinc-950/45 px-2 py-1 text-[10px] font-mono text-zinc-400">
-              <Sparkles size={12} className="text-[#dfa054]" />
-              {completionRate(achievements)}%
+            <div className="flex items-center gap-1.5 rounded-full border border-[#dfa054]/20 bg-[#dfa054]/5 px-2 py-1 text-[9px] font-mono font-bold text-[#dfa054] shadow-[0_0_8px_rgba(223,160,84,0.1)]">
+              <Sparkles size={11} className="text-[#dfa054] animate-pulse" />
+              {completionRate(achievements)}% COMPLETE
             </div>
           </div>
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+          <div className="mt-3.5 flex gap-2 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-zinc-800">
             {showcase.map((achievement) => (
-              <div key={achievement.id} className="group" title={`${achievement.title}: ${achievement.requirement}`}>
+              <div 
+                key={achievement.id} 
+                className="group relative cursor-pointer" 
+                title={`${achievement.title}: ${achievement.requirement}`}
+              >
                 <AchievementImage achievement={achievement} size="sm" />
               </div>
             ))}
           </div>
         </div>
-        <div className="grid grid-cols-3 divide-x divide-zinc-800/80 bg-zinc-950/25">
-          <div className="px-3 py-2.5">
-            <div className="font-mono text-xl font-semibold text-zinc-100">{earned.length}</div>
-            <div className="text-[10px] text-zinc-500">Earned</div>
+        <div className="grid grid-cols-3 divide-x divide-zinc-800/80 bg-zinc-950/40 font-mono">
+          <div className="px-4 py-3 text-center">
+            <div className="text-lg font-black text-zinc-100 tabular-nums">{earned.length}</div>
+            <div className="text-[8px] uppercase tracking-wider text-zinc-500 font-semibold mt-0.5">Earned</div>
           </div>
-          <div className="px-3 py-2.5">
-            <div className="font-mono text-xl font-semibold text-zinc-100">{achievements.filter((achievement) => achievement.earned && achievement.tier === "legendary").length}</div>
-            <div className="text-[10px] text-zinc-500">Legendary</div>
+          <div className="px-4 py-3 text-center">
+            <div className="text-lg font-black text-[#dfa054] tabular-nums">
+              {achievements.filter((achievement) => achievement.earned && achievement.tier === "legendary").length}
+            </div>
+            <div className="text-[8px] uppercase tracking-wider text-zinc-500 font-semibold mt-0.5">Legendary</div>
           </div>
-          <div className="px-3 py-2.5">
-            <div className="truncate font-mono text-xl font-semibold text-zinc-100">{nextUnlock ? `${nextUnlock.progress}%` : "100%"}</div>
-            <div className="truncate text-[10px] text-zinc-500">{nextUnlock ? nextUnlock.title : "Complete"}</div>
+          <div className="px-4 py-3 text-center">
+            <div className="text-lg font-black text-emerald-400 tabular-nums truncate max-w-full">
+              {nextUnlock ? `${nextUnlock.progress}%` : "100%"}
+            </div>
+            <div className="text-[8px] uppercase tracking-wider text-zinc-500 font-semibold mt-0.5 truncate max-w-full">
+              {nextUnlock ? nextUnlock.title : "Complete"}
+            </div>
           </div>
         </div>
       </Card>

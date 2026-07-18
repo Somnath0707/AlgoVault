@@ -64,7 +64,7 @@ public class PotdService {
 
             for (TagMastery tagMastery : sortedWeaknesses) {
                 List<Problem> weakProblems = problemRepository.findRecommendedUnsolved(
-                    userId, tagMastery.getTag(), (double)(ceiling - 200), (double)(ceiling + 100), 1);
+                    userId, tagMastery.getTag(), (double)(ceiling - 200), (double)(ceiling + 100), (double)ceiling, 1);
                 
                 if (!weakProblems.isEmpty()) {
                     Problem p2 = weakProblems.get(0);

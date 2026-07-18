@@ -1,5 +1,6 @@
 import { useEffect } from "react"
 import type { PlasmoCSConfig } from "plasmo"
+import { buildZerotracRatingMap } from "../lib/zerotrac"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://leetcode.com/problemset/*", "https://leetcode.com/tag/*"]
@@ -23,8 +24,8 @@ export default function ProblemsetOverlay() {
       if (!ratings || disposed) return
       document.querySelectorAll<HTMLAnchorElement>('a[href*="/problems/"]').forEach((link) => {
         const slug = link.getAttribute("href")?.match(/\/problems\/([^/?#]+)/)?.[1]
-        const rating = slug ? ratings!.get(slug) : undefined
-        if (!slug || !rating) return
+        const rating = slug ? ratings!.get(slug.toLowerCase()) : undefined
+        if (!slug || rating === undefined || !Number.isFinite(rating)) return
 
         const row = link.closest<HTMLElement>('div[class*="group"], tr, [role="row"], div.flex')
         if (!row || row.querySelector(`[data-algovault-rating="${slug}"]`)) return
@@ -48,12 +49,8 @@ export default function ProblemsetOverlay() {
     }
 
     chrome.runtime.sendMessage({ action: "get_zerotrac" }, (response) => {
-      if (disposed || !Array.isArray(response)) return
-      ratings = new Map(
-        response
-          .filter((item: any) => item?.TitleSlug && Number.isFinite(item?.Rating))
-          .map((item: any) => [item.TitleSlug, Number(item.Rating)])
-      )
+      if (disposed || response?.error) return
+      ratings = buildZerotracRatingMap(response)
       injectRatings()
     })
 

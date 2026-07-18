@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useMemo } from "react"
+import { Lightbulb } from "lucide-react"
 import { Card } from "../ui/Card"
 import { ProgressBar } from "../ui/ProgressBar"
 import { STUDY_LISTS } from "../../lib/study-lists"
 import { normalizeZerotracPayload } from "../../lib/zerotrac"
+import { motion, AnimatePresence } from "framer-motion"
 
 export const Lists = () => {
   const [activeList, setActiveList] = useState<"neetcode" | "striver" | "zerotrac">("neetcode")
@@ -49,6 +51,7 @@ export const Lists = () => {
   const striverList = STUDY_LISTS.find(l => l.id === "striver-sde")
 
   const currentStudyList = activeList === "neetcode" ? neetcodeList : striverList
+  const nextStudyProblem = currentStudyList?.problems.find((problem) => !solvedSlugs.has(problem.slug))
 
   // Calculate solved stats for current study list
   const listStats = useMemo(() => {
@@ -169,9 +172,16 @@ export const Lists = () => {
   }
 
   return (
-    <div className="grid gap-4 font-sans select-none">
+    <div className="grid gap-3.5 font-sans select-none">
+      <div className="flex items-end justify-between px-1">
+        <div>
+          <div className="panel-label">Practice tracks</div>
+          <p className="mt-1 text-[11px] text-zinc-500">Structured paths when you want the next right problem without the noise.</p>
+        </div>
+        <span className="text-[10px] font-mono text-zinc-600">{solvedSlugs.size} solved</span>
+      </div>
       {/* List Type Switcher */}
-      <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-900 shadow-inner">
+      <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-800 shadow-inner">
         {(["neetcode", "striver", "zerotrac"] as const).map((opt) => (
           <button
             key={opt}
@@ -179,7 +189,7 @@ export const Lists = () => {
               setActiveList(opt)
               setCurrentPage(1)
             }}
-            className={`flex-1 text-[10px] font-bold py-2 rounded-md transition-all uppercase tracking-wider font-mono ${
+            className={`flex-1 text-[10px] font-semibold py-2 rounded-md transition-all font-mono ${
               activeList === opt 
                 ? "bg-zinc-900 text-[#dfa054] border border-zinc-800/80 shadow" 
                 : "text-zinc-500 hover:text-zinc-300"
@@ -192,20 +202,43 @@ export const Lists = () => {
 
       {activeList !== "zerotrac" ? (
         // NeetCode & Striver Lists Rendering
-        <div className="grid gap-4">
+        <div className="grid gap-3.5">
+          {nextStudyProblem && (
+            <Card className="relative overflow-hidden border-[#dfa054]/30 bg-gradient-to-br from-[#1c140c] to-[#0a0a0a] p-0 shadow-[0_8px_30px_rgba(223,160,84,0.15)] group">
+              <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-[#dfa054] to-[#f6ce8e] shadow-[0_0_12px_rgba(223,160,84,0.8)]" />
+              <div className="absolute top-0 right-0 p-8 opacity-5 transition-opacity group-hover:opacity-20 pointer-events-none">
+                <Lightbulb size={120} className="text-[#dfa054] -rotate-12 transform translate-x-1/4 -translate-y-1/4" />
+              </div>
+              <div className="flex items-center justify-between gap-4 p-5 pl-6 relative z-10">
+                <div className="min-w-0">
+                  <div className="panel-label tracking-widest text-[#dfa054]/80">Continue {currentStudyList?.name}</div>
+                  <div className="mt-1.5 truncate text-lg font-bold text-zinc-50 drop-shadow-md">{nextStudyProblem.title}</div>
+                  <div className="mt-1.5 text-[10px] text-zinc-400 font-medium uppercase tracking-wider">{nextStudyProblem.topic} <span className="mx-1.5 text-zinc-600">•</span> {listStats.solved}/{listStats.total} complete</div>
+                </div>
+                <a
+                  href={`https://leetcode.com/problems/${nextStudyProblem.slug}/`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 rounded-lg bg-gradient-to-r from-[#dfa054] to-[#c78b40] px-4 py-2.5 text-[11px] font-extrabold text-[#111] transition-all hover:scale-105 hover:shadow-[0_0_15px_rgba(223,160,84,0.4)] tracking-wide shadow-md"
+                >
+                  Open Problem
+                </a>
+              </div>
+            </Card>
+          )}
           {/* Progress Header */}
-          <Card className="p-4 bg-[#161616] border border-[#ffffff0a] shadow-[0_4px_12px_rgba(0,0,0,0.2)]">
+          <Card className="p-4 bg-[#111] border border-zinc-900/80 shadow-inner">
             <div className="flex justify-between items-center mb-3">
-              <span className="text-[13px] font-semibold tracking-wide text-zinc-200 uppercase">{currentStudyList?.name} Progress</span>
-              <span className="font-mono text-[#dfa054] font-bold tabular-nums text-[13px]">
-                {listStats.solved} / {listStats.total} <span className="text-zinc-500 font-normal">({listStats.percent}%)</span>
+              <span className="text-xs font-bold tracking-widest text-zinc-300 uppercase">{currentStudyList?.name} Progress</span>
+              <span className="font-mono text-[#dfa054] font-bold tabular-nums text-sm drop-shadow-[0_0_8px_rgba(223,160,84,0.3)]">
+                {listStats.solved} / {listStats.total} <span className="text-zinc-500 font-normal ml-1">({listStats.percent}%)</span>
               </span>
             </div>
-            <ProgressBar progress={listStats.percent} segments={15} />
+            <ProgressBar progress={listStats.percent} />
           </Card>
 
           {/* Grouped Topics list */}
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2.5">
             {Object.entries(groupedProblems).map(([topic, problems]) => {
               const isExpanded = !!expandedTopics[topic]
               const topicSolved = problems.filter(p => solvedSlugs.has(p.slug)).length
@@ -230,7 +263,7 @@ export const Lists = () => {
                   >
                     <div className="flex items-center gap-2">
                       <span className={`text-[9px] transition-transform duration-300 cubic-bezier(0.2, 0.8, 0.2, 1) ${isExpanded ? "rotate-90 text-[#dfa054]" : "rotate-0 text-zinc-500"}`}>▶</span>
-                      <span className={`text-[13px] font-semibold tracking-wide uppercase ${isTopicComplete ? "text-zinc-400" : "text-zinc-200"}`}>{topic}</span>
+                      <span className={`text-[13px] font-semibold tracking-wide ${isTopicComplete ? "text-zinc-400" : "text-zinc-200"}`}>{topic}</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-[12px] font-medium text-zinc-500 font-mono tabular-nums">
@@ -243,61 +276,85 @@ export const Lists = () => {
                   </button>
 
                   {/* Topic Problems List */}
-                  {isExpanded && (
-                    <div className="px-4 pb-4 pt-2 flex flex-col gap-1 bg-zinc-950/15">
-                      {problems.map((p, idx) => {
-                        const isSolved = solvedSlugs.has(p.slug)
-                        const difficulty = (p.difficulty || "medium").toLowerCase()
-                        
-                        let diffColor = "text-amber-400 bg-amber-500/10 border-amber-500/20"
-                        if (difficulty === "easy") {
-                          diffColor = "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-                        } else if (difficulty === "hard") {
-                          diffColor = "text-red-400 bg-red-500/10 border-red-500/20"
-                        }
-                        
-                        // Dim difficulty badges for completed problems to reduce visual clutter
-                        if (isSolved) {
-                          diffColor = "text-zinc-600 border-zinc-800 bg-transparent"
-                        }
+                  <AnimatePresence initial={false}>
+                    {isExpanded && (
+                      <motion.div 
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        className="px-4 pb-4 pt-1 flex flex-col gap-1.5 bg-gradient-to-b from-[#161616] to-[#0f0f0f] overflow-hidden"
+                      >
+                        {problems.map((p, idx) => {
+                          const isSolved = solvedSlugs.has(p.slug)
+                          const difficulty = (p.difficulty || "medium").toLowerCase()
+                          
+                          let diffColor = "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                          if (difficulty === "easy") {
+                            diffColor = "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                          } else if (difficulty === "hard") {
+                            diffColor = "text-red-400 bg-red-500/10 border-red-500/20"
+                          }
+                          
+                          if (isSolved) {
+                            diffColor = "text-zinc-600 border-zinc-800 bg-transparent"
+                          }
 
-                        return (
-                          <div key={idx} className="flex items-center justify-between py-2.5 px-3 hover:bg-white/5 rounded-md group transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-[#dfa054]/50">
-                            <div className="flex items-center gap-3 min-w-0">
-                              {/* Round Checkbox */}
-                              <span 
-                                className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
-                                  isSolved 
-                                    ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-500" 
-                                    : "border-zinc-800 bg-zinc-950/30 text-transparent group-hover:border-zinc-600"
-                                }`}
-                              >
-                                {isSolved && (
-                                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
-                                  </svg>
+                          return (
+                            <motion.div 
+                              key={idx} 
+                              whileHover={{ scale: 1.01, x: 2 }}
+                              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                              className="flex items-center justify-between py-3 px-3.5 hover:bg-zinc-800/40 hover:shadow-lg rounded-lg border border-transparent hover:border-zinc-700/50 group transition-all duration-200 cursor-pointer"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                {/* Sleek Checkbox */}
+                                <span 
+                                  className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-300 ${
+                                    isSolved 
+                                      ? "bg-emerald-500 border-emerald-500 text-zinc-950 shadow-[0_0_8px_rgba(16,185,129,0.5)]" 
+                                      : "border-zinc-700 bg-zinc-900 text-transparent group-hover:border-zinc-500"
+                                  }`}
+                                >
+                                  {isSolved && (
+                                    <svg className="w-2.5 h-2.5 drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                  )}
+                                </span>
+                                <a
+                                  href={`https://leetcode.com/problems/${p.slug}/`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`truncate font-sans text-[14px] leading-snug tracking-wide ${
+                                    isSolved ? "text-zinc-500 font-medium" : "text-zinc-200 font-semibold group-hover:text-white"
+                                  }`}
+                                >
+                                  {p.title}
+                                </a>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-2">
+                                {!isSolved && (
+                                  <a
+                                    href={`https://leetcode.com/problems/${p.slug}/solutions/`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title={`Open solution discussions for ${p.title}`}
+                                    className="rounded-full bg-zinc-900 p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-[#dfa054] shadow-sm"
+                                  >
+                                    <Lightbulb size={12} />
+                                  </a>
                                 )}
-                              </span>
-                              <a
-                                href={`https://leetcode.com/problems/${p.slug}/`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={`truncate font-sans text-[14px] leading-snug ${
-                                  isSolved ? "text-zinc-500 font-medium" : "text-zinc-300 font-medium group-hover:text-zinc-200"
-                                }`}
-                                title={`Open ${p.title} on LeetCode`}
-                              >
-                                {p.title}
-                              </a>
-                            </div>
-                            <span className={`text-[10px] font-bold shrink-0 px-1.5 py-0.5 rounded border uppercase tracking-[0.05em] ${diffColor}`}>
-                              {difficulty}
-                            </span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
+                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-widest ${diffColor}`}>
+                                  {difficulty}
+                                </span>
+                              </div>
+                            </motion.div>
+                          )
+                        })}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </Card>
               )
             })}
@@ -306,6 +363,15 @@ export const Lists = () => {
       ) : (
         // ZeroTrac Interactive List Rendering
         <div className="grid gap-3.5">
+          <Card className="border-sky-500/15 bg-sky-500/[0.035] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="panel-label">ZeroTrac explorer</div>
+                <p className="mt-1 text-[11px] leading-relaxed text-zinc-400">Find a contest-rated problem by range, contest, or topic keyword. Ratings are sourced from ZeroTrac.</p>
+              </div>
+              <span className="shrink-0 rounded-full border border-sky-400/20 bg-sky-400/10 px-2 py-1 text-[10px] font-mono text-sky-300">{zerotracData.length}</span>
+            </div>
+          </Card>
           {/* ZeroTrac Advanced Filters Form */}
           <Card className="p-4 flex flex-col gap-3.5 font-sans border-zinc-800 bg-zinc-900/10">
             <div className="grid grid-cols-2 gap-3.5">

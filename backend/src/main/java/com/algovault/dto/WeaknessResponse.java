@@ -22,7 +22,10 @@ public class WeaknessResponse {
     public static class RecommendedProblem {
         private String title;
         private String titleSlug;
+        private String tag;
         private String difficulty;
         private Double actualRating;
+        private Integer frontendId;
+        private Double acceptanceRate;
     }
 }

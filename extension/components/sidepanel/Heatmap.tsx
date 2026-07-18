@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react"
 import { Card } from "../ui/Card"
+import { BarChart3, CheckCircle2, Crosshair, Sparkles } from "lucide-react"
 import { fetchDashboard, fetchHeatmap } from "../../lib/api/backend"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts"
 import { getCachedDashboard, getCachedHeatmap, setCachedDashboard, setCachedHeatmap } from "../../lib/storage"
@@ -109,6 +110,7 @@ export const Heatmap = () => {
   const [data, setData] = useState<any[]>([]);
   const [dashboard, setDashboard] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedRating, setSelectedRating] = useState<number | null>(null)
 
   useEffect(() => {
     // 1. Try to load from cache
@@ -155,6 +157,22 @@ export const Heatmap = () => {
     return Math.max(200, sortedData.length * 28 + 20);
   }, [sortedData]);
 
+  const summary = useMemo(() => {
+    const attempted = sortedData.reduce((total, bucket) => total + Number(bucket.attempted || 0), 0)
+    const solved = sortedData.reduce((total, bucket) => total + Number(bucket.solved || 0), 0)
+    const best = [...sortedData].filter((bucket) => bucket.solved > 0).sort((left, right) => right.bucketRating - left.bucketRating)[0]
+    return {
+      attempted,
+      solved,
+      conversion: attempted ? Math.round((solved / attempted) * 100) : 0,
+      best: best?.bucketRating ?? null
+    }
+  }, [sortedData])
+
+  const selectedBucket = selectedRating == null
+    ? null
+    : sortedData.find((bucket) => bucket.bucketRating === selectedRating) ?? null
+
   if (loading) return <div className="p-4 text-center text-zinc-500 text-sm font-mono animate-pulse">Loading heatmap analytics...</div>;
   if (!data || data.length === 0 || sortedData.length === 0) {
     return (
@@ -171,12 +189,30 @@ export const Heatmap = () => {
   }
 
   return (
-    <div className="grid gap-4 font-sans">
+    <div className="grid gap-3.5 font-sans">
+      <div className="flex items-end justify-between px-1">
+        <div>
+          <div className="flex items-center gap-2 panel-label"><BarChart3 size={13} className="text-[#dfa054]" /> Rating map</div>
+          <p className="mt-1 text-[11px] text-zinc-500">Your attempts and accepted solves across ZeroTrac rating bands.</p>
+        </div>
+        <span className="text-[10px] font-mono text-zinc-600">{sortedData.length} bands</span>
+      </div>
+
+      <div className="grid grid-cols-4 divide-x divide-zinc-800 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950/35">
+        <div className="px-3 py-2.5"><div className="panel-label">Solved</div><div className="metric-value mt-1 text-lg font-semibold text-zinc-100">{summary.solved}</div></div>
+        <div className="px-3 py-2.5"><div className="panel-label">Attempted</div><div className="metric-value mt-1 text-lg font-semibold text-zinc-100">{summary.attempted}</div></div>
+        <div className="px-3 py-2.5"><div className="panel-label">Convert</div><div className="metric-value mt-1 text-lg font-semibold text-emerald-400">{summary.conversion}%</div></div>
+        <div className="px-3 py-2.5"><div className="panel-label">Best solve</div><div className="metric-value mt-1 text-lg font-semibold text-[#dfa054]">{summary.best ?? "—"}</div></div>
+      </div>
+
       <Card className="bg-[#111112] border border-zinc-800/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-        <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-1.5 px-1">Solve vs Attempted</h3>
-        <p className="text-[11px] text-zinc-500 mb-6 font-mono leading-relaxed px-1">
-          Visual comparison of unique solves nested within total attempts per difficulty rating.
-        </p>
+        <div className="flex items-start justify-between gap-3 px-1">
+          <div>
+            <h3 className="text-xs font-semibold text-zinc-200">Solve distribution</h3>
+            <p className="mt-1 text-[10px] text-zinc-500 leading-relaxed">The amber line shows accepted solves inside your total attempt volume.</p>
+          </div>
+          <Sparkles size={14} className="mt-0.5 text-zinc-600" />
+        </div>
         <CustomLegend />
         <div style={{ height: chartHeight }} className="w-full transition-all duration-300">
           <ResponsiveContainer width="100%" height="100%">
@@ -216,6 +252,34 @@ export const Heatmap = () => {
             </BarChart>
           </ResponsiveContainer>
         </div>
+      </Card>
+
+      <Card className="p-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 panel-label"><Crosshair size={13} className="text-sky-400" /> Explore a band</div>
+          {selectedBucket && <span className="text-[10px] font-mono text-zinc-500">{selectedBucket.attempted} attempts</span>}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {sortedData.map((bucket) => {
+            const active = selectedRating === bucket.bucketRating
+            const solvedAll = bucket.attempted > 0 && bucket.solved === bucket.attempted
+            return (
+              <button
+                key={bucket.bucketRating}
+                onClick={() => setSelectedRating(active ? null : bucket.bucketRating)}
+                className={`rounded-md border px-2.5 py-1.5 text-[10px] font-mono transition-colors ${active ? "border-[#dfa054]/60 bg-[#dfa054]/10 text-[#dfa054]" : solvedAll ? "border-emerald-500/25 bg-emerald-500/[0.06] text-emerald-400" : "border-zinc-800 bg-zinc-950/30 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"}`}
+              >
+                {bucket.bucketRating}
+              </button>
+            )
+          })}
+        </div>
+        {selectedBucket && (
+          <div className="mt-3 flex items-center justify-between rounded-md border border-zinc-800 bg-zinc-950/30 px-3 py-2.5 text-[11px]">
+            <div className="flex items-center gap-2 text-zinc-300"><CheckCircle2 size={13} className="text-emerald-400" /> {selectedBucket.solved} accepted in the {selectedBucket.bucketRating} band</div>
+            <span className="font-mono text-zinc-500">{selectedBucket.avgAttempts?.toFixed?.(1) ?? "—"} avg attempts</span>
+          </div>
+        )}
       </Card>
 
       <AchievementShowcase achievements={achievements} variant="gallery" />

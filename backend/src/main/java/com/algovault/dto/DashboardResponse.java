@@ -25,7 +25,6 @@ public class DashboardResponse {
     private List<RecentSolve> recentSolves;
 
     // Zenith metrics
-    private Double interviewIndex;
     private Map<String, Map<String, Integer>> solvedRankGrid;
 
     @Data

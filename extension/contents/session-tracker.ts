@@ -1,4 +1,5 @@
 import type { PlasmoCSConfig } from "plasmo"
+import { getLeetCodeProblemSlug } from "../lib/leetcode-url"
 import { showZenithQuestModal, showZenithAlarmModal, showZenithToast } from "./ZenithSystemOverlay"
 
 export const config: PlasmoCSConfig = {
@@ -105,15 +106,13 @@ document.addEventListener("fullscreenchange", () => {
   if (isZenith && !document.fullscreenElement && !isSolved) {
     showZenithAlarmModal(
       "Fullscreen exited.",
-      "Your Zenith solve grade will become practice INVALID.",
+      "No grade penalty is applied.",
       () => {
-        updateZenithGrade("INVALID", "Fullscreen exited")
-        showZenithToast("Telemetry degraded: Grade is now INVALID")
+        showZenithToast("Continuing Zenith session with an interruption noted")
       },
       () => {
         document.documentElement.requestFullscreen().catch(() => {
-          showZenithToast("Failed to re-enter fullscreen. Grade invalidated.")
-          updateZenithGrade("INVALID", "Fullscreen exited")
+          showZenithToast("Fullscreen remains off. Your session can continue.")
         })
       }
     )
@@ -146,7 +145,7 @@ document.addEventListener("keydown", updateActivity, { signal })
 document.addEventListener("scroll", updateActivity, { signal })
 
 function currentSlug() {
-  return window.location.pathname.split("/")[2]
+  return getLeetCodeProblemSlug()
 }
 
 function currentTitle() {
@@ -289,32 +288,8 @@ document.addEventListener("paste", (event) => {
     const isValid = copyHistory.some(h => h.hash === textHash && (now - h.timestamp < 2 * 60 * 60 * 1000))
 
     if (!isValid) {
-      event.preventDefault()
-      event.stopPropagation()
-
-      showZenithAlarmModal(
-        "External paste detected.",
-        "Your solve grade will become practice INVALID.",
-        () => {
-          updateZenithGrade("INVALID", "External paste detected")
-          
-          // Paste text manually into Monaco text field
-          const activeEl = document.activeElement as HTMLTextAreaElement | HTMLInputElement
-          if (activeEl && (activeEl.tagName === "TEXTAREA" || activeEl.tagName === "INPUT")) {
-            const start = activeEl.selectionStart || 0
-            const end = activeEl.selectionEnd || 0
-            const text = activeEl.value
-            activeEl.value = text.substring(0, start) + pasted + text.substring(end)
-            activeEl.selectionStart = activeEl.selectionEnd = start + pasted.length
-            activeEl.dispatchEvent(new Event("input", { bubbles: true }))
-          }
-          showZenithToast("Telemetry degraded: Grade is now INVALID")
-        },
-        () => {
-          showZenithToast("Obeyed constraints: Paste blocked")
-        }
-      )
-      return
+      updateZenithGrade("D", "External paste recorded")
+      showZenithToast("Zenith record updated: external paste observed")
     }
   }
 
@@ -355,14 +330,14 @@ document.addEventListener("click", (event) => {
       event.stopPropagation()
       showZenithAlarmModal(
         "Opening editorial.",
-        "Your solve grade will degrade to D.",
+        "Your session record will note editorial use.",
         () => {
           updateZenithGrade("D", "Editorial opened")
-          showZenithToast("Telemetry degraded: Grade is now D")
+          showZenithToast("Zenith record updated: editorial used")
           window.location.href = link.href
         },
         () => {
-          showZenithToast("Obeyed constraints: Access canceled")
+          showZenithToast("Returned to the problem")
         }
       )
       return
@@ -373,14 +348,14 @@ document.addEventListener("click", (event) => {
       event.stopPropagation()
       showZenithAlarmModal(
         "Opening discussions.",
-        "Your solve grade will degrade to C.",
+        "Your session record will note discussion use.",
         () => {
           updateZenithGrade("C", "Discussion opened")
-          showZenithToast("Telemetry degraded: Grade is now C")
+          showZenithToast("Zenith record updated: discussion used")
           window.location.href = link.href
         },
         () => {
-          showZenithToast("Obeyed constraints: Access canceled")
+          showZenithToast("Returned to the problem")
         }
       )
       return
@@ -398,17 +373,17 @@ document.addEventListener("click", (event) => {
       event.stopPropagation()
       showZenithAlarmModal(
         "Viewing topic tags.",
-        "Your solve grade will degrade to S.",
+        "Your session record will note that you reviewed topic tags.",
         () => {
           updateZenithGrade("S", "Tags viewed")
-          showZenithToast("Telemetry degraded: Grade is now S")
+          showZenithToast("Zenith record updated: topic tags viewed")
           const temp = isZenith
           isZenith = false
           target.click()
           isZenith = temp
         },
         () => {
-          showZenithToast("Obeyed constraints: Access canceled")
+          showZenithToast("Returned to focus")
         }
       )
       return
@@ -432,17 +407,17 @@ document.addEventListener("click", (event) => {
       event.stopPropagation()
       showZenithAlarmModal(
         `Viewing ${hintText}.`,
-        `Your solve grade will degrade to ${targetGrade}.`,
+        `Your session record will note ${targetReason.toLowerCase()}.`,
         () => {
           updateZenithGrade(targetGrade, targetReason)
-          showZenithToast(`Telemetry degraded: Grade is now ${targetGrade}`)
+          showZenithToast(`Zenith record updated: ${targetReason.toLowerCase()}`)
           const temp = isZenith
           isZenith = false
           target.click()
           isZenith = temp
         },
         () => {
-          showZenithToast("Obeyed constraints: Access canceled")
+          showZenithToast("Returned to focus")
         }
       )
       return
@@ -542,15 +517,15 @@ const routeInterval = setInterval(() => {
           if (currentGrade !== "D" && currentGrade !== "INVALID") {
             showZenithAlarmModal(
               "Accessing solutions page.",
-              "Your solve grade will degrade to D.",
+              "Your session record will note solution use.",
               () => {
                 updateZenithGrade("D", "Solutions page opened")
-                showZenithToast("Telemetry degraded: Grade is now D")
+                showZenithToast("Zenith record updated: solutions used")
               },
               () => {
                 const safeUrl = window.location.href.replace(/\/solutions.*|\/editorial.*|\/discuss.*|\/comments.*/, "/description/")
                 window.location.href = safeUrl
-                showZenithToast("Access blocked: Returning to description")
+                showZenithToast("Returned to the problem")
               }
             )
           }
@@ -558,15 +533,15 @@ const routeInterval = setInterval(() => {
           if (currentGrade !== "D" && currentGrade !== "INVALID") {
             showZenithAlarmModal(
               "Accessing editorial page.",
-              "Your solve grade will degrade to D.",
+              "Your session record will note editorial use.",
               () => {
                 updateZenithGrade("D", "Editorial page opened")
-                showZenithToast("Telemetry degraded: Grade is now D")
+                showZenithToast("Zenith record updated: editorial used")
               },
               () => {
                 const safeUrl = window.location.href.replace(/\/solutions.*|\/editorial.*|\/discuss.*|\/comments.*/, "/description/")
                 window.location.href = safeUrl
-                showZenithToast("Access blocked: Returning to description")
+                showZenithToast("Returned to the problem")
               }
             )
           }
@@ -574,15 +549,15 @@ const routeInterval = setInterval(() => {
           if (!["C", "D", "INVALID"].includes(currentGrade)) {
             showZenithAlarmModal(
               "Accessing discussions page.",
-              "Your solve grade will degrade to C.",
+              "Your session record will note discussion use.",
               () => {
                 updateZenithGrade("C", "Discussions page opened")
-                showZenithToast("Telemetry degraded: Grade is now C")
+                showZenithToast("Zenith record updated: discussion used")
               },
               () => {
                 const safeUrl = window.location.href.replace(/\/solutions.*|\/editorial.*|\/discuss.*|\/comments.*/, "/description/")
                 window.location.href = safeUrl
-                showZenithToast("Access blocked: Returning to description")
+                showZenithToast("Returned to the problem")
               }
             )
           }

@@ -14,8 +14,8 @@ const overlayStyle = `
   }
 
   @keyframes pulseCyan {
-    0%, 100% { box-shadow: 0 0 15px rgba(0, 240, 255, 0.4), inset 0 0 10px rgba(0, 240, 255, 0.1); }
-    50% { box-shadow: 0 0 25px rgba(0, 240, 255, 0.7), inset 0 0 15px rgba(0, 240, 255, 0.3); }
+    0%, 100% { box-shadow: 0 0 15px rgba(223, 160, 84, 0.22), inset 0 0 10px rgba(223, 160, 84, 0.05); }
+    50% { box-shadow: 0 0 25px rgba(223, 160, 84, 0.38), inset 0 0 15px rgba(223, 160, 84, 0.12); }
   }
 
   @keyframes pulseRed {
@@ -45,27 +45,27 @@ const overlayStyle = `
     left: 50%;
     transform: translate(-50%, -50%);
     width: 380px;
-    background: rgba(7, 15, 28, 0.95);
-    border: 2px solid #00f0ff;
-    border-radius: 4px;
+    background: rgba(14, 15, 19, 0.97);
+    border: 1px solid rgba(223, 160, 84, 0.68);
+    border-radius: 8px;
     z-index: 2147483647;
     animation: soloFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards, pulseCyan 4s infinite;
     padding: 24px;
-    color: #e2f1ff;
-    font-family: 'Courier New', Courier, monospace;
+    color: #f4f4f5;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     box-sizing: border-box;
   }
 
   .solo-quest-header {
-    border: 1px solid rgba(0, 240, 255, 0.4);
-    background: rgba(0, 240, 255, 0.05);
+    border: 1px solid rgba(223, 160, 84, 0.24);
+    background: rgba(223, 160, 84, 0.06);
     padding: 8px 16px;
     text-align: center;
     font-weight: bold;
     font-size: 18px;
     letter-spacing: 2px;
-    color: #00f0ff;
-    text-shadow: 0 0 8px rgba(0, 240, 255, 0.5);
+    color: #f2c27b;
+    text-shadow: 0 0 8px rgba(223, 160, 84, 0.25);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -76,7 +76,7 @@ const overlayStyle = `
   .solo-quest-subheader {
     font-size: 11px;
     text-align: center;
-    color: #8ab4f8;
+    color: #a1a1aa;
     margin-bottom: 20px;
     letter-spacing: 1px;
   }
@@ -84,8 +84,8 @@ const overlayStyle = `
   .solo-quest-section-title {
     font-size: 14px;
     font-weight: bold;
-    color: #00f0ff;
-    border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+    color: #f2c27b;
+    border-bottom: 1px solid rgba(223, 160, 84, 0.16);
     padding-bottom: 4px;
     margin-bottom: 12px;
     letter-spacing: 1px;
@@ -97,28 +97,28 @@ const overlayStyle = `
     justify-content: space-between;
     font-size: 12px;
     margin-bottom: 8px;
-    color: #c4d7f5;
+    color: #d4d4d8;
   }
 
   .solo-quest-checkmark {
-    color: #00f0ff;
-    border: 1px solid rgba(0, 240, 255, 0.4);
+    color: #f2c27b;
+    border: 1px solid rgba(223, 160, 84, 0.28);
     padding: 1px 4px;
     font-size: 9px;
     border-radius: 2px;
-    background: rgba(0, 240, 255, 0.05);
+    background: rgba(223, 160, 84, 0.06);
   }
 
   .solo-quest-warning {
     margin-top: 24px;
     font-size: 11px;
-    color: #8e9fae;
+    color: #a1a1aa;
     text-align: center;
     line-height: 1.5;
   }
 
   .solo-quest-warning span.penalty {
-    color: #ff0055;
+    color: #f2c27b;
     font-weight: bold;
     text-shadow: 0 0 8px rgba(255, 0, 85, 0.3);
   }
@@ -128,24 +128,50 @@ const overlayStyle = `
     width: 60px;
     height: 60px;
     margin: 20px auto 0 auto;
-    background: rgba(0, 240, 255, 0.05);
-    border: 2px solid #00f0ff;
-    border-radius: 4px;
-    color: #00f0ff;
-    font-size: 28px;
+    background: rgba(223, 160, 84, 0.08);
+    border: 1px solid #dfa054;
+    border-radius: 6px;
+    color: #f2c27b;
+    font-size: 11px;
+    font-weight: 700;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
     outline: none;
-    box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    box-shadow: 0 0 10px rgba(223, 160, 84, 0.18);
   }
 
   .solo-quest-confirm-btn:hover {
-    background: rgba(0, 240, 255, 0.15);
-    box-shadow: 0 0 20px rgba(0, 240, 255, 0.6);
+    background: rgba(223, 160, 84, 0.16);
+    box-shadow: 0 0 20px rgba(223, 160, 84, 0.3);
     transform: scale(1.05);
+  }
+
+  .solo-quest-intents {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 10px 0 4px;
+  }
+
+  .solo-intent {
+    border: 1px solid rgba(255,255,255,0.09);
+    background: rgba(255,255,255,0.02);
+    border-radius: 6px;
+    color: #a1a1aa;
+    cursor: pointer;
+    font: inherit;
+    font-size: 10px;
+    padding: 9px 6px;
+    transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+  }
+
+  .solo-intent:hover, .solo-intent.is-active {
+    border-color: rgba(223,160,84,0.56);
+    background: rgba(223,160,84,0.10);
+    color: #f4f4f5;
   }
 
   /* Alarm warning dialog styles */
@@ -267,7 +293,7 @@ function injectStyle() {
   styleInjected = true;
 }
 
-export function showZenithQuestModal(onStart: () => void, onCancel: () => void) {
+export function showZenithQuestModal(onStart: (intent: string) => void, onCancel: () => void) {
   injectStyle();
   
   const backdrop = document.createElement("div");
@@ -277,43 +303,59 @@ export function showZenithQuestModal(onStart: () => void, onCancel: () => void) 
   card.className = "solo-quest-card";
   card.innerHTML = `
     <div class="solo-quest-header">
-      <span>ℹ️</span> QUEST INFO
+      <span>✦</span> ZENITH EXPEDITION
     </div>
     <div class="solo-quest-subheader">
-      [Zenith Quest: Strength Training has arrived.]
+      A deliberate practice session. Your record is private and yours.
     </div>
     
     <div class="solo-quest-section-title">GOAL</div>
     <div class="solo-quest-item">
-      <span>Solve LeetCode Problem</span>
-      <span class="solo-quest-checkmark">[0/1] ☑</span>
+      <span>Set a clear intent</span>
+      <span class="solo-quest-checkmark">Ready</span>
     </div>
     <div class="solo-quest-item">
-      <span>Maintain active focus</span>
-      <span class="solo-quest-checkmark">[100%] ☑</span>
+      <span>Work the problem honestly</span>
+      <span class="solo-quest-checkmark">Observed</span>
     </div>
     <div class="solo-quest-item">
-      <span>Obey all System constraints</span>
-      <span class="solo-quest-checkmark">[Pure] ☑</span>
+      <span>Record help when you use it</span>
+      <span class="solo-quest-checkmark">Reflect</span>
+    </div>
+
+    <div class="solo-quest-section-title" style="margin-top:18px">SESSION INTENT</div>
+    <div class="solo-quest-intents">
+      <button class="solo-intent is-active" data-intent="FOCUSED_SOLVE">Focused solve</button>
+      <button class="solo-intent" data-intent="INTERVIEW_SIM">Interview</button>
+      <button class="solo-intent" data-intent="RECOVERY">Recovery</button>
     </div>
 
     <div class="solo-quest-warning">
-      WARNING: Failure to obey the system's rules will result in an appropriate <span class="penalty">penalty</span>.
+      Zenith records continuity and help signals so you can review how you practiced. It does not judge you.
     </div>
 
     <button class="solo-quest-confirm-btn" title="Begin Quest">
-      ✓
+      BEGIN
     </button>
   `;
 
   // Prevent clicks from trickling down to LeetCode
   card.addEventListener("click", (e) => e.stopPropagation());
 
-  // Clicking checkmark requests fullscreen and starts session
+  let selectedIntent = "FOCUSED_SOLVE"
+  card.querySelectorAll<HTMLButtonElement>(".solo-intent").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedIntent = button.dataset.intent || "FOCUSED_SOLVE"
+      card.querySelectorAll(".solo-intent").forEach((intentButton) => intentButton.classList.remove("is-active"))
+      button.classList.add("is-active")
+    })
+  })
+
+  // Begin the user's chosen deliberate-practice session.
   card.querySelector(".solo-quest-confirm-btn")?.addEventListener("click", () => {
     backdrop.remove();
     card.remove();
-    onStart();
+    onStart(selectedIntent);
   });
 
   // Clicking backdrop closes modal
@@ -342,18 +384,18 @@ export function showZenithAlarmModal(
   card.className = "solo-alarm-card";
   card.innerHTML = `
     <div class="solo-alarm-header">
-      <span>⚠️</span> ALARM
+      <span>◇</span> CONTINUITY CHECK
     </div>
     <div class="solo-alarm-msg">
-      [Warning: ${message}]
+      ${message}
     </div>
     <div class="solo-alarm-msg">
-      [Obeying is advised. Continuing triggers a <span class="penalty">penalty</span>: ${consequence}]
+      Your private session record will note this interruption. <span class="penalty">${consequence}</span>
     </div>
     
     <div class="solo-alarm-buttons">
-      <button class="solo-alarm-btn solo-alarm-btn-obey">Obey (Cancel)</button>
-      <button class="solo-alarm-btn solo-alarm-btn-proceed">Proceed</button>
+      <button class="solo-alarm-btn solo-alarm-btn-obey">Return to focus</button>
+      <button class="solo-alarm-btn solo-alarm-btn-proceed">Continue session</button>
     </div>
   `;
 

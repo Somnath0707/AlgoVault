@@ -1,6 +1,7 @@
 import type { PlasmoCSConfig } from "plasmo"
 import { STUDY_LISTS } from "../lib/study-lists"
-import { buildZerotracRatingMap, getZerotracProblemBySlug } from "../lib/zerotrac"
+import { getLeetCodeProblemSlug } from "../lib/leetcode-url"
+import { buildZerotracRatingMap } from "../lib/zerotrac"
 import { showZenithQuestModal } from "./ZenithSystemOverlay"
 
 export const config: PlasmoCSConfig = {
@@ -15,13 +16,8 @@ let predictionInjected = false;
 let predictionData: any = null;
 let zerotracRatingMap: Map<string, number> | null = null;
 
-function getCurrentProblemSlug() {
-  const contestMatch = window.location.pathname.match(/\/problems\/([^\/]+)/)
-  return contestMatch?.[1] ?? null
-}
-
 const fetchPrediction = async () => {
-  const slug = window.location.pathname.split('/')[2];
+  const slug = getLeetCodeProblemSlug()
   if (!slug) return;
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -117,16 +113,17 @@ const injectAlgoVaultOverlay = () => {
     return text === "Easy" || text === "Medium" || text === "Hard";
   }) as HTMLElement;
 
-  const currentSlug = getCurrentProblemSlug();
+  const currentSlug = getLeetCodeProblemSlug();
   const injectedSlug = diffTag?.getAttribute("data-algovault-rating");
 
   if (diffTag && currentSlug && injectedSlug !== currentSlug) {
     diffTag.setAttribute("data-algovault-rating", currentSlug);
     diffTag.querySelector(".av-rating")?.remove();
 
-    const applyRating = (payload: unknown) => {
-      const problem = getZerotracProblemBySlug(payload, currentSlug)
-      const rating = problem?.Rating
+    const applyRating = () => {
+      // LeetCode is a SPA. Ignore async responses whose page context is stale.
+      if (getLeetCodeProblemSlug() !== currentSlug) return
+      const rating = zerotracRatingMap?.get(currentSlug.toLowerCase())
       if (!Number.isFinite(rating)) return
 
       const rounded = Math.round(Number(rating))
@@ -143,7 +140,7 @@ const injectAlgoVaultOverlay = () => {
     }
 
     if (zerotracRatingMap) {
-      applyRating(Array.from(zerotracRatingMap.entries()).map(([TitleSlug, Rating]) => ({ TitleSlug, Rating })))
+      applyRating()
     } else {
       // Fetch rating from ZeroTrac via background to bypass CSP.
       chrome.runtime.sendMessage({ action: "get_zerotrac" }, (data) => {
@@ -152,7 +149,7 @@ const injectAlgoVaultOverlay = () => {
           return
         }
         zerotracRatingMap = buildZerotracRatingMap(data)
-        applyRating(data)
+        applyRating()
       })
     }
   }
@@ -160,7 +157,7 @@ const injectAlgoVaultOverlay = () => {
   // Compact study-list membership entry point.
   const titleH1 = document.querySelector('a[href*="/problems/"]')?.parentElement;
   if (titleH1 && !document.getElementById('av-lists-btn')) {
-    const slug = window.location.pathname.split('/')[2];
+    const slug = getLeetCodeProblemSlug();
     const memberships = STUDY_LISTS.filter((list) => list.problems.some((problem) => problem.slug === slug));
     const listsBtn = document.createElement('button');
     listsBtn.id = 'av-lists-btn';
@@ -187,7 +184,7 @@ const injectAlgoVaultOverlay = () => {
       startZenithBtn.className = 'ml-3 text-xs px-2.5 py-1 rounded bg-[#dfa054]/10 text-[#dfa054] border border-[#dfa054]/25 hover:bg-[#dfa054]/20 transition-colors font-medium cursor-pointer';
       startZenithBtn.onclick = () => {
         showZenithQuestModal(
-          () => {
+          (intent) => {
             // Synchronously request fullscreen on user click
             document.documentElement.requestFullscreen().catch((err) => {
               console.warn("Fullscreen request rejected:", err);
@@ -197,6 +194,7 @@ const injectAlgoVaultOverlay = () => {
               "algovault.zenithGrade": "S_PLUS",
               "algovault.zenithReason": "Pure Solve",
               "algovault.zenithFocusScore": 100,
+              "algovault.zenithIntent": intent,
               "algovault.problemStartTime": new Date().toISOString()
             }, () => {
               startZenithBtn.remove();

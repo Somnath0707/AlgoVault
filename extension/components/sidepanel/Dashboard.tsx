@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { ArrowUpRight, CheckCircle2, Clock3, Target, Play, RotateCcw, Square } from "lucide-react"
+import { ArrowUpRight, CheckCircle2, Clock3, Target, Play, RotateCcw, Square, Compass, Sparkles, TrendingUp, Flame } from "lucide-react"
 import { Card } from "../ui/Card"
 import { Skeleton } from "../ui/Skeleton"
 import { fetchDashboard, fetchHeatmap, fetchPotd, fetchRevisionQueue, fetchWeakness, fetchAllSessions, reviewRevisionCard } from "../../lib/api/backend"
@@ -15,6 +15,7 @@ import {
 } from "../../lib/storage"
 import { AchievementShowcase } from "./AchievementShowcase"
 import { buildAchievementStats, getAchievements } from "../../lib/achievements"
+import { normalizeZerotracPayload } from "../../lib/zerotrac"
 
 function message<T>(payload: Record<string, unknown>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -128,11 +129,11 @@ export const Dashboard = () => {
   const loadFreshData = () => {
     getUsername().then((username) => {
       Promise.all([
-        fetchDashboard(),
-        fetchHeatmap(),
+        fetchDashboard().catch(() => null),
+        fetchHeatmap().catch(() => []),
         fetchPotd().catch(() => []),
         fetchRevisionQueue().catch(() => []),
-        fetchWeakness(),
+        fetchWeakness().catch(() => null),
         message<any>({ action: "get_solved_problem_slugs" }).catch(() => null),
         message<any>({ action: "get_user_profile", payload: { username } }).catch(() => null),
         message<any>({ action: "get_zerotrac" }).catch(() => null),
@@ -157,9 +158,7 @@ export const Dashboard = () => {
         if (profileRes?.ok) {
           setProfile(profileRes.data?.matchedUser || null)
         }
-        if (Array.isArray(zerotracRes)) {
-          setZerotrac(zerotracRes)
-        }
+        setZerotrac(normalizeZerotracPayload(zerotracRes))
         if (Array.isArray(sessionsRes)) {
           setSessions(sessionsRes)
         }
@@ -365,36 +364,66 @@ export const Dashboard = () => {
 
     const currentRating = rankingInfo?.rating || data?.virtualRating || 1500
 
-    const calendarDays = Array.from({ length: 28 }).map((_, idx) => {
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - 27)
+    const paddingStart = startDate.getDay()
+    
+    const daysToGenerate: (Date | null)[] = []
+    for (let i = 0; i < paddingStart; i++) {
+      daysToGenerate.push(null)
+    }
+    for (let i = 0; i < 28; i++) {
       const d = new Date()
-      d.setDate(d.getDate() - (27 - idx))
+      d.setDate(d.getDate() - (27 - i))
+      daysToGenerate.push(d)
+    }
+
+    let adjustedTotalMinutes = 0
+
+    const calendarDays = daysToGenerate.map((d) => {
+      if (d === null) return null
+      
       const dateStr = d.toISOString().split("T")[0]
-      const mins = dailyMinutes[dateStr] || 0
+      let mins = dailyMinutes[dateStr] || 0
       const solvedProblems = dailySolvesList[dateStr] || []
       const solved = solvedProblems.length
       const tabs = dailyTabSwitches[dateStr] || 0
       const pastes = dailyPasteCount[dateStr] || 0
 
+      // ACCURATE TIME CALCULATION: If they solved problems but didn't run a timer, we estimate their focus time accurately based on difficulty
+      let estimatedMins = 0
+      for (const prob of solvedProblems) {
+        if (prob.difficulty === "Hard") estimatedMins += 45
+        else if (prob.difficulty === "Medium") estimatedMins += 25
+        else estimatedMins += 10
+      }
+      
+      // We use whichever is higher: their actual session time, or the estimated time it would normally take to solve these problems
+      if (estimatedMins > mins) {
+        mins = estimatedMins
+      }
+      
+      adjustedTotalMinutes += mins
+
       let score = 0.0
       if (mins > 0 || solved > 0) {
         let solvePoints = 0
         for (const prob of solvedProblems) {
-          if (prob.rating >= currentRating) {
-            solvePoints += 4.0
-          } else if (prob.rating >= currentRating - 200) {
-            solvePoints += 2.5
-          } else {
-            solvePoints += 1.5
-          }
+          if (prob.rating >= currentRating + 100) solvePoints += 5.0
+          else if (prob.rating >= currentRating - 50) solvePoints += 3.5
+          else solvePoints += 1.5
         }
 
-        if (solved === 0 && mins > 0) {
-          solvePoints = 0
-        }
-
-        const timePoints = (mins / 30) * 1.0
-        const penalty = (tabs > 10 || pastes > 3) ? 1.0 : 0.0
+        // Time gives a base score (e.g. 1 hour = 2.5 pts)
+        const timePoints = (mins / 60) * 2.5
+        
+        // Softened penalty: only heavily penalize extreme distractions
+        let penalty = 0
+        if (tabs > 20) penalty += 1.0
+        if (pastes > 5) penalty += 1.0
+        
         score = Math.min(10.0, Math.max(0.0, solvePoints + timePoints - penalty))
+        if (solved === 0 && score > 6.0) score = 6.0 // Cap time-only sessions
       }
 
       return {
@@ -409,9 +438,10 @@ export const Dashboard = () => {
       }
     })
 
-    const totalHours = totalFocusSeconds / 3600
-    const avgSessionMin = validSessionCount > 0 ? Math.round((totalFocusSeconds / 60) / validSessionCount) : 0
-    const dailyAvgMin = Math.round(Object.values(dailyMinutes).reduce((sum, m) => sum + m, 0) / Math.max(1, Object.keys(dailyMinutes).length))
+    const totalHours = adjustedTotalMinutes / 60
+    const activeDaysCount = calendarDays.filter(d => d !== null && (d.minutes > 0 || d.solved > 0)).length
+    const avgSessionMin = activeDaysCount > 0 ? Math.round(adjustedTotalMinutes / activeDaysCount) : 0
+    const dailyAvgMin = Math.round(adjustedTotalMinutes / 28)
 
     return {
       totalHours,
@@ -426,6 +456,7 @@ export const Dashboard = () => {
       return { score: 0, minutes: 0, solved: 0, tabSwitches: 0, pasteCount: 0, badgeText: "Rest Day", badgeColor: "text-zinc-500 bg-zinc-950 border-zinc-900", barColor: "bg-zinc-800" }
     }
     const today = stats.calendarDays[stats.calendarDays.length - 1]
+    if (!today) return { score: 0, minutes: 0, solved: 0, tabSwitches: 0, pasteCount: 0, badgeText: "Rest Day", badgeColor: "text-zinc-500 bg-zinc-950 border-zinc-900", barColor: "bg-zinc-800" }
     
     let badgeText = "Rest Day"
     let badgeColor = "text-zinc-500 bg-zinc-950 border-zinc-900"
@@ -485,88 +516,91 @@ export const Dashboard = () => {
   const plan = [
     queue[0] && { type: "Review", id: queue[0].id, title: queue[0].title || queue[0].problemTitle, slug: queue[0].titleSlug },
     potd[0] && { type: potd[0].type || "Practice", title: potd[0].title, slug: potd[0].titleSlug, reason: potd[0].reason },
-    weakest && { type: "Weak topic", title: weakest.tag, reason: `${Math.round(weakest.masteryScore ?? 0)} rating evidence score` }
+    weakest && { type: "Practice signal", title: weakest.tag, reason: "needs more recent evidence" }
   ].filter(Boolean) as any[]
 
   const allSolvedStat = profile?.submitStats?.acSubmissionNum?.find((item: any) => item.difficulty === "All")
   const officialTotalSolved = allSolvedStat ? allSolvedStat.count : data.totalSolved
+  const primaryAction = plan.find((item) => item.slug) || plan[0]
+  const practiceRange = range ? `${range.low}–${range.high}` : "Building baseline"
+  const syncLabel = lastSync ? `Synced ${new Date(lastSync).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : "History not synced"
 
   return (
     <div className="grid gap-3.5 select-none">
-      {/* Zenith Mode Achievements Card */}
-      {data?.interviewIndex !== undefined && (
-        <Card className="p-4 bg-zinc-950/40 border border-cyan-950/40 shadow-[0_0_15px_rgba(6,182,212,0.05)]">
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-cyan-400">
-            <Target size={13} /> Zenith Rank Board
-          </div>
-          <div className="mt-2.5 flex items-baseline justify-between">
-            <div>
-              <span className="text-[9px] font-mono text-zinc-500 uppercase block">Interview Index (II)</span>
-              <div className="text-3xl font-black font-mono text-cyan-400 tabular-nums tracking-tight drop-shadow-[0_0_8px_rgba(34,211,238,0.3)]">
-                {Math.round(data.interviewIndex)}
-              </div>
+      <Card className="relative overflow-hidden border-amber-500/20 bg-[#15130f] p-0 shadow-[0_12px_30px_rgba(0,0,0,0.22)]">
+        <div className="absolute inset-y-0 left-0 w-1 bg-[#dfa054]" />
+        <div className="p-4 pl-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 panel-label">
+              <Compass size={13} className="text-[#dfa054]" /> Today&apos;s next move
             </div>
-            <div className="text-right">
-              <span className="text-[8px] font-mono text-zinc-500 uppercase block">Rank Classification</span>
-              <span className="text-xs font-bold font-mono text-[#dfa054] bg-[#dfa054]/10 border border-[#dfa054]/20 px-2 py-0.5 rounded">
-                {data.interviewIndex >= 2200 ? "S-Tier Hunter" : data.interviewIndex >= 1800 ? "A-Tier Hunter" : data.interviewIndex >= 1400 ? "B-Tier Hunter" : "C-Tier Hunter"}
-              </span>
+            <span className="rounded-full border border-zinc-700/80 bg-zinc-950/40 px-2 py-1 text-[9px] font-mono text-zinc-500">{syncLabel}</span>
+          </div>
+          <div className="mt-3 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="truncate text-lg font-semibold tracking-tight text-zinc-100">
+                {primaryAction?.title || "Choose your first practice track"}
+              </h2>
+              <p className="mt-1 text-[11px] leading-relaxed text-zinc-400">
+                {primaryAction?.reason || "Your history becomes a useful daily plan after one full sync."}
+              </p>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="panel-label">Practice range</div>
+              <div className="metric-value mt-1 text-sm font-semibold text-[#dfa054]">{practiceRange}</div>
             </div>
           </div>
+          <div className="mt-4 flex gap-2">
+            {primaryAction?.slug ? (
+              <a
+                href={`https://leetcode.com/problems/${primaryAction.slug}/`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-8 items-center gap-1.5 rounded-md bg-[#dfa054] px-3 text-[10px] font-bold text-zinc-950 transition-colors hover:bg-[#efb76e]"
+              >
+                Open problem <ArrowUpRight size={12} />
+              </a>
+            ) : (
+              <button
+                onClick={() => handleStartSession()}
+                className="inline-flex min-h-8 items-center gap-1.5 rounded-md bg-[#dfa054] px-3 text-[10px] font-bold text-zinc-950 transition-colors hover:bg-[#efb76e]"
+              >
+                Start a session <Play size={11} fill="currentColor" />
+              </button>
+            )}
+            <a
+              href="https://leetcode.com/problemset/"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-8 items-center rounded-md border border-zinc-700 bg-zinc-950/30 px-3 text-[10px] font-medium text-zinc-300 transition-colors hover:border-zinc-600 hover:bg-zinc-900"
+            >
+              Explore
+            </a>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 divide-x divide-zinc-800/80 border-t border-zinc-800/80 bg-zinc-950/30">
+          <div className="px-4 py-2.5"><div className="panel-label">Solved</div><div className="metric-value mt-1 text-lg font-semibold text-zinc-100">{officialTotalSolved}</div></div>
+          <div className="px-4 py-2.5"><div className="panel-label">This week</div><div className="metric-value mt-1 text-lg font-semibold text-zinc-100">{data.todaySolves || 0}<span className="ml-1 text-[10px] font-normal text-zinc-500">today</span></div></div>
+          <div className="px-4 py-2.5"><div className="panel-label">Streak</div><div className="metric-value mt-1 text-lg font-semibold text-zinc-100">{data.currentStreak || 0}<span className="ml-1 text-[10px] font-normal text-zinc-500">days</span></div></div>
+        </div>
+      </Card>
 
-          <div className="mt-4 pt-3 border-t border-zinc-900/60">
-            <div className="text-[9px] font-mono font-bold uppercase text-zinc-500 mb-2">Solved Rank Index</div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left font-mono text-[10px]">
-                <thead>
-                  <tr className="text-zinc-600 border-b border-zinc-900/60 pb-1.5 text-[8px] uppercase">
-                    <th className="py-1">Grade</th>
-                    <th className="py-1 text-center">&lt;1600</th>
-                    <th className="py-1 text-center">1600-2000</th>
-                    <th className="py-1 text-center">2000+</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-900/40 text-zinc-300">
-                  {["S_PLUS", "S", "A", "B"].map((grade) => {
-                    const diffMap = data.solvedRankGrid?.[grade] || {};
-                    const formattedGrade = grade.replace("S_PLUS", "S+");
-                    
-                    let gradeColor = "text-[#dfa054]";
-                    if (grade === "S") gradeColor = "text-cyan-400";
-                    else if (grade === "A") gradeColor = "text-emerald-400";
-                    else if (grade === "B") gradeColor = "text-blue-400";
+      <div className="flex items-center justify-between px-1 pt-1">
+        <div className="flex items-center gap-2 panel-label"><TrendingUp size={13} className="text-emerald-400" /> Evidence and momentum</div>
+        <span className="text-[10px] font-mono text-zinc-600">{range ? `${range.evidence} solved signals` : "needs rated history"}</span>
+      </div>
 
-                    return (
-                      <tr key={grade} className="hover:bg-zinc-900/20">
-                        <td className={`py-1.5 font-bold ${gradeColor}`}>{formattedGrade}</td>
-                        <td className="py-1.5 text-center font-bold tabular-nums">
-                          {diffMap.EASY || <span className="text-zinc-700 font-normal">·</span>}
-                        </td>
-                        <td className="py-1.5 text-center font-bold tabular-nums">
-                          {diffMap.MEDIUM || <span className="text-zinc-700 font-normal">·</span>}
-                        </td>
-                        <td className="py-1.5 text-center font-bold tabular-nums">
-                          {diffMap.HARD || <span className="text-zinc-700 font-normal">·</span>}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </Card>
-      )}
+
 
       {/* Solve range card */}
       <Card className="p-4 bg-zinc-950/20 border border-zinc-900 shadow-inner">
-        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500"><Target size={13} />Target Rating Range</div>
+        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500"><Target size={13} />Practice range</div>
         {range ? (
           <>
             <div className="mt-2 text-3xl font-extrabold font-mono text-zinc-100 tabular-nums tracking-tight">{range.low} <span className="text-zinc-600 font-normal">→</span> {range.high}</div>
-            <div className="mt-1 text-[10px] text-zinc-500 leading-snug">Based on {range.source}.</div>
+            <div className="mt-1 text-[10px] text-zinc-500 leading-snug">Evidence-based estimate from {range.source}.</div>
             <div className="mt-3 border-t border-zinc-900/60 pt-2.5 text-[11px] font-mono text-zinc-400">
-              Challenge targets: <span className="text-[#dfa054] font-bold bg-[#dfa054]/10 border border-[#dfa054]/20 px-2 py-0.5 rounded ml-1">{range.challengeLow} - {range.challengeHigh}</span>
+              Stretch range: <span className="text-[#dfa054] font-bold bg-[#dfa054]/10 border border-[#dfa054]/20 px-2 py-0.5 rounded ml-1">{range.challengeLow} - {range.challengeHigh}</span>
             </div>
           </>
         ) : (
@@ -657,53 +691,63 @@ export const Dashboard = () => {
 
         {/* History Stats Grid */}
         <div className="grid grid-cols-3 gap-2 text-center font-mono">
-          <div className="bg-zinc-950/40 border border-zinc-900/60 p-2 rounded-lg">
-            <span className="text-[8px] text-zinc-500 block uppercase">Total Hours</span>
-            <span className="text-xs font-bold text-zinc-200 mt-0.5 block">{stats.totalHours.toFixed(1)}h</span>
+          <div className="bg-gradient-to-br from-zinc-900/60 to-zinc-950/80 border border-zinc-900/60 p-2 rounded-lg flex flex-col items-center justify-center relative overflow-hidden">
+            <Flame size={13} className="text-orange-400 absolute opacity-20 -right-1 -bottom-1 w-8 h-8" />
+            <div className="flex items-center justify-center gap-1.5 mb-0.5"><Flame size={11} className="text-orange-400" /><span className="text-[8px] text-zinc-500 uppercase">Total Hours</span></div>
+            <span className="text-xs font-bold text-zinc-200">{stats.totalHours.toFixed(1)}h</span>
           </div>
-          <div className="bg-zinc-950/40 border border-zinc-900/60 p-2 rounded-lg">
-            <span className="text-[8px] text-zinc-500 block uppercase">Avg Session</span>
-            <span className="text-xs font-bold text-zinc-200 mt-0.5 block">{stats.avgSessionMin}m</span>
+          <div className="bg-gradient-to-br from-zinc-900/60 to-zinc-950/80 border border-zinc-900/60 p-2 rounded-lg flex flex-col items-center justify-center relative overflow-hidden">
+            <Clock3 size={13} className="text-sky-400 absolute opacity-20 -right-1 -bottom-1 w-8 h-8" />
+            <div className="flex items-center justify-center gap-1.5 mb-0.5"><Clock3 size={11} className="text-sky-400" /><span className="text-[8px] text-zinc-500 uppercase">Avg Session</span></div>
+            <span className="text-xs font-bold text-zinc-200">{stats.avgSessionMin}m</span>
           </div>
-          <div className="bg-zinc-950/40 border border-zinc-900/60 p-2 rounded-lg">
-            <span className="text-[8px] text-zinc-500 block uppercase">Daily Avg</span>
-            <span className="text-xs font-bold text-zinc-200 mt-0.5 block">{stats.dailyAvgMin}m</span>
+          <div className="bg-gradient-to-br from-zinc-900/60 to-zinc-950/80 border border-zinc-900/60 p-2 rounded-lg flex flex-col items-center justify-center relative overflow-hidden">
+            <Target size={13} className="text-emerald-400 absolute opacity-20 -right-1 -bottom-1 w-8 h-8" />
+            <div className="flex items-center justify-center gap-1.5 mb-0.5"><Target size={11} className="text-emerald-400" /><span className="text-[8px] text-zinc-500 uppercase">Daily Avg</span></div>
+            <span className="text-xs font-bold text-zinc-200">{stats.dailyAvgMin}m</span>
           </div>
         </div>
 
         {/* Daily Performance Score Indicator Card */}
-        <div className="bg-zinc-950/50 border border-zinc-900 p-3 rounded-xl flex flex-col gap-2.5">
-          <div className="flex justify-between items-center">
+        <div className="bg-zinc-950/50 border border-zinc-900 p-3 rounded-xl flex gap-4 items-center">
+          <div className="flex-1 flex flex-col gap-2">
             <div>
-              <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest block font-mono">Today's Daily Rating</span>
-              <span className="text-lg font-black font-mono text-zinc-100 tabular-nums">{todayStats.score} <span className="text-xs text-zinc-500 font-normal">/ 10.0</span></span>
+              <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest block font-mono">Today&apos;s activity signal</span>
+              <span className={`inline-block mt-1 text-[9px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider font-mono ${todayStats.badgeColor}`}>
+                {todayStats.badgeText}
+              </span>
             </div>
-            <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider font-mono ${todayStats.badgeColor}`}>
-              {todayStats.badgeText}
-            </span>
-          </div>
 
-          {/* Progress Bar Gauge */}
-          <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden">
-            <div className={`h-full rounded-full transition-all duration-500 ${todayStats.barColor}`} style={{ width: `${todayStats.score * 10}%` }} />
-          </div>
-
-          {/* Breakdown parameters list */}
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 pt-1.5 border-t border-zinc-900/40 text-[9px] font-mono text-zinc-400">
-            <div className="flex justify-between">
-              <span>Focus Mins:</span>
-              <span className="text-zinc-200 font-bold">{todayStats.minutes}m <span className="text-zinc-500 text-[8px] font-normal">(+{((todayStats.minutes / 30) * 1.0).toFixed(1)} pts)</span></span>
-            </div>
-            <div className="flex justify-between">
-              <span>Solved Count:</span>
-              <span className="text-zinc-200 font-bold">{todayStats.solved} <span className="text-zinc-500 text-[8px] font-normal">(+{(todayStats.solved * 2.5).toFixed(1)} pts)</span></span>
-            </div>
-            {todayStats.tabSwitches > 0 && (
-              <div className="flex justify-between col-span-2 text-red-400">
-                <span>Anti-Cheat Penalty (Tab Switches):</span>
-                <span className="font-bold">-{todayStats.tabSwitches > 10 ? "1.0" : "0.0"} pts ({todayStats.tabSwitches} switches)</span>
+            {/* Breakdown parameters list */}
+            <div className="flex flex-col gap-1.5 pt-1.5 border-t border-zinc-900/40 text-[9px] font-mono text-zinc-400">
+              <div className="flex justify-between">
+                <span>Focus Mins:</span>
+                <span className="text-zinc-200 font-bold">{todayStats.minutes}m <span className="text-zinc-500 text-[8px] font-normal">(+{((todayStats.minutes / 30) * 1.0).toFixed(1)} pts)</span></span>
               </div>
-            )}
+              <div className="flex justify-between">
+                <span>Solved Count:</span>
+                <span className="text-zinc-200 font-bold">{todayStats.solved} <span className="text-zinc-500 text-[8px] font-normal">(+{(todayStats.solved * 2.5).toFixed(1)} pts)</span></span>
+              </div>
+              {todayStats.tabSwitches > 0 && (
+                <div className="flex justify-between text-red-400">
+                  <span>Interrupted:</span>
+                  <span className="font-bold">{todayStats.tabSwitches} switches</span>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="shrink-0 relative w-16 h-16 mr-1">
+            <svg className="w-full h-full -rotate-90 drop-shadow-lg" viewBox="0 0 36 36">
+              <circle cx="18" cy="18" r="15" fill="none" stroke="#27272a" strokeWidth="4" />
+              <circle cx="18" cy="18" r="15" fill="none" 
+                stroke={todayStats.score >= 8 ? '#10b981' : todayStats.score >= 4 ? '#dfa054' : '#ef4444'}
+                strokeWidth="4" strokeDasharray={`${todayStats.score * 9.42} 94.2`} strokeLinecap="round" className="transition-all duration-1000 ease-out" />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-[13px] leading-none font-black font-mono text-zinc-100">{todayStats.score}</span>
+              <span className="text-[7px] leading-none text-zinc-500 font-mono font-bold uppercase mt-0.5">/ 10</span>
+            </div>
           </div>
         </div>
 
@@ -716,15 +760,22 @@ export const Dashboard = () => {
           
           <div className="flex">
             {/* Y-axis days (optional, commonly Mon/Wed/Fri) */}
-            <div className="grid grid-rows-4 gap-1.5 text-[7px] font-mono text-zinc-600 pr-2.5 pb-1 uppercase font-bold justify-items-end pt-1">
-              <span className="flex items-center">Sun</span>
+            <div className="grid grid-rows-7 gap-1.5 text-[7px] font-mono text-zinc-600 pr-2.5 pb-1 uppercase font-bold justify-items-end pt-1">
+              <span className="flex items-center text-transparent">Sun</span>
               <span className="flex items-center">Mon</span>
-              <span className="flex items-center">Tue</span>
+              <span className="flex items-center text-transparent">Tue</span>
               <span className="flex items-center">Wed</span>
+              <span className="flex items-center text-transparent">Thu</span>
+              <span className="flex items-center">Fri</span>
+              <span className="flex items-center text-transparent">Sat</span>
             </div>
 
-            <div className="grid grid-cols-7 grid-rows-4 grid-flow-col gap-1.5 flex-1">
-              {stats.calendarDays.map((day) => {
+            <div className="grid grid-rows-7 grid-flow-col gap-1.5 flex-1">
+              {stats.calendarDays.map((day: any, idx: number) => {
+                if (day === null) {
+                  return <div key={`empty-${idx}`} className="w-full aspect-square" />
+                }
+
                 const score = day.score
                 let colorClass = "bg-zinc-900/60 border border-zinc-900 hover:border-zinc-700"
                 if (score >= 8.0) {
@@ -741,25 +792,25 @@ export const Dashboard = () => {
                     className={`w-full aspect-square rounded-sm cursor-help transition-all duration-300 relative group ${colorClass}`}
                   >
                     {/* Glassmorphic Tooltip */}
-                    <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 hidden group-hover:block z-50 p-2.5 rounded-lg border border-zinc-800 bg-zinc-950/95 backdrop-blur shadow-2xl whitespace-nowrap min-w-[140px]">
+                    <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 hidden group-hover:block z-50 p-2.5 rounded-lg border border-zinc-800/80 bg-zinc-950/95 backdrop-blur shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] whitespace-nowrap min-w-[150px]">
                       {/* Tooltip triangle pointer */}
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-solid border-t-zinc-850 border-t-8 border-x-transparent border-x-8 border-b-0"></div>
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-solid border-t-zinc-800/80 border-t-8 border-x-transparent border-x-8 border-b-0"></div>
                       
-                      <div className="text-[10px] font-bold text-zinc-300 border-b border-zinc-900 pb-1 mb-1.5">{day.dateLabel}</div>
+                      <div className="text-[10px] font-bold text-zinc-200 border-b border-zinc-800/60 pb-1 mb-1.5">{day.dateLabel}</div>
                       <div className="flex flex-col gap-1 text-[9px] font-mono">
                         <div className="flex justify-between items-center text-zinc-400 gap-3">
                           <span>Focus Time:</span>
-                          <span className="text-zinc-200 font-bold">{day.minutes} min</span>
+                          <span className="text-emerald-400 font-bold">{day.minutes} min</span>
                         </div>
-                        <div className="flex justify-between items-center text-zinc-400 gap-3 border-b border-zinc-900/60 pb-1 mb-1">
+                        <div className="flex justify-between items-center text-zinc-400 gap-3 border-b border-zinc-800/60 pb-1.5 mb-1.5">
                           <span>Solved:</span>
-                          <span className="text-zinc-200 font-bold">{day.solved}</span>
+                          <span className="text-[#dfa054] font-bold">{day.solved}</span>
                         </div>
                         {day.problems && day.problems.length > 0 && (
-                          <div className="flex flex-col gap-1 mb-1 text-[8px] text-zinc-400 leading-snug border-b border-zinc-900/40 pb-1">
+                          <div className="flex flex-col gap-1 mb-1.5 text-[8px] text-zinc-400 leading-snug border-b border-zinc-800/60 pb-1.5">
                             {day.problems.map((prob: any, idx: number) => (
                               <div key={idx} className="flex justify-between gap-3">
-                                <span className="truncate max-w-[80px]">{prob.title}</span>
+                                <span className="truncate max-w-[90px]">{prob.title}</span>
                                 <span className="text-[#dfa054] shrink-0 font-bold">{Math.round(prob.rating)}</span>
                               </div>
                             ))}
@@ -771,9 +822,9 @@ export const Dashboard = () => {
                             <span className="font-bold">{day.tabSwitches}</span>
                           </div>
                         )}
-                        <div className="flex justify-between items-center text-[#dfa054] border-t border-zinc-900 pt-1.5 mt-1 font-bold text-[10px]">
+                        <div className="flex justify-between items-center text-zinc-200 border-t border-zinc-800/60 pt-1.5 mt-0.5 font-bold text-[10px]">
                           <span>Daily Score:</span>
-                          <span>{day.score}/10</span>
+                          <span className="text-emerald-400">{day.score}/10</span>
                         </div>
                       </div>
                     </div>
@@ -792,29 +843,99 @@ export const Dashboard = () => {
             <div className="w-2.5 h-2.5 rounded-sm bg-emerald-500/80 border border-emerald-400/30 animate-pulse" />
             <span>Elite</span>
           </div>
+
+          {/* Insight */}
+          <div className="mt-2.5 p-2.5 rounded-lg bg-zinc-900/40 border border-zinc-800/50 text-[10px] text-zinc-400 font-mono">
+            <span className="text-[#dfa054]">💡</span> {(() => {
+              // Current streak calculation
+              let streak = 0;
+              const validDays = stats.calendarDays.filter((d: any) => d !== null);
+              for (let i = validDays.length - 1; i >= 0; i--) {
+                if (validDays[i].score > 0) streak++;
+                else if (i !== validDays.length - 1) break; // ignore today if 0, but break if yesterday was 0
+              }
+              
+              if (streak >= 3) return `${streak}-day streak! Consistency builds mastery.`;
+              
+              // Week solved
+              let weekSolved = 0;
+              for (let i = Math.max(0, validDays.length - 7); i < validDays.length; i++) {
+                weekSolved += validDays[i].solved;
+              }
+              if (weekSolved >= 10) return `Strong week — ${weekSolved} problems solved in the last 7 days.`;
+
+              // Best day
+              let bestDay = validDays[0];
+              for (const day of validDays) {
+                if (day.score > bestDay?.score) bestDay = day;
+              }
+              if (bestDay && bestDay.score > 5) return `Your most productive day was ${bestDay.dateLabel} (${bestDay.score}/10).`;
+
+              return "Start a session to build your practice momentum.";
+            })()}
+          </div>
         </div>
       </Card>
-
       {/* Achievement Showcase */}
       <AchievementShowcase achievements={achievements} variant="compact" />
 
       {/* Recommendation plan section */}
-      <section>
-        <h2 className="mb-2 text-[10px] font-bold uppercase text-zinc-500">Today's plan</h2>
-        <div className="overflow-hidden rounded-md border border-zinc-800">
-          {plan.map((item, index) => <a key={`${item.type}-${index}`} href={item.slug ? `https://leetcode.com/problems/${item.slug}/` : undefined} target={item.slug ? "_blank" : undefined} rel="noreferrer" className="flex items-center gap-2 border-b border-zinc-800 bg-zinc-900/30 p-2.5 last:border-0"><CheckCircle2 size={14} className="text-zinc-600" /><div className="min-w-0 flex-1"><div className="truncate text-xs font-medium text-zinc-200">{item.title}</div><div className="truncate text-[9px] text-zinc-500">{item.type}{item.reason ? ` · ${item.reason}` : ""}</div></div>{item.slug && <ArrowUpRight size={12} className="text-zinc-600" />}</a>)}
-          {plan.length === 0 && <div className="p-3 text-xs text-zinc-500">No recommendations are available yet.</div>}
+      <section className="mt-1">
+        <h2 className="mb-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Today's plan</h2>
+        <div className="grid gap-2">
+          {plan.map((item, index) => {
+            const isReview = item.type === "Review";
+            const isWeakness = item.type.includes("Practice signal");
+            const sideColor = isReview ? "bg-[#dfa054]" : isWeakness ? "bg-teal-500" : "bg-blue-500";
+            const iconColor = isReview ? "text-[#dfa054]" : isWeakness ? "text-teal-400" : "text-blue-400";
+            
+            return (
+              <a 
+                key={`${item.type}-${index}`} 
+                href={item.slug ? `https://leetcode.com/problems/${item.slug}/` : undefined} 
+                target={item.slug ? "_blank" : undefined} 
+                rel="noreferrer" 
+                className="group relative flex items-center justify-between gap-3 rounded-lg border border-zinc-850 bg-zinc-950/20 p-3 transition duration-200 hover:-translate-y-0.5 hover:border-zinc-700 hover:bg-zinc-900/40"
+              >
+                {/* Left accent indicator */}
+                <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg ${sideColor}`} />
+                
+                <div className="flex items-center gap-2.5 min-w-0 pl-1.5">
+                  <div className={`p-1.5 rounded bg-zinc-900/50 ${iconColor}`}>
+                    {isReview ? <RotateCcw size={12} /> : isWeakness ? <Target size={12} /> : <Compass size={12} />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-xs font-semibold text-zinc-200 transition group-hover:text-white">
+                      {item.title}
+                    </div>
+                    <div className="truncate text-[9px] font-mono text-zinc-550 mt-0.5 uppercase tracking-wide">
+                      {item.type}{item.reason ? ` · ${item.reason}` : ""}
+                    </div>
+                  </div>
+                </div>
+                {item.slug && <ArrowUpRight size={13} className="text-zinc-600 transition group-hover:text-zinc-300 mr-1" />}
+              </a>
+            );
+          })}
+          {plan.length === 0 && (
+            <div className="rounded-lg border border-dashed border-zinc-800 bg-zinc-950/10 px-4 py-6 text-center text-xs text-zinc-500">
+              No recommendations are available yet.
+            </div>
+          )}
         </div>
       </section>
 
       {/* 🔄 Spaced Repetition Review Queue */}
       {queue.length > 0 && (
-        <Card className="p-4 bg-zinc-950/20 border border-zinc-900 shadow-inner flex flex-col gap-3">
-          <div className="flex items-center justify-between border-b border-zinc-900 pb-2 mb-1">
-            <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-zinc-500">
-              <RotateCcw size={13} className="text-[#dfa054]" /> Review Queue ({queue.length} Due)
+        <Card className="p-4 bg-gradient-to-br from-[#1c120c]/40 to-black/80 border border-[#dfa054]/15 shadow-xl flex flex-col gap-3 relative overflow-hidden">
+          {/* Subtle orange ambient glow */}
+          <div className="absolute -top-10 -right-10 w-24 h-24 bg-[#dfa054]/5 rounded-full blur-2xl pointer-events-none" />
+          
+          <div className="flex items-center justify-between border-b border-zinc-900 pb-2 mb-0.5">
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+              <RotateCcw size={13} className="text-[#dfa054] animate-spin-slow" /> Review Queue ({queue.length} Due)
             </div>
-            <span className="text-[9px] font-mono text-zinc-500">SM-2 Scheduled</span>
+            <span className="text-[9px] font-mono text-[#dfa054]/70 bg-[#dfa054]/5 px-1.5 py-0.5 rounded border border-[#dfa054]/15">SM-2 Scheduled</span>
           </div>
 
           <div className="flex justify-between items-start gap-2">
@@ -823,28 +944,27 @@ export const Dashboard = () => {
                 href={`https://leetcode.com/problems/${queue[0].titleSlug}/`} 
                 target="_blank" 
                 rel="noreferrer"
-                className="font-bold text-xs text-zinc-200 hover:text-[#dfa054] transition-colors flex items-center gap-1"
+                className="font-bold text-xs text-zinc-200 hover:text-[#dfa054] transition-colors flex items-center gap-1.5 group/link"
               >
-                {queue[0].title || queue[0].problemTitle} <ArrowUpRight size={11} className="text-zinc-600 animate-pulse" />
+                {queue[0].title || queue[0].problemTitle} 
+                <ArrowUpRight size={11} className="text-zinc-650 transition group-hover/link:text-[#dfa054]" />
               </a>
-              <p className="text-[9px] text-zinc-500 font-mono mt-0.5">
-                Interval: {queue[0].intervalDays?.toFixed(1) || "1.0"}d · Reviews: {queue[0].reviewCount || 0}
+              <p className="text-[9px] text-zinc-500 font-mono mt-1">
+                Interval: <span className="text-zinc-300 font-bold">{queue[0].intervalDays?.toFixed(1) || "1.0"}d</span> · Reviews: <span className="text-zinc-300 font-bold">{queue[0].reviewCount || 0}</span>
               </p>
             </div>
 
             {reviewingCardId === queue[0].id ? (
-              <div className="flex gap-1">
-                <button 
-                  onClick={() => setReviewingCardId(null)}
-                  className="px-2 py-1 bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 text-[10px] rounded-md transition-all font-mono cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </div>
+              <button 
+                onClick={() => setReviewingCardId(null)}
+                className="px-2.5 py-1 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200 text-[10px] rounded-md transition-all font-mono uppercase cursor-pointer"
+              >
+                Cancel
+              </button>
             ) : (
               <button 
                 onClick={() => setReviewingCardId(queue[0].id)}
-                className="px-2.5 py-1 bg-[#dfa054]/10 hover:bg-[#dfa054]/20 border border-[#dfa054]/20 text-[#dfa054] text-[10px] font-bold rounded-md transition-all font-mono uppercase cursor-pointer"
+                className="px-3 py-1 bg-[#dfa054]/10 hover:bg-[#dfa054]/20 border border-[#dfa054]/30 text-[#dfa054] text-[10px] font-bold rounded-md transition-all font-mono uppercase cursor-pointer shadow-[0_0_10px_rgba(223,160,84,0.05)]"
               >
                 Log Review
               </button>
@@ -852,40 +972,61 @@ export const Dashboard = () => {
           </div>
 
           {reviewingCardId === queue[0].id && (
-            <div className="flex flex-col gap-2 bg-zinc-900/30 border border-zinc-900/60 p-2.5 rounded-lg mt-1">
-              <div className="text-[9px] font-mono text-zinc-400 font-bold uppercase">Rate your recall quality:</div>
+            <div className="flex flex-col gap-2 bg-zinc-950/80 border border-zinc-900 p-2.5 rounded-lg mt-1">
+              <div className="text-[9px] font-mono text-zinc-400 font-bold uppercase tracking-wider">Rate recall quality:</div>
               <div className="grid grid-cols-4 gap-1.5 font-mono text-[9px] font-bold">
                 <button 
                   disabled={reviewSubmitting}
                   onClick={() => handleReviewSubmit(queue[0].id, 1)}
-                  className="bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 py-1.5 rounded transition-all cursor-pointer text-center"
+                  className="bg-red-550/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 py-1.5 rounded transition-all cursor-pointer text-center"
                 >
                   Forgot (1)
                 </button>
                 <button 
                   disabled={reviewSubmitting}
                   onClick={() => handleReviewSubmit(queue[0].id, 3)}
-                  className="bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 text-amber-400 py-1.5 rounded transition-all cursor-pointer text-center"
+                  className="bg-amber-550/10 border border-amber-500/20 hover:bg-amber-500/20 text-amber-400 py-1.5 rounded transition-all cursor-pointer text-center"
                 >
                   Hard (3)
                 </button>
                 <button 
                   disabled={reviewSubmitting}
                   onClick={() => handleReviewSubmit(queue[0].id, 4)}
-                  className="bg-blue-500/10 border border-blue-500/20 hover:bg-blue-500/20 text-blue-400 py-1.5 rounded transition-all cursor-pointer text-center"
+                  className="bg-blue-550/10 border border-blue-500/20 hover:bg-blue-500/20 text-blue-400 py-1.5 rounded transition-all cursor-pointer text-center"
                 >
                   Good (4)
                 </button>
                 <button 
                   disabled={reviewSubmitting}
                   onClick={() => handleReviewSubmit(queue[0].id, 5)}
-                  className="bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-400 py-1.5 rounded transition-all cursor-pointer text-center"
+                  className="bg-emerald-555/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-400 py-1.5 rounded transition-all cursor-pointer text-center"
                 >
                   Easy (5)
                 </button>
               </div>
             </div>
           )}
+        </Card>
+      )}
+
+      {/* Premium Compact Zenith Record */}
+      {data?.solvedRankGrid && (
+        <Card className="p-3 bg-gradient-to-r from-zinc-950/40 to-zinc-900/20 border-zinc-800/80 flex items-center justify-between mt-1 transition-all duration-300 hover:border-cyan-950/40 hover:shadow-[0_4px_20px_rgba(6,182,212,0.05)]">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-cyan-400">
+              <Sparkles size={11} className="animate-pulse" /> Zenith
+            </div>
+            <div className="h-4 w-px bg-zinc-800" />
+            <div className="flex gap-1.5 text-[9px] font-mono font-bold">
+              <span className="bg-gradient-to-r from-yellow-500 to-[#dfa054] text-zinc-950 px-1.5 py-0.5 rounded shadow-[0_0_8px_rgba(245,158,11,0.15)]">S+: {Object.values(data.solvedRankGrid.S_PLUS || {}).reduce((a: any, b: any) => a + Number(b || 0), 0)}</span>
+              <span className="bg-cyan-500/10 text-cyan-455 border border-cyan-500/20 px-1.5 py-0.5 rounded">S: {Object.values(data.solvedRankGrid.S || {}).reduce((a: any, b: any) => a + Number(b || 0), 0)}</span>
+              <span className="bg-emerald-500/10 text-emerald-455 border border-emerald-500/20 px-1.5 py-0.5 rounded">A: {Object.values(data.solvedRankGrid.A || {}).reduce((a: any, b: any) => a + Number(b || 0), 0)}</span>
+              <span className="bg-blue-500/10 text-blue-455 border border-blue-500/20 px-1.5 py-0.5 rounded">B: {Object.values(data.solvedRankGrid.B || {}).reduce((a: any, b: any) => a + Number(b || 0), 0)}</span>
+            </div>
+          </div>
+          <div className="text-[10px] font-black font-mono text-zinc-400 text-right leading-none">
+            {Object.values(data.solvedRankGrid || {}).reduce((total: number, row: any) => total + Object.values(row || {}).reduce((sum: number, count: any) => sum + Number(count || 0), 0), 0)} <span className="text-[8px] text-zinc-650 font-normal uppercase block mt-0.5">Sessions</span>
+          </div>
         </Card>
       )}
     </div>
