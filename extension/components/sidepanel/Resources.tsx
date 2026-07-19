@@ -162,21 +162,35 @@ const RoadmapTree = () => {
         <div className="relative mt-4 flex items-center gap-2 text-[10px] text-zinc-500"><CircleCheck size={13} className="text-emerald-400" /> {completedTopics} of {topicProgress.length} topics cleared <span className="h-px flex-1 bg-[#d9a441]/15" /> <span className="font-mono text-[#e7ba68]">{totalProblems ? Math.round((totalSolved / totalProblems) * 100) : 0}%</span></div>
       </div>
 
-      <div className="overflow-x-auto bg-[#061014] p-3.5 flex justify-center">
-        <div ref={containerRef} className="relative w-full rounded-md border border-white/[0.06] bg-[radial-gradient(circle_at_18%_8%,rgba(45,212,191,.08),transparent_24%),radial-gradient(circle_at_86%_90%,rgba(217,164,65,.07),transparent_25%),linear-gradient(rgba(255,255,255,.022)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.022)_1px,transparent_1px)] bg-[size:auto,auto,24px_24px,24px_24px] p-6 flex flex-col items-center gap-10 min-h-[600px]">
+      <div className="overflow-x-auto bg-[#061014] p-3.5 flex justify-start sm:justify-center [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-zinc-950 [&::-webkit-scrollbar-thumb]:bg-zinc-800 [&::-webkit-scrollbar-thumb]:rounded-full scrollbar-thin">
+        <div ref={containerRef} className="relative w-full rounded-xl border border-white/[0.04] bg-[radial-gradient(circle_at_18%_8%,rgba(45,212,191,.08),transparent_24%),radial-gradient(circle_at_86%_90%,rgba(217,164,65,.07),transparent_25%),linear-gradient(rgba(255,255,255,.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.015)_1px,transparent_1px)] bg-[size:auto,auto,24px_24px,24px_24px] p-6 flex flex-col items-center gap-10 min-h-[640px]">
           <div className="absolute left-4 top-4 flex items-center gap-2 text-[9px] font-mono uppercase tracking-[0.15em] text-[#d9a441]/75 z-20"><ShipWheel size={13} /> Prerequisite route</div>
           
           <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
             {svgLines.map(line => (
-              <path 
-                key={line.id}
-                d={line.d}
-                fill="none"
-                stroke={line.color}
-                strokeWidth={line.isDone ? 2.5 : 1.5}
-                strokeDasharray={line.isDone ? "none" : "4 4"}
-                opacity={line.isDone ? 0.7 : 0.3}
-              />
+              <React.Fragment key={line.id}>
+                {/* Glowing Trail for Completed Paths */}
+                {line.isDone && (
+                  <path 
+                    d={line.d}
+                    fill="none"
+                    stroke={line.color}
+                    strokeWidth={5}
+                    opacity={0.12}
+                    className="blur-[2px]"
+                  />
+                )}
+                {/* Main Connection Line */}
+                <path 
+                  d={line.d}
+                  fill="none"
+                  stroke={line.color}
+                  strokeWidth={line.isDone ? 2 : 1.2}
+                  strokeDasharray={line.isDone ? "none" : "3 3"}
+                  opacity={line.isDone ? 0.95 : 0.25}
+                  className="transition-all duration-300"
+                />
+              </React.Fragment>
             ))}
           </svg>
 
@@ -194,7 +208,7 @@ const RoadmapTree = () => {
             
             return tiers.map((tierList, tierIdx) => (
               <div key={tierIdx} className="flex flex-col items-center w-full relative z-10">
-                <div className="flex justify-center gap-3 w-full">
+                <div className="flex justify-center gap-4 w-full">
                   {tierList.map((id, index) => {
                     const item = topicProgress.find(p => p.topic.id === id)!;
                     const { topic } = item;
@@ -204,24 +218,48 @@ const RoadmapTree = () => {
                     const prerequisitesCleared = topic.requires.every((reqId) => progressById.get(reqId)?.percent === 100);
                     const isLocked = !prerequisitesCleared && topic.requires.length > 0;
                     
+                    let cardBorderClass = "border-white/[0.08] bg-[#0a171c]/90 hover:border-[#d9a441]/40"
+                    if (isSelected) {
+                      cardBorderClass = "border-[#dfa054] bg-[#14232c] shadow-[0_0_15px_rgba(223,160,84,0.18)]"
+                    } else if (isDone) {
+                      cardBorderClass = "border-emerald-500/35 bg-emerald-950/10 shadow-[0_0_12px_rgba(16,185,129,0.06)]"
+                    } else if (isLocked) {
+                      cardBorderClass = "border-zinc-900 bg-zinc-950/40 opacity-40 hover:opacity-60"
+                    }
+
                     return (
                       <motion.button 
                         key={topic.id} 
                         ref={(el) => { nodeRefs.current[topic.id] = el; }}
                         type="button" 
                         onClick={() => setSelectedTopicId(topic.id)} 
-                        className={`group w-[105px] text-left focus:outline-none ${isLocked ? 'opacity-50 grayscale hover:opacity-100 hover:grayscale-0' : ''}`}
+                        className={`group w-[124px] text-left focus:outline-none transition-all`}
                         initial={{ opacity: 0, y: 8 }} 
-                        animate={{ opacity: isLocked ? 0.6 : 1, y: 0 }} 
+                        animate={{ opacity: 1, y: 0 }} 
                         transition={{ delay: 0.1 + tierIdx * 0.05 + index * 0.02, type: "spring", stiffness: 220, damping: 22 }} 
-                        whileHover={{ y: -2 }} 
-                        whileTap={{ scale: 0.96 }} 
+                        whileHover={{ y: isLocked ? 0 : -2 }} 
+                        whileTap={{ scale: 0.97 }} 
                         aria-pressed={isSelected}
                       >
-                        <div className={`relative overflow-hidden rounded-md border px-2 py-1.5 transition ${isSelected ? "border-[#d9a441]/80 bg-[#10242c] shadow-[0_4px_12px_rgba(0,0,0,.32)]" : isDone ? "border-emerald-500/40 bg-[#0a171c]/95" : "border-white/[0.11] bg-[#0a171c]/95 hover:border-[#d9a441]/45"}`}>
-                          <div className="flex items-center gap-1 mb-1.5"><Icon size={10} style={{ color: isDone ? "#34d399" : topic.accent, minWidth: '10px' }} /><span className="truncate text-[9px] font-semibold text-zinc-100">{topic.title}</span></div>
-                          <div className="h-[3px] overflow-hidden rounded-full bg-black/45"><div className="h-full rounded-full" style={{ width: `${item.percent}%`, backgroundColor: isDone ? "#34d399" : topic.accent }} /></div>
-                          <div className="mt-1 flex items-center justify-between text-[7px] text-zinc-500 font-mono"><span>{item.solved}/{item.total}</span>{isDone && <CircleCheck size={8} className="text-emerald-400" />}</div>
+                        <div className={`relative overflow-hidden rounded-lg border p-2 h-[60px] flex flex-col justify-between transition-all duration-350 ${cardBorderClass}`}>
+                          {/* Title & Icon Header */}
+                          <div className="flex items-start gap-1.5 min-w-0">
+                            <Icon size={11} className="shrink-0 mt-0.5" style={{ color: isDone ? "#10b981" : topic.accent }} />
+                            <span className="text-[9.5px] font-bold text-zinc-200 leading-tight block">
+                              {topic.title}
+                            </span>
+                          </div>
+
+                          {/* Progress Slider Bar */}
+                          <div className="space-y-1.5 mt-1.5">
+                            <div className="h-[3px] overflow-hidden rounded-full bg-black/40">
+                              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${item.percent}%`, backgroundColor: isDone ? "#10b981" : topic.accent }} />
+                            </div>
+                            <div className="flex items-center justify-between text-[7px] font-mono text-zinc-500 leading-none">
+                              <span>{item.solved}/{item.total} solved</span>
+                              {isDone && <span className="text-emerald-400 font-extrabold">✓ DONE</span>}
+                            </div>
+                          </div>
                         </div>
                       </motion.button>
                     );
@@ -234,23 +272,23 @@ const RoadmapTree = () => {
       </div>
 
       <AnimatePresence mode="wait">
-        <motion.div key={selected.topic.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }} className="border-t border-[#d9a441]/15 bg-[#0a171c] p-3.5">
+        <motion.div key={selected.topic.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }} className="border-t border-[#d9a441]/15 bg-zinc-950/50 backdrop-blur-md p-3.5">
           <div className="flex items-start gap-3">
-            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-[#d9a441]/35 bg-[#111f24]">
+            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-[#d9a441]/35 bg-[#111f24] shadow-inner">
               <img src={getAchievementAssetUrl(selected.topic.asset)} alt="" className="h-full w-full object-cover" />
               <div className="absolute inset-0 bg-[#0a171c]/20" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: selected.topic.accent }}>Pattern route</div>
-              <h3 className="mt-1 text-sm font-semibold text-zinc-100">{selected.topic.title}</h3>
+              <h3 className="mt-1 text-sm font-bold text-zinc-100">{selected.topic.title}</h3>
               <p className="mt-1 text-[11px] leading-relaxed text-zinc-400">{selected.topic.description}</p>
             </div>
           </div>
           <div className="mt-3 flex flex-wrap gap-1.5">{selected.topic.requires.length === 0 ? <span className="rounded border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[9px] text-emerald-300">Starting route</span> : selected.topic.requires.map((id) => { const dependency = progressById.get(id)!; return <span key={id} className={`rounded border px-2 py-1 text-[9px] ${dependency.percent === 100 ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-300" : "border-[#d9a441]/20 bg-[#d9a441]/10 text-[#e7ba68]"}`}>{dependency.percent === 100 ? "Cleared" : "Route through"}: {dependency.topic.title}</span> })}</div>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/35"><motion.div className="h-full rounded-full" style={{ backgroundColor: selected.topic.accent }} initial={{ width: 0 }} animate={{ width: `${selected.percent}%` }} transition={{ duration: 0.5, ease: "easeOut" }} /></div>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0"><div className="text-[9px] uppercase tracking-[0.12em] text-zinc-600">Next challenge</div><div className="mt-0.5 truncate text-xs font-medium text-zinc-200">{selected.nextProblem ? selected.nextProblem.title : "Island cleared. Pick a new route."}</div></div>
-            {selected.nextProblem ? <button type="button" onClick={() => openProblem(selected.nextProblem!.slug)} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-[#d9a441]/40 bg-[#d9a441]/10 px-3 py-2 text-[10px] font-semibold text-[#f8d791] transition hover:bg-[#d9a441]/20"><span>Set sail</span><ChevronRight size={13} /></button> : <div className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-[10px] font-semibold text-emerald-300"><CircleCheck size={13} /> Cleared</div>}
+            <div className="min-w-0"><div className="text-[9px] uppercase tracking-[0.12em] text-zinc-600 font-mono">Next challenge</div><div className="mt-0.5 truncate text-xs font-semibold text-zinc-200">{selected.nextProblem ? selected.nextProblem.title : "Island cleared. Pick a new route."}</div></div>
+            {selected.nextProblem ? <button type="button" onClick={() => openProblem(selected.nextProblem!.slug)} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#dfa054] hover:bg-[#eab308] px-3.5 py-2 text-[10px] font-bold text-zinc-950 shadow-[0_0_12px_rgba(223,160,84,0.15)] transition"><span>Set sail</span><ChevronRight size={13} /></button> : <div className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-[10px] font-bold text-emerald-300 shadow-[0_0_8px_rgba(16,185,129,0.06)]"><CircleCheck size={13} /> Cleared</div>}
           </div>
         </motion.div>
       </AnimatePresence>
