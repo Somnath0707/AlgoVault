@@ -143,27 +143,26 @@ const RoadmapTree = () => {
   const totalProblems = topicProgress.reduce((sum, item) => sum + item.total, 0)
 
   if (!selected) return null
-
   return (
-    <section className="overflow-hidden rounded-lg border border-[#d9a441]/25 bg-[#071219] text-zinc-100 shadow-[0_20px_50px_rgba(0,0,0,0.32)]">
-      <div className="relative overflow-hidden border-b border-[#d9a441]/20 bg-[#0b1d29] px-4 py-4">
-        <div className="absolute inset-0 opacity-50 [background-image:radial-gradient(circle_at_22%_18%,rgba(45,212,191,.15),transparent_24%),radial-gradient(circle_at_78%_0%,rgba(251,191,36,.14),transparent_28%),linear-gradient(115deg,transparent_20%,rgba(255,255,255,.04)_20.5%,transparent_21%)]" />
+    <section className="overflow-hidden rounded-lg border border-zinc-900 bg-zinc-950 text-zinc-100 shadow-[0_20px_50px_rgba(0,0,0,0.32)]">
+      <div className="relative overflow-hidden border-b border-zinc-900 bg-zinc-900/30 px-4 py-4">
+        <div className="absolute inset-0 opacity-50 bg-[radial-gradient(circle_at_22%_18%,rgba(223,160,84,0.08),transparent_24%),radial-gradient(circle_at_78%_0%,rgba(223,160,84,0.06),transparent_28%)]" />
         <div className="relative flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#e7ba68]"><Waves size={14} /> Grand Line curriculum</div>
             <h2 className="mt-1 text-lg font-semibold text-zinc-50">NeetCode 150 Voyage</h2>
             <p className="mt-1 max-w-md text-[11px] leading-relaxed text-zinc-400">A prerequisite map of every NeetCode topic. Open a node to inspect its path and launch the next challenge.</p>
           </div>
-          <div className="shrink-0 rounded-md border border-[#d9a441]/35 bg-black/20 px-2.5 py-2 text-right">
+          <div className="shrink-0 rounded-md border border-zinc-800 bg-black/20 px-2.5 py-2 text-right">
             <div className="font-mono text-sm font-semibold text-[#f8d791]">{totalSolved}<span className="text-zinc-500">/{totalProblems}</span></div>
             <div className="mt-0.5 text-[9px] uppercase tracking-[0.12em] text-zinc-500">charted</div>
           </div>
         </div>
-        <div className="relative mt-4 flex items-center gap-2 text-[10px] text-zinc-500"><CircleCheck size={13} className="text-emerald-400" /> {completedTopics} of {topicProgress.length} topics cleared <span className="h-px flex-1 bg-[#d9a441]/15" /> <span className="font-mono text-[#e7ba68]">{totalProblems ? Math.round((totalSolved / totalProblems) * 100) : 0}%</span></div>
+        <div className="relative mt-4 flex items-center gap-2 text-[10px] text-zinc-500"><CircleCheck size={13} className="text-emerald-400" /> {completedTopics} of {topicProgress.length} topics cleared <span className="h-px flex-1 bg-zinc-800/80" /> <span className="font-mono text-[#e7ba68]">{totalProblems ? Math.round((totalSolved / totalProblems) * 100) : 0}%</span></div>
       </div>
 
-      <div className="overflow-x-auto bg-[#061014] p-3.5 flex justify-start sm:justify-center [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-zinc-950 [&::-webkit-scrollbar-thumb]:bg-zinc-800 [&::-webkit-scrollbar-thumb]:rounded-full scrollbar-thin">
-        <div ref={containerRef} className="relative w-full rounded-xl border border-white/[0.04] bg-[radial-gradient(circle_at_18%_8%,rgba(45,212,191,.08),transparent_24%),radial-gradient(circle_at_86%_90%,rgba(217,164,65,.07),transparent_25%),linear-gradient(rgba(255,255,255,.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.015)_1px,transparent_1px)] bg-[size:auto,auto,24px_24px,24px_24px] p-6 flex flex-col items-center gap-10 min-h-[640px]">
+      <div className="overflow-x-auto bg-zinc-950 p-3.5 flex justify-start sm:justify-center [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-zinc-950 [&::-webkit-scrollbar-thumb]:bg-zinc-800 [&::-webkit-scrollbar-thumb]:rounded-full scrollbar-thin">
+        <div ref={containerRef} className="relative w-full rounded-xl border border-zinc-900 bg-[radial-gradient(circle_at_18%_8%,rgba(223,160,84,0.04),transparent_24%),radial-gradient(circle_at_86%_90%,rgba(223,160,84,0.03),transparent_25%),linear-gradient(rgba(255,255,255,.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.01)_1px,transparent_1px)] bg-[size:auto,auto,24px_24px,24px_24px] p-6 flex flex-col items-center gap-10 min-h-[640px]">
           <div className="absolute left-4 top-4 flex items-center gap-2 text-[9px] font-mono uppercase tracking-[0.15em] text-[#d9a441]/75 z-20"><ShipWheel size={13} /> Prerequisite route</div>
           
           <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
@@ -218,13 +217,13 @@ const RoadmapTree = () => {
                     const prerequisitesCleared = topic.requires.every((reqId) => progressById.get(reqId)?.percent === 100);
                     const isLocked = !prerequisitesCleared && topic.requires.length > 0;
                     
-                    let cardBorderClass = "border-white/[0.08] bg-[#0a171c]/90 hover:border-[#d9a441]/40"
+                    let cardBorderClass = "border-zinc-800 bg-zinc-950/80 hover:border-zinc-700"
                     if (isSelected) {
-                      cardBorderClass = "border-[#dfa054] bg-[#14232c] shadow-[0_0_15px_rgba(223,160,84,0.18)]"
+                      cardBorderClass = "border-[#dfa054] bg-zinc-900 shadow-[0_0_15px_rgba(223,160,84,0.15)]"
                     } else if (isDone) {
-                      cardBorderClass = "border-emerald-500/35 bg-emerald-950/10 shadow-[0_0_12px_rgba(16,185,129,0.06)]"
+                      cardBorderClass = "border-emerald-500/30 bg-emerald-950/20 shadow-[0_0_12px_rgba(16,185,129,0.06)]"
                     } else if (isLocked) {
-                      cardBorderClass = "border-zinc-900 bg-zinc-950/40 opacity-40 hover:opacity-60"
+                      cardBorderClass = "border-zinc-900/50 bg-zinc-950/50 opacity-40 hover:opacity-60"
                     }
 
                     return (
@@ -272,11 +271,11 @@ const RoadmapTree = () => {
       </div>
 
       <AnimatePresence mode="wait">
-        <motion.div key={selected.topic.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }} className="border-t border-[#d9a441]/15 bg-zinc-950/50 backdrop-blur-md p-3.5">
+        <motion.div key={selected.topic.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }} className="border-t border-zinc-900 bg-zinc-950/95 backdrop-blur-md p-3.5">
           <div className="flex items-start gap-3">
             <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-[#d9a441]/35 bg-[#111f24] shadow-inner">
               <img src={getAchievementAssetUrl(selected.topic.asset)} alt="" className="h-full w-full object-cover" />
-              <div className="absolute inset-0 bg-[#0a171c]/20" />
+              <div className="absolute inset-0 bg-zinc-950/20" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: selected.topic.accent }}>Pattern route</div>
@@ -292,7 +291,7 @@ const RoadmapTree = () => {
           </div>
         </motion.div>
       </AnimatePresence>
-      <div className="flex items-center gap-2 border-t border-[#d9a441]/10 bg-black/15 px-3.5 py-2 text-[9px] text-zinc-600"><LockKeyhole size={11} /> Progress comes from your synced LeetCode accepted submissions.</div>
+      <div className="flex items-center gap-2 border-t border-zinc-900 bg-zinc-950/60 px-3.5 py-2 text-[9px] text-zinc-600"><LockKeyhole size={11} /> Progress comes from your synced LeetCode accepted submissions.</div>
     </section>
   )
 }
