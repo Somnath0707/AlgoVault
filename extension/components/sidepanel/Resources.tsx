@@ -271,12 +271,14 @@ const RoadmapTree = () => {
       </div>
 
       <AnimatePresence mode="wait">
-        <motion.div key={selected.topic.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }} className="border-t border-zinc-900 bg-zinc-950/95 backdrop-blur-md p-3.5">
-          <div className="flex items-start gap-3">
-            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-[#d9a441]/35 bg-[#111f24] shadow-inner">
-              <img src={getAchievementAssetUrl(selected.topic.asset)} alt="" className="h-full w-full object-cover" />
-              <div className="absolute inset-0 bg-zinc-950/20" />
-            </div>
+        {(() => {
+          const isSelectedLocked = selected.topic.requires.some(reqId => progressById.get(reqId)?.percent !== 100);
+          return (
+            <motion.div key={selected.topic.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }} className="border-t border-zinc-900 bg-zinc-950/95 backdrop-blur-md p-3.5">
+              <div className="flex items-start gap-3">
+                <div className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-md border ${isSelectedLocked ? 'border-zinc-800 bg-zinc-900/50' : 'border-[#d9a441]/35 bg-zinc-900'} shadow-inner`}>
+                  <img src={getAchievementAssetUrl(selected.topic.asset)} alt="" className={`h-full w-full object-cover transition-all ${isSelectedLocked ? "grayscale opacity-30" : "brightness-105"}`} />
+                </div>
             <div className="min-w-0 flex-1">
               <div className="text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: selected.topic.accent }}>Pattern route</div>
               <h3 className="mt-1 text-sm font-bold text-zinc-100">{selected.topic.title}</h3>
@@ -290,6 +292,8 @@ const RoadmapTree = () => {
             {selected.nextProblem ? <button type="button" onClick={() => openProblem(selected.nextProblem!.slug)} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#dfa054] hover:bg-[#eab308] px-3.5 py-2 text-[10px] font-bold text-zinc-950 shadow-[0_0_12px_rgba(223,160,84,0.15)] transition"><span>Set sail</span><ChevronRight size={13} /></button> : <div className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-[10px] font-bold text-emerald-300 shadow-[0_0_8px_rgba(16,185,129,0.06)]"><CircleCheck size={13} /> Cleared</div>}
           </div>
         </motion.div>
+          )
+        })()}
       </AnimatePresence>
       <div className="flex items-center gap-2 border-t border-zinc-900 bg-zinc-950/60 px-3.5 py-2 text-[9px] text-zinc-600"><LockKeyhole size={11} /> Progress comes from your synced LeetCode accepted submissions.</div>
     </section>
