@@ -540,14 +540,33 @@ async function runSync(username: string, startOffset = 0) {
     const limit = 20
     let hasNext = true
     const maxSubmissionsToSync = 400
-    while (hasNext && rawSubs.length < maxSubmissionsToSync) {
+
+    // Read the timestamp of the last successfully synced submission
+    const latestSyncedTs = await storage.get<number>("algovault.latestSyncedSubmissionTimestamp") || 0
+    let foundAlreadySynced = false
+
+    while (hasNext && rawSubs.length < maxSubmissionsToSync && !foundAlreadySynced) {
       const subsRes = await fetchSubmissionPage(offset, limit)
       const pageSubs = subsRes.submissions_dump || []
       if (pageSubs.length === 0) {
         if (subsRes.has_next) throw new Error("LeetCode returned an empty submission page before history ended")
         break
       }
-      rawSubs.push(...pageSubs)
+      
+      for (const sub of pageSubs) {
+        const subTs = Number(sub.timestamp) || 0
+        if (latestSyncedTs > 0 && subTs <= latestSyncedTs) {
+          foundAlreadySynced = true
+          break
+        }
+        rawSubs.push(sub)
+      }
+
+      if (foundAlreadySynced) {
+        hasNext = false
+        break
+      }
+
       hasNext = Boolean(subsRes.has_next)
       offset += pageSubs.length
       
@@ -606,6 +625,21 @@ async function runSync(username: string, startOffset = 0) {
     })
 
     await setLastSync(Date.now())
+
+    // Save the timestamp of the newest submission in this sync
+    if (submissions.length > 0) {
+      let maxTimestamp = 0
+      submissions.forEach((s: any) => {
+        const ts = Number(s.timestamp) || 0
+        if (ts > maxTimestamp) {
+          maxTimestamp = ts
+        }
+      })
+      if (maxTimestamp > 0) {
+        await storage.set("algovault.latestSyncedSubmissionTimestamp", maxTimestamp)
+      }
+    }
+
     updateStatus("SUCCESS", "Sync completed successfully. This full sync remains valid for long-term dashboard use.", problems.length, startOffset + submissions.length)
     return { ok: true }
   } catch (e: any) {

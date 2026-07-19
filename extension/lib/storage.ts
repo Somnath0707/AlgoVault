@@ -34,6 +34,14 @@ export async function getUsername(): Promise<string | null> {
 }
 
 export async function setUsername(username: string): Promise<void> {
+  const current = await getUsername()
+  if (current && current.toLowerCase() !== username.toLowerCase()) {
+    await storage.remove([
+      "algovault.latestSyncedSubmissionTimestamp",
+      "algovault.solvedSlugs",
+      "algovault.cache.contest_snapshot"
+    ])
+  }
   await setTyped(STORAGE_KEYS.USERNAME, username)
 }
 
