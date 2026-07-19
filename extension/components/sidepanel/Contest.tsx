@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react"
 import { RefreshCw, ExternalLink } from "lucide-react"
 import { Card } from "../ui/Card"
 import { fetchContests } from "../../lib/api/backend"
-import { getUsername, setCachedContests } from "../../lib/storage"
+import { getUsername, setCachedContests, getContestSnapshot, setContestSnapshot } from "../../lib/storage"
 import { loadContestLifecycle, type ContestLifecycleItem } from "../../lib/contest-lifecycle"
 import { getPredictedContests, type PredictedContest, type PredictedContestResult } from "../../lib/predicted-contests"
 import { UpcomingContests } from "./UpcomingContests"
@@ -60,11 +60,18 @@ export const Contest = () => {
 
       setLoadingPredicted(true)
       getPredictedContests({ username, region: "US", forceRefresh: forcePredictRefresh })
-        .then((result) => {
+        .then(async (result) => {
           // Stage 1 Log (result)
           console.log("Contest.tsx: getPredictedContests result returned:", result)
 
           setPredictedResult(result)
+          
+          // Save to snapshot
+          const currentSnapshot = await getContestSnapshot() || {}
+          await setContestSnapshot({
+            ...currentSnapshot,
+            predictedResult: result
+          })
 
           // Stage 5 Log
           console.log("Contest.tsx: setPredictedResult complete:", { result, length: result?.contests?.length })
@@ -90,15 +97,31 @@ export const Contest = () => {
       ])
 
       setData(lifecycle)
+      let resolvedProfile = null
       if (profileRes?.ok) {
-        setProfile(profileRes.data?.matchedUser?.profile || null)
+        resolvedProfile = profileRes.data?.matchedUser?.profile || null
+        setProfile(resolvedProfile)
       }
+      let resolvedRankingInfo = null
+      let resolvedRankingHistory: any[] = []
       if (rankingRes?.ok) {
-        setRankingInfo(rankingRes.data?.userContestRanking || null)
-        setRankingHistory(rankingRes.data?.userContestRankingHistory || [])
+        resolvedRankingInfo = rankingRes.data?.userContestRanking || null
+        resolvedRankingHistory = rankingRes.data?.userContestRankingHistory || []
+        setRankingInfo(resolvedRankingInfo)
+        setRankingHistory(resolvedRankingHistory)
       }
       setAnalytics(localAnalytics)
       await setCachedContests(lifecycle as any)
+
+      // Save snapshot of all loaded data
+      await setContestSnapshot({
+        data: lifecycle,
+        profile: resolvedProfile,
+        rankingInfo: resolvedRankingInfo,
+        rankingHistory: resolvedRankingHistory,
+        analytics: localAnalytics,
+        predictedResult: predictedResult
+      })
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load contest history")
     } finally {
@@ -107,6 +130,19 @@ export const Contest = () => {
   }
 
   useEffect(() => {
+    // Load snapshot immediately
+    getContestSnapshot().then((snapshot) => {
+      if (snapshot) {
+        if (snapshot.data) setData(snapshot.data)
+        if (snapshot.profile) setProfile(snapshot.profile)
+        if (snapshot.rankingInfo) setRankingInfo(snapshot.rankingInfo)
+        if (snapshot.rankingHistory) setRankingHistory(snapshot.rankingHistory)
+        if (snapshot.predictedResult) setPredictedResult(snapshot.predictedResult)
+        if (snapshot.analytics) setAnalytics(snapshot.analytics)
+        setLoading(false)
+      }
+    })
+
     void refresh(false)
     const interval = window.setInterval(() => void refresh(false), 2 * 60 * 1000)
     return () => window.clearInterval(interval)
@@ -266,13 +302,15 @@ export const Contest = () => {
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm text-zinc-200 truncate">{profile?.realName || username || "Som 07"}</span>
+                  <span className="font-bold text-sm text-zinc-200 truncate">{profile?.realName || username || "LeetCode Coder"}</span>
                   <span className="text-[8px] bg-emerald-950/30 text-emerald-400 border border-emerald-500/20 px-1 py-0.2 rounded font-mono font-bold uppercase">{profile?.countryCode || "US"}</span>
-                  <a href={`https://leetcode.com/${username || "som_07"}/`} target="_blank" rel="noreferrer" className="text-zinc-500 hover:text-zinc-300">
-                    <ExternalLink size={12} />
-                  </a>
+                  {username && (
+                    <a href={`https://leetcode.com/${username}/`} target="_blank" rel="noreferrer" className="text-zinc-500 hover:text-zinc-300">
+                      <ExternalLink size={12} />
+                    </a>
+                  )}
                 </div>
-                <div className="text-[10px] text-zinc-500 font-mono mt-0.5">@{username || "som_07"}</div>
+                <div className="text-[10px] text-zinc-500 font-mono mt-0.5">@{username || "username"}</div>
               </div>
             </div>
 

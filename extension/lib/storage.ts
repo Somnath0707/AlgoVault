@@ -145,6 +145,14 @@ export async function setCachedContests(data: ContestResult[]): Promise<void> {
   await setTyped(STORAGE_KEYS.CACHED_CONTESTS, data)
 }
 
+export async function getContestSnapshot(): Promise<any | null> {
+  return getTyped<any>("algovault.cache.contest_snapshot")
+}
+
+export async function setContestSnapshot(snapshot: any): Promise<void> {
+  await setTyped("algovault.cache.contest_snapshot", snapshot)
+}
+
 // ─── Cached Weakness ──────────────────────────────────────────────
 
 export async function getCachedWeakness(): Promise<any | null> {
