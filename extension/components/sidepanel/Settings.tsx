@@ -402,8 +402,9 @@ export const Settings = () => {
                     <div className="w-3.5 h-3.5 rounded-full border border-[#dfa054] border-t-transparent animate-spin" />
                 </div>
                 <div className="space-y-1">
-                  <div>{syncStatus.message}</div>
-                  {syncStatus.count ? <div>Processed {syncStatus.count} submissions...</div> : null}
+                  <div className="text-zinc-200">{syncStatus.message}</div>
+                  {syncStatus.count ? <div>Solved Problems: {syncStatus.count}</div> : null}
+                  {syncStatus.subCount ? <div>Submissions Processed: {syncStatus.subCount}</div> : null}
                 </div>
             </div>
         ) : (

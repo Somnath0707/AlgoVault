@@ -483,7 +483,12 @@ async function runSync(username: string, startOffset = 0) {
     const profile = profileRes.data.matchedUser
 
     const problems: any[] = []
-    if (startOffset === 0) {
+    const cachedSolved = await storage.get<any>("algovault.solvedSlugs")
+    const isCacheValid = cachedSolved && cachedSolved.fetchedAt && (Date.now() - cachedSolved.fetchedAt < 15 * 60 * 1000) && Array.isArray(cachedSolved.rawProblems)
+
+    if (isCacheValid) {
+      problems.push(...cachedSolved.rawProblems)
+    } else if (startOffset === 0) {
       updateStatus("RUNNING", "Fetching solved problems...", 0, 0)
       let problemOffset = 0
       const problemPageSize = 100
@@ -498,7 +503,7 @@ async function runSync(username: string, startOffset = 0) {
         problems.push(...questions)
         problemOffset += questions.length
         updateStatus("RUNNING", "Fetching solved problems...", problems.length, 0)
-        await new Promise((resolve) => setTimeout(resolve, 150))
+        await new Promise((resolve) => setTimeout(resolve, 300))
       }
       await storage.set("algovault.solvedSlugs", {
         fetchedAt: Date.now(),
@@ -506,9 +511,8 @@ async function runSync(username: string, startOffset = 0) {
         rawProblems: problems
       })
     } else {
-      const cached = await storage.get<any>("algovault.solvedSlugs")
-      if (cached && Array.isArray(cached.rawProblems)) {
-        problems.push(...cached.rawProblems)
+      if (cachedSolved && Array.isArray(cachedSolved.rawProblems)) {
+        problems.push(...cachedSolved.rawProblems)
       } else {
         updateStatus("RUNNING", "Fetching solved problems...", 0, 0)
         let problemOffset = 0
@@ -524,7 +528,7 @@ async function runSync(username: string, startOffset = 0) {
           problems.push(...questions)
           problemOffset += questions.length
           updateStatus("RUNNING", "Fetching solved problems...", problems.length, 0)
-          await new Promise((resolve) => setTimeout(resolve, 150))
+          await new Promise((resolve) => setTimeout(resolve, 300))
         }
       }
     }
