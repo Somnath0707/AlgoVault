@@ -18,6 +18,9 @@ export const Lists = () => {
   const [ratingMin, setRatingMin] = useState<number>(1600)
   const [ratingMax, setRatingMax] = useState<number>(1700)
   const [statusFilter, setStatusFilter] = useState<"all" | "open" | "done">("all")
+  const [questionIndexFilter, setQuestionIndexFilter] = useState("all")
+  const [sortBy, setSortBy] = useState<"rating" | "index" | "contest" | "title" | "id">("rating")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [currentPage, setCurrentPage] = useState(1)
 
   // Topic expansion state for study lists
@@ -84,10 +87,11 @@ export const Lists = () => {
     }
   }, [activeList])
 
-  // Filter ZeroTrac problems
+  // Filter and sort ZeroTrac problems
   const filteredZerotrac = useMemo(() => {
     if (!zerotracData.length) return []
-    return zerotracData.filter((p) => {
+    
+    const filtered = zerotracData.filter((p) => {
       // 1. Rating Interval
       const rating = p.Rating || 0
       if (rating < ratingMin || rating > ratingMax) return false
@@ -113,9 +117,38 @@ export const Lists = () => {
       if (statusFilter === "open" && isSolved) return false
       if (statusFilter === "done" && !isSolved) return false
 
+      // 5. Question Index Match (Q1-Q4)
+      if (questionIndexFilter !== "all") {
+        const indexStr = p.ProblemIndex ? String(p.ProblemIndex).trim() : ""
+        const targetDigit = questionIndexFilter.replace("Q", "")
+        const normalizedIndex = indexStr.replace("Q", "").replace(/^0+/, "")
+        if (normalizedIndex !== targetDigit) return false
+      }
+
       return true
-    }).sort((a, b) => b.Rating - a.Rating)
-  }, [zerotracData, keyword, contestNumber, ratingMin, ratingMax, statusFilter, solvedSlugs])
+    })
+
+    // Sort dynamically
+    return filtered.sort((a, b) => {
+      let comparison = 0
+      if (sortBy === "rating") {
+        comparison = (a.Rating || 0) - (b.Rating || 0)
+      } else if (sortBy === "index") {
+        const indexA = String(a.ProblemIndex || "").replace("Q", "").replace(/^0+/, "")
+        const indexB = String(b.ProblemIndex || "").replace("Q", "").replace(/^0+/, "")
+        comparison = indexA.localeCompare(indexB, undefined, { numeric: true })
+      } else if (sortBy === "contest") {
+        comparison = (a.ContestID_en || "").localeCompare(b.ContestID_en || "")
+      } else if (sortBy === "title") {
+        comparison = (a.Title || "").localeCompare(b.Title || "")
+      } else if (sortBy === "id") {
+        const idA = Number(a.ID || a.QuestionID || 0)
+        const idB = Number(b.ID || b.QuestionID || 0)
+        comparison = idA - idB
+      }
+      return sortOrder === "asc" ? comparison : -comparison
+    })
+  }, [zerotracData, keyword, contestNumber, ratingMin, ratingMax, statusFilter, questionIndexFilter, solvedSlugs, sortBy, sortOrder])
 
   // Pagination bounds
   const totalItems = filteredZerotrac.length
@@ -164,7 +197,25 @@ export const Lists = () => {
     setRatingMin(1600)
     setRatingMax(1700)
     setStatusFilter("all")
+    setQuestionIndexFilter("all")
+    setSortBy("rating")
+    setSortOrder("desc")
     setCurrentPage(1)
+  }
+
+  const handleSort = (field: "rating" | "index" | "contest" | "title" | "id") => {
+    if (sortBy === field) {
+      setSortOrder(prev => prev === "asc" ? "desc" : "asc")
+    } else {
+      setSortBy(field)
+      setSortOrder("desc")
+    }
+    setCurrentPage(1)
+  }
+
+  const renderSortIndicator = (field: "rating" | "index" | "contest" | "title" | "id") => {
+    if (sortBy !== field) return null
+    return <span className="ml-1 text-[8px] text-[#dfa054]">{sortOrder === "asc" ? "▲" : "▼"}</span>
   }
 
   if (loading) {
@@ -374,13 +425,13 @@ export const Lists = () => {
           </Card>
           {/* ZeroTrac Advanced Filters Form */}
           <Card className="p-4 flex flex-col gap-3.5 font-sans border-zinc-800 bg-zinc-900/10">
-            <div className="grid grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-3 gap-3.5">
               <div>
                 <label className="text-[9px] font-bold text-zinc-500 block mb-1.5 font-mono uppercase tracking-wider">Keyword</label>
                 <input 
                   type="text" 
                   placeholder="e.g. sum" 
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/10 transition-all font-mono"
+                  className="w-full bg-zinc-950/40 border border-zinc-800/80 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/20 transition-all font-mono"
                   value={keyword}
                   onChange={(e) => {
                     setKeyword(e.target.value)
@@ -393,13 +444,30 @@ export const Lists = () => {
                 <input 
                   type="text" 
                   placeholder="e.g. 408" 
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/10 transition-all font-mono"
+                  className="w-full bg-zinc-950/40 border border-zinc-800/80 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/20 transition-all font-mono"
                   value={contestNumber}
                   onChange={(e) => {
                     setContestNumber(e.target.value)
                     setCurrentPage(1)
                   }}
                 />
+              </div>
+              <div>
+                <label className="text-[9px] font-bold text-zinc-500 block mb-1.5 font-mono uppercase tracking-wider">Contest Index</label>
+                <select
+                  value={questionIndexFilter}
+                  onChange={(e) => {
+                    setQuestionIndexFilter(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                  className="w-full bg-zinc-950/40 border border-zinc-800/80 rounded-lg px-3 py-2.5 text-xs text-zinc-200 focus:outline-none focus:border-[#dfa054] focus:ring-1 focus:ring-[#dfa054]/20 transition-all font-mono cursor-pointer"
+                >
+                  <option value="all">All (Q1-Q4)</option>
+                  <option value="Q1">Q1 (Easy)</option>
+                  <option value="Q2">Q2 (Medium 1)</option>
+                  <option value="Q3">Q3 (Medium 2)</option>
+                  <option value="Q4">Q4 (Hard)</option>
+                </select>
               </div>
             </div>
 
@@ -475,17 +543,36 @@ export const Lists = () => {
                 <div className="overflow-x-auto border border-zinc-900 rounded-xl bg-zinc-950/20 p-2.5">
                   <table className="w-full text-left border-collapse text-[10px] font-mono">
                     <thead>
-                      <tr className="border-b border-zinc-900 text-zinc-500 font-semibold">
-                        <th className="py-2.5 px-1 text-center w-[45px]">ID</th>
-                        <th className="py-2.5 px-2">Title</th>
-                        <th className="py-2.5 px-2">Contest</th>
-                        <th className="py-2.5 px-1 text-center w-[45px]">Index</th>
-                        <th className="py-2.5 px-2 text-right w-[60px]">Rating</th>
+                      <tr className="border-b border-zinc-900 text-zinc-500 font-semibold select-none">
+                        <th className="py-2.5 px-1 text-center w-[45px] cursor-pointer hover:text-zinc-300 transition-colors" onClick={() => handleSort("id")}>
+                          ID {renderSortIndicator("id")}
+                        </th>
+                        <th className="py-2.5 px-2 cursor-pointer hover:text-zinc-300 transition-colors" onClick={() => handleSort("title")}>
+                          Title {renderSortIndicator("title")}
+                        </th>
+                        <th className="py-2.5 px-2 cursor-pointer hover:text-zinc-300 transition-colors" onClick={() => handleSort("contest")}>
+                          Contest {renderSortIndicator("contest")}
+                        </th>
+                        <th className="py-2.5 px-1 text-center w-[50px] cursor-pointer hover:text-zinc-300 transition-colors" onClick={() => handleSort("index")}>
+                          Index {renderSortIndicator("index")}
+                        </th>
+                        <th className="py-2.5 px-2 text-right w-[60px] cursor-pointer hover:text-zinc-300 transition-colors" onClick={() => handleSort("rating")}>
+                          Rating {renderSortIndicator("rating")}
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-900/40">
                       {paginatedItems.map((p, idx) => {
                         const isSolved = solvedSlugs.has(p.TitleSlug)
+                        
+                        const indexStr = p.ProblemIndex ? String(p.ProblemIndex).trim() : ""
+                        const normalizedIndex = indexStr.replace("Q", "").replace(/^0+/, "")
+                        let indexColor = "text-zinc-400"
+                        if (normalizedIndex === "1") indexColor = "text-emerald-400 font-bold"
+                        else if (normalizedIndex === "2") indexColor = "text-amber-400 font-bold"
+                        else if (normalizedIndex === "3") indexColor = "text-orange-400 font-bold"
+                        else if (normalizedIndex === "4") indexColor = "text-rose-500 font-bold"
+
                         return (
                           <tr key={idx} className="hover:bg-zinc-900/20 transition-all duration-200">
                             {/* Problem ID */}
@@ -522,8 +609,8 @@ export const Lists = () => {
                             <td className="py-3 px-2 text-zinc-400 truncate max-w-[110px]" title={p.ContestID_en}>
                               {p.ContestID_en || p.ContestSlug || "LeetCode Contest"}
                             </td>
-                            {/* Problem Index (Q1-Q4) */}
-                            <td className="py-3 px-1 text-center font-bold text-zinc-500 font-mono">
+                            {/* Problem Index (Q1-Q4) with colored highlights */}
+                            <td className={`py-3 px-1 text-center font-mono ${indexColor}`}>
                               {p.ProblemIndex || "Q?"}
                             </td>
                             {/* Elo Rating */}
