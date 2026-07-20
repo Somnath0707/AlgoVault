@@ -38,7 +38,7 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     @Query("select count(s.id) from Submission s where s.user.id = :userId and s.submittedAt >= :since")
     long countSubmissionsSince(Long userId, LocalDateTime since);
 
-    List<Submission> findTop5ByUserIdAndVerdictOrderBySubmittedAtDesc(Long userId, String verdict);
+    List<Submission> findTop100ByUserIdAndVerdictOrderBySubmittedAtDesc(Long userId, String verdict);
 
     @Query("select count(s) > 0 from Submission s where s.user.id = :userId and s.problem.id = :problemId and s.verdict = :verdict and s.submittedAt = :submittedAt and " +
            "((:runtimeMs is null and s.runtimeMs is null) or s.runtimeMs = :runtimeMs)")

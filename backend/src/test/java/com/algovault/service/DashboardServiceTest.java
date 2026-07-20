@@ -8,6 +8,7 @@ import com.algovault.repository.SessionRepository;
 import com.algovault.repository.SubmissionRepository;
 import com.algovault.repository.SyncMetadataRepository;
 import com.algovault.repository.UserRepository;
+import com.algovault.repository.ZenithSessionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -38,6 +39,9 @@ class DashboardServiceTest {
     @Mock
     private SessionRepository sessionRepository;
 
+    @Mock
+    private ZenithSessionRepository zenithSessionRepository;
+
     @InjectMocks
     private DashboardService dashboardService;
 
@@ -56,16 +60,18 @@ class DashboardServiceTest {
         when(syncMetadataRepository.findByUserId(userId)).thenReturn(Optional.of(meta));
         
         // Mock optimized repository calls
-        when(submissionRepository.findTop5ByUserIdAndVerdictOrderBySubmittedAtDesc(eq(userId), eq("Accepted")))
+        when(submissionRepository.findTop100ByUserIdAndVerdictOrderBySubmittedAtDesc(eq(userId), eq("Accepted")))
                 .thenReturn(new ArrayList<>());
         when(submissionRepository.countSubmissionsSince(eq(userId), any(LocalDateTime.class)))
                 .thenReturn(15L);
         when(submissionRepository.countDistinctSolvedProblemsSince(eq(userId), any(LocalDateTime.class)))
                 .thenReturn(3L);
-        when(submissionRepository.findAcceptedDatesDesc(eq(userId)))
+        when(submissionRepository.findAcceptedDatesSinceDesc(eq(userId), any(LocalDateTime.class)))
                 .thenReturn(new ArrayList<>());
         when(sessionRepository.findFirstByUserIdAndEndedAtIsNullOrderByStartedAtDesc(userId))
                 .thenReturn(Optional.empty());
+        when(zenithSessionRepository.findByUserId(eq(userId)))
+                .thenReturn(new ArrayList<>());
 
         DashboardResponse response = dashboardService.getDashboard(userId);
 
@@ -78,9 +84,9 @@ class DashboardServiceTest {
         verify(submissionRepository, never()).findByUserIdOrderBySubmittedAtDesc(anyLong());
 
         // Verify optimized repository query counts are used instead
-        verify(submissionRepository, times(1)).findTop5ByUserIdAndVerdictOrderBySubmittedAtDesc(eq(userId), eq("Accepted"));
+        verify(submissionRepository, times(1)).findTop100ByUserIdAndVerdictOrderBySubmittedAtDesc(eq(userId), eq("Accepted"));
         verify(submissionRepository, times(1)).countSubmissionsSince(eq(userId), any(LocalDateTime.class));
         verify(submissionRepository, times(1)).countDistinctSolvedProblemsSince(eq(userId), any(LocalDateTime.class));
-        verify(submissionRepository, times(1)).findAcceptedDatesDesc(eq(userId));
+        verify(submissionRepository, times(1)).findAcceptedDatesSinceDesc(eq(userId), any(LocalDateTime.class));
     }
 }

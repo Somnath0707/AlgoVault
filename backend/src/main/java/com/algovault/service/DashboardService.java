@@ -43,7 +43,7 @@ public class DashboardService {
         User user = userRepository.findById(userId).orElseThrow();
         SyncMetadata meta = syncMetadataRepository.findByUserId(userId).orElse(new SyncMetadata());
         
-        List<Submission> recentSubs = submissionRepository.findTop5ByUserIdAndVerdictOrderBySubmittedAtDesc(userId, "Accepted");
+        List<Submission> recentSubs = submissionRepository.findTop100ByUserIdAndVerdictOrderBySubmittedAtDesc(userId, "Accepted");
 
         LocalDateTime startOfToday = LocalDate.now().atStartOfDay();
         int todaySubmissions = (int) submissionRepository.countSubmissionsSince(userId, startOfToday);
