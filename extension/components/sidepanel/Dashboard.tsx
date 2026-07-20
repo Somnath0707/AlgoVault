@@ -790,29 +790,29 @@ export const Dashboard = () => {
               </div>
             </div>
             {/* Controls */}
-            <div className="flex gap-2 pt-1">
+            <div className="flex gap-2 pt-1.5">
               <button
                 onClick={handleResetSession}
-                className="flex-1 border border-zinc-800 hover:border-zinc-700 bg-zinc-900/40 hover:bg-zinc-900 text-zinc-300 font-bold text-[9px] py-1.5 rounded transition-colors flex items-center justify-center gap-1.5 uppercase font-mono cursor-pointer"
+                className="flex-1 border border-zinc-800 hover:border-zinc-700 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-300 font-semibold text-[10px] py-1.5 rounded transition-colors flex items-center justify-center gap-1.5 uppercase font-mono cursor-pointer"
               >
                 <RotateCcw size={10} /> Reset
               </button>
               <button
                 onClick={handleEndSession}
-                className="flex-1 border border-red-900/40 hover:border-red-800 bg-red-950/20 hover:bg-red-950/40 text-red-400 font-bold text-[9px] py-1.5 rounded transition-colors flex items-center justify-center gap-1.5 uppercase font-mono cursor-pointer"
+                className="flex-1 border border-red-900/40 hover:border-red-800 bg-red-950/20 hover:bg-red-950/40 text-red-400/80 hover:text-red-400 font-semibold text-[10px] py-1.5 rounded transition-colors flex items-center justify-center gap-1.5 uppercase font-mono cursor-pointer"
               >
                 <Square size={9} /> Stop
               </button>
             </div>
           </div>
         ) : (
-          <div className="mt-3 flex items-center justify-between gap-4">
-            <p className="text-[11px] leading-relaxed text-zinc-400 max-w-[190px]">
+          <div className="mt-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <p className="text-[11px] leading-relaxed text-zinc-400">
               Ready to log a deliberate practice run? Start a session to track tab switches and focus.
             </p>
             <button
               onClick={() => handleStartSession()}
-              className="shrink-0 bg-[#dfa054] hover:bg-[#eab308] text-zinc-950 font-bold text-[10px] px-3.5 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 uppercase font-mono tracking-wider cursor-pointer hover:shadow-[0_0_12px_rgba(223,160,84,0.2)]"
+              className="w-full sm:w-auto shrink-0 border border-zinc-800 hover:border-zinc-700 bg-zinc-900 text-zinc-200 font-semibold text-[10px] px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 uppercase font-mono tracking-wider cursor-pointer"
             >
               <Play size={10} fill="currentColor" /> Start Session
             </button>
@@ -821,50 +821,41 @@ export const Dashboard = () => {
       </Card>
 
       {/* THREE MAIN QUEST CARDS */}
-      <div className="space-y-3.5">
+      <div className="space-y-3">
         {/* Card 1: Review Quest */}
-        <div className={`group relative overflow-hidden bg-zinc-950/70 border transition-all duration-500 rounded-xl p-4 pl-5 shadow-lg min-h-[96px] flex flex-col justify-between ${
+        <div className={`relative bg-[#09090b] border rounded-xl p-4 transition-colors ${
           isReviewDone 
-            ? "border-emerald-500/10 hover:border-emerald-500/20 hover:shadow-[0_0_20px_rgba(16,185,129,0.03)]" 
-            : "border-zinc-900 hover:border-amber-500/30 hover:shadow-[0_0_25px_rgba(223,160,84,0.08)]"
+            ? "border-emerald-500/20" 
+            : "border-zinc-800/80 hover:border-zinc-700"
         }`}>
-          <div className={`absolute left-0 top-0 bottom-0 w-1 transition-colors duration-500 ${
-            isReviewDone ? "bg-emerald-500" : "bg-gradient-to-b from-[#dfa054] to-amber-600"
-          }`} />
-          <Lightbulb size={68} className={`absolute -right-4 -bottom-4 transition-all duration-500 pointer-events-none ${
-            isReviewDone 
-              ? "text-emerald-500/5 group-hover:text-emerald-500/15 group-hover:scale-110" 
-              : "text-zinc-800 opacity-[0.04] group-hover:opacity-20 group-hover:scale-110 group-hover:text-amber-500 group-hover:drop-shadow-[0_0_20px_rgba(245,158,11,0.35)]"
-          }`} />
-          
-          <div className="flex items-start justify-between gap-3 relative z-10">
+          <div className="flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2 mb-1">
                 {isReviewDone ? (
-                  <CheckCircle2 size={11} className="text-emerald-400 shrink-0" />
+                  <CheckCircle2 size={12} className="text-emerald-500" />
                 ) : (
-                  <span className="text-[10px] font-bold text-[#dfa054] shrink-0 font-mono">①</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                 )}
-                <span className={`text-[9px] font-bold uppercase tracking-widest font-mono ${
-                  isReviewDone ? "text-emerald-400/80" : "text-[#dfa054]/90"
+                <span className={`text-[10px] font-semibold uppercase tracking-widest ${
+                  isReviewDone ? "text-emerald-500" : "text-amber-500"
                 }`}>
                   Review
                 </span>
               </div>
-              <h3 className={`mt-1.5 text-sm font-bold truncate pr-4 transition-colors duration-500 ${
+              <h3 className={`text-sm font-medium truncate ${
                 isReviewDone ? "text-zinc-500 line-through" : "text-zinc-100"
               }`}>
                 {activeReviewCard ? (activeReviewCard.title || activeReviewCard.problemTitle) : "Review Queue Clear"}
               </h3>
-              <p className="mt-0.5 text-[10px] text-zinc-500 font-mono">
+              <p className="mt-0.5 text-[11px] text-zinc-500">
                 {activeReviewCard ? `Interval: ${activeReviewCard.intervalDays?.toFixed(1) || "1.0"}d` : "Recall deck fully updated."}
               </p>
             </div>
             
             {activeReviewCard && (
-              <div className="shrink-0 self-center">
+              <div className="shrink-0">
                 {isReviewDone ? (
-                  <span className="inline-flex items-center bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-bold px-3 py-1.5 rounded-lg select-none">
+                  <span className="inline-flex items-center text-emerald-500 text-xs font-medium px-3 py-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/10">
                     Done
                   </span>
                 ) : (
@@ -872,7 +863,7 @@ export const Dashboard = () => {
                     href={`https://leetcode.com/problems/${activeReviewCard.titleSlug}/`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-block bg-gradient-to-r from-amber-500 to-[#dfa054] hover:from-amber-600 hover:to-[#e09040] text-zinc-950 hover:text-black font-bold text-[10px] px-4 py-1.5 rounded-lg transition-all shadow-[0_4px_12px_rgba(223,160,84,0.18)] cursor-pointer text-center"
+                    className="inline-flex items-center justify-center text-amber-500 hover:text-amber-400 text-xs font-medium px-4 py-1.5 rounded-md border border-amber-500/30 hover:border-amber-500/50 bg-amber-500/10 transition-colors cursor-pointer"
                   >
                     Review
                   </a>
@@ -882,36 +873,36 @@ export const Dashboard = () => {
           </div>
 
           {activeReviewCard && !isReviewDone && (
-            <div className="mt-3 pt-2.5 border-t border-zinc-900/60 relative z-10">
+            <div className="mt-3.5 pt-3.5 border-t border-zinc-800/60">
               {reviewingCardId === activeReviewCard.id ? (
                 <div className="space-y-2 animate-fadeIn">
-                  <div className="text-[8.5px] font-mono text-zinc-500 font-bold uppercase tracking-wider">Rate recall quality:</div>
-                  <div className="grid grid-cols-4 gap-1.5 font-mono text-[9px] font-bold">
+                  <div className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider">Rate recall quality</div>
+                  <div className="grid grid-cols-4 gap-2">
                     <button 
                       disabled={reviewSubmitting}
                       onClick={() => handleReviewSubmit(activeReviewCard.id, 1)}
-                      className="bg-red-500/10 border border-red-500/20 hover:bg-red-500/25 text-red-400 py-1.5 rounded-lg cursor-pointer text-center transition-all hover:scale-[1.03] active:scale-95"
+                      className="bg-zinc-900 border border-zinc-800 hover:border-red-500/50 hover:bg-red-500/10 text-zinc-400 hover:text-red-400 text-[11px] font-medium py-1.5 rounded-md cursor-pointer transition-colors"
                     >
                       Forgot
                     </button>
                     <button 
                       disabled={reviewSubmitting}
                       onClick={() => handleReviewSubmit(activeReviewCard.id, 3)}
-                      className="bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/25 text-amber-400 py-1.5 rounded-lg cursor-pointer text-center transition-all hover:scale-[1.03] active:scale-95"
+                      className="bg-zinc-900 border border-zinc-800 hover:border-amber-500/50 hover:bg-amber-500/10 text-zinc-400 hover:text-amber-400 text-[11px] font-medium py-1.5 rounded-md cursor-pointer transition-colors"
                     >
                       Hard
                     </button>
                     <button 
                       disabled={reviewSubmitting}
                       onClick={() => handleReviewSubmit(activeReviewCard.id, 4)}
-                      className="bg-blue-500/10 border border-blue-500/20 hover:bg-blue-500/25 text-blue-400 py-1.5 rounded-lg cursor-pointer text-center transition-all hover:scale-[1.03] active:scale-95"
+                      className="bg-zinc-900 border border-zinc-800 hover:border-blue-500/50 hover:bg-blue-500/10 text-zinc-400 hover:text-blue-400 text-[11px] font-medium py-1.5 rounded-md cursor-pointer transition-colors"
                     >
                       Good
                     </button>
                     <button 
                       disabled={reviewSubmitting}
                       onClick={() => handleReviewSubmit(activeReviewCard.id, 5)}
-                      className="bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/25 text-emerald-400 py-1.5 rounded-lg cursor-pointer text-center transition-all hover:scale-[1.03] active:scale-95"
+                      className="bg-zinc-900 border border-zinc-800 hover:border-emerald-500/50 hover:bg-emerald-500/10 text-zinc-400 hover:text-emerald-400 text-[11px] font-medium py-1.5 rounded-md cursor-pointer transition-colors"
                     >
                       Easy
                     </button>
@@ -920,7 +911,7 @@ export const Dashboard = () => {
               ) : (
                 <button 
                   onClick={() => setReviewingCardId(activeReviewCard.id)}
-                  className="w-full bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800/80 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200 text-[9.5px] font-mono py-1.5 rounded-lg transition-all uppercase tracking-wider cursor-pointer shadow-sm"
+                  className="w-full bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800/80 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200 text-[11px] font-medium py-2 rounded-md transition-colors cursor-pointer"
                 >
                   Log Recall Quality
                 </button>
@@ -930,67 +921,60 @@ export const Dashboard = () => {
         </div>
 
         {/* Card 2: Practice Quest */}
-        <div className={`group relative overflow-hidden bg-zinc-950/70 border transition-all duration-500 rounded-xl p-4 pl-5 shadow-lg min-h-[96px] flex flex-col justify-between ${
+        <div className={`relative bg-[#09090b] border rounded-xl p-4 transition-colors ${
           isPracticeDone 
-            ? "border-emerald-500/10 hover:border-emerald-500/20 hover:shadow-[0_0_20px_rgba(16,185,129,0.03)]" 
-            : "border-zinc-900 hover:border-teal-500/30 hover:shadow-[0_0_25px_rgba(20,184,166,0.08)]"
+            ? "border-emerald-500/20" 
+            : "border-zinc-800/80 hover:border-zinc-700"
         }`}>
-          <div className={`absolute left-0 top-0 bottom-0 w-1 transition-colors duration-500 ${
-            isPracticeDone ? "bg-emerald-500" : "bg-gradient-to-b from-teal-500 to-emerald-600"
-          }`} />
-          <Lightbulb size={68} className={`absolute -right-4 -bottom-4 transition-all duration-500 pointer-events-none ${
-            isPracticeDone 
-              ? "text-emerald-500/5 group-hover:text-emerald-500/15 group-hover:scale-110" 
-              : "text-zinc-800 opacity-[0.04] group-hover:opacity-20 group-hover:scale-110 group-hover:text-teal-400 group-hover:drop-shadow-[0_0_20px_rgba(20,184,166,0.35)]"
-          }`} />
-          
-          <div className="flex items-start justify-between gap-3 relative z-10">
+          <div className="flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2 mb-1">
                 {isPracticeDone ? (
-                  <CheckCircle2 size={11} className="text-emerald-400 shrink-0" />
+                  <CheckCircle2 size={12} className="text-emerald-500" />
                 ) : (
-                  <span className="text-[10px] font-bold text-teal-400 shrink-0 font-mono">②</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
                 )}
-                <span className={`text-[9px] font-bold uppercase tracking-widest font-mono ${
-                  isPracticeDone ? "text-emerald-400/80" : "text-teal-450 font-bold"
+                <span className={`text-[10px] font-semibold uppercase tracking-widest ${
+                  isPracticeDone ? "text-emerald-500" : "text-teal-500"
                 }`}>
                   Practice
                 </span>
                 
                 {weakRecommendation && !isPracticeDone && (
-                  <div className="group/tooltip relative cursor-pointer ml-0.5">
-                    <Info size={11} className="text-zinc-600 hover:text-zinc-400 transition-colors" />
-                    {/* Glassmorphic coach tooltip */}
-                    <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-0 hidden group-hover/tooltip:block z-50 p-3 rounded-lg border border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md shadow-2xl min-w-[200px] text-[10px] text-zinc-400 font-mono">
-                      {/* Tooltip pointer */}
-                      <div className="absolute top-full left-2 -mt-[1px] border-solid border-t-zinc-800/80 border-t-6 border-x-transparent border-x-6 border-b-0"></div>
-                      <div className="font-bold text-zinc-200 border-b border-zinc-900 pb-1 mb-1.5 uppercase tracking-wider text-[9px] flex items-center gap-1 text-[#dfa054]"><Sparkles size={10} /> Coach Report</div>
+                  <div className="group/tooltip relative cursor-pointer">
+                    <Info size={12} className="text-zinc-500 hover:text-zinc-300 transition-colors" />
+                    {/* Tooltip */}
+                    <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-0 hidden group-hover/tooltip:block z-50 p-3 rounded-lg border border-zinc-800 bg-zinc-950 shadow-xl min-w-[200px] text-[11px] text-zinc-300">
+                      <div className="font-semibold text-zinc-100 border-b border-zinc-800 pb-1 mb-2 uppercase tracking-wider text-[10px] flex items-center gap-1.5"><Sparkles size={11} className="text-amber-500" /> Coach Report</div>
                       <div className="space-y-1.5">
-                        <div className="flex justify-between"><span>Weak Topic:</span><span className="text-zinc-200 font-bold">{weakRecommendation.tag}</span></div>
-                        <div className="flex justify-between"><span>Reason:</span><span className="text-zinc-200 font-semibold">{weakness?.weakTags?.[0]?.score > 0.4 ? "Needs solved signals" : "No solved problems in 14+ days"}</span></div>
-                        <div className="flex justify-between"><span>Capability:</span><span className="text-emerald-400 font-bold">{range ? Math.round((range.low + range.high) / 2) : 1500}</span></div>
-                        <div className="flex justify-between"><span>Confidence:</span><span className="text-[#dfa054] font-bold">High</span></div>
+                        <div className="flex justify-between">
+                          <span className="text-zinc-500">Weak Topic</span>
+                          <span className="font-medium">{weakRecommendation.tag}</span>
+                        </div>
+                        <div className="flex flex-col mt-1 pt-1 border-t border-zinc-800/50">
+                          <span className="text-zinc-500 text-[10px]">Reason</span>
+                          <span className="text-zinc-300">{weakness?.weakTags?.[0]?.score > 0.4 ? "Needs solved signals" : "No solves in 14+ days"}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
               
-              <h3 className={`mt-1.5 text-sm font-bold truncate pr-4 transition-colors duration-500 ${
+              <h3 className={`text-sm font-medium truncate ${
                 isPracticeDone ? "text-zinc-500 line-through" : "text-zinc-100"
               }`}>
                 {weakRecommendation ? weakRecommendation.title : "Practice Target Solved"}
               </h3>
-              <p className="mt-0.5 text-[10px] text-zinc-500 font-mono">
+              <p className="mt-0.5 text-[11px] text-zinc-500">
                 {weakRecommendation ? weakRecommendation.reason : "All practice targets solved!"}
               </p>
             </div>
 
             {weakRecommendation && (
-              <div className="shrink-0 self-center">
+              <div className="shrink-0">
                 {isPracticeDone ? (
-                  <span className="inline-flex items-center bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-bold px-3 py-1.5 rounded-lg select-none">
+                  <span className="inline-flex items-center text-emerald-500 text-xs font-medium px-3 py-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/10">
                     Done
                   </span>
                 ) : (
@@ -998,7 +982,7 @@ export const Dashboard = () => {
                     href={`https://leetcode.com/problems/${weakRecommendation.slug}/`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-block bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-zinc-950 hover:text-black font-bold text-[10px] px-3.5 py-1.5 rounded-lg transition-all shadow-[0_4px_12px_rgba(20,184,166,0.18)] cursor-pointer text-center"
+                    className="inline-flex items-center justify-center text-teal-400 hover:text-teal-300 text-xs font-medium px-4 py-1.5 rounded-md border border-teal-500/30 hover:border-teal-500/50 bg-teal-500/10 transition-colors cursor-pointer"
                   >
                     Practice
                   </a>
@@ -1009,67 +993,60 @@ export const Dashboard = () => {
         </div>
 
         {/* Card 3: Challenge Quest */}
-        <div className={`group relative overflow-hidden bg-zinc-950/70 border transition-all duration-500 rounded-xl p-4 pl-5 shadow-lg min-h-[96px] flex flex-col justify-between ${
+        <div className={`relative bg-[#09090b] border rounded-xl p-4 transition-colors ${
           isChallengeDone 
-            ? "border-emerald-500/10 hover:border-emerald-500/20 hover:shadow-[0_0_20px_rgba(16,185,129,0.03)]" 
-            : "border-zinc-900 hover:border-blue-500/30 hover:shadow-[0_0_25px_rgba(59,130,246,0.08)]"
+            ? "border-emerald-500/20" 
+            : "border-zinc-800/80 hover:border-zinc-700"
         }`}>
-          <div className={`absolute left-0 top-0 bottom-0 w-1 transition-colors duration-500 ${
-            isChallengeDone ? "bg-emerald-500" : "bg-gradient-to-b from-blue-500 to-indigo-600"
-          }`} />
-          <Lightbulb size={68} className={`absolute -right-4 -bottom-4 transition-all duration-500 pointer-events-none ${
-            isChallengeDone 
-              ? "text-emerald-500/5 group-hover:text-emerald-500/15 group-hover:scale-110" 
-              : "text-zinc-800 opacity-[0.04] group-hover:opacity-20 group-hover:scale-110 group-hover:text-blue-400 group-hover:drop-shadow-[0_0_20px_rgba(59,130,246,0.35)]"
-          }`} />
-          
-          <div className="flex items-start justify-between gap-3 relative z-10">
+          <div className="flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2 mb-1">
                 {isChallengeDone ? (
-                  <CheckCircle2 size={11} className="text-emerald-400 shrink-0" />
+                  <CheckCircle2 size={12} className="text-emerald-500" />
                 ) : (
-                  <span className="text-[10px] font-bold text-blue-450 shrink-0 font-mono">③</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                 )}
-                <span className={`text-[9px] font-bold uppercase tracking-widest font-mono ${
-                  isChallengeDone ? "text-emerald-400/80" : "text-blue-450 font-bold"
+                <span className={`text-[10px] font-semibold uppercase tracking-widest ${
+                  isChallengeDone ? "text-emerald-500" : "text-blue-500"
                 }`}>
                   Challenge
                 </span>
 
                 {ratedChallenge && !isChallengeDone && (
-                  <div className="group/tooltip relative cursor-pointer ml-0.5">
-                    <Info size={11} className="text-zinc-650 hover:text-zinc-400 transition-colors" />
-                    {/* Glassmorphic coach tooltip */}
-                    <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-0 hidden group-hover/tooltip:block z-50 p-3 rounded-lg border border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md shadow-2xl min-w-[200px] text-[10px] text-zinc-400 font-mono">
-                      {/* Tooltip pointer */}
-                      <div className="absolute top-full left-2 -mt-[1px] border-solid border-t-zinc-800/80 border-t-6 border-x-transparent border-x-6 border-b-0"></div>
-                      <div className="font-bold text-zinc-200 border-b border-zinc-900 pb-1 mb-1.5 uppercase tracking-wider text-[9px] flex items-center gap-1 text-[#dfa054]"><Sparkles size={10} /> Coach Report</div>
+                  <div className="group/tooltip relative cursor-pointer">
+                    <Info size={12} className="text-zinc-500 hover:text-zinc-300 transition-colors" />
+                    {/* Tooltip */}
+                    <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-0 hidden group-hover/tooltip:block z-50 p-3 rounded-lg border border-zinc-800 bg-zinc-950 shadow-xl min-w-[200px] text-[11px] text-zinc-300">
+                      <div className="font-semibold text-zinc-100 border-b border-zinc-800 pb-1 mb-2 uppercase tracking-wider text-[10px] flex items-center gap-1.5"><Sparkles size={11} className="text-amber-500" /> Coach Report</div>
                       <div className="space-y-1.5">
-                        <div className="flex justify-between"><span>Target Rating:</span><span className="text-zinc-200 font-bold">{ratedChallenge.rating}</span></div>
-                        <div className="flex justify-between"><span>Match Reason:</span><span className="text-zinc-200 font-semibold">Active Glicko target level</span></div>
-                        <div className="flex justify-between"><span>Contest:</span><span className="text-zinc-200 font-semibold truncate max-w-[100px]">{ratedChallenge.contest}</span></div>
-                        <div className="flex justify-between"><span>Index:</span><span className="text-blue-400 font-bold">{ratedChallenge.index}</span></div>
+                        <div className="flex justify-between">
+                          <span className="text-zinc-500">Target Rating</span>
+                          <span className="font-medium">{ratedChallenge.rating}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-zinc-500">Contest</span>
+                          <span className="font-medium truncate max-w-[100px]" title={ratedChallenge.contest}>{ratedChallenge.contest}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
               
-              <h3 className={`mt-1.5 text-sm font-bold truncate pr-4 transition-colors duration-500 ${
+              <h3 className={`text-sm font-medium truncate ${
                 isChallengeDone ? "text-zinc-500 line-through" : "text-zinc-100"
               }`}>
                 {ratedChallenge ? ratedChallenge.title : "Challenge Goal Cleared"}
               </h3>
-              <p className="mt-0.5 text-[10px] text-zinc-500 font-mono truncate pr-4">
+              <p className="mt-0.5 text-[11px] text-zinc-500 truncate">
                 {ratedChallenge ? `${ratedChallenge.contest} (${ratedChallenge.index}) · ${ratedChallenge.rating} rating` : "All challenges met!"}
               </p>
             </div>
 
             {ratedChallenge && (
-              <div className="shrink-0 self-center">
+              <div className="shrink-0">
                 {isChallengeDone ? (
-                  <span className="inline-flex items-center bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-bold px-3 py-1.5 rounded-lg select-none">
+                  <span className="inline-flex items-center text-emerald-500 text-xs font-medium px-3 py-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/10">
                     Done
                   </span>
                 ) : (
@@ -1077,7 +1054,7 @@ export const Dashboard = () => {
                     href={`https://leetcode.com/problems/${ratedChallenge.slug}/`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-block bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-zinc-950 hover:text-black font-bold text-[10px] px-3.5 py-1.5 rounded-lg transition-all shadow-[0_4px_12px_rgba(59,130,246,0.18)] cursor-pointer text-center"
+                    className="inline-flex items-center justify-center text-blue-400 hover:text-blue-300 text-xs font-medium px-4 py-1.5 rounded-md border border-blue-500/30 hover:border-blue-500/50 bg-blue-500/10 transition-colors cursor-pointer"
                   >
                     Attempt
                   </a>
@@ -1089,73 +1066,78 @@ export const Dashboard = () => {
       </div>
 
       {/* QUEST PROGRESS BAR */}
-      <div className="flex items-center justify-between border-t border-b border-zinc-900/60 py-3.5 px-1 mt-1 text-[10px] font-mono text-zinc-500">
-        <span className="font-bold uppercase tracking-wider">Quest Progress</span>
+      <div className="flex items-center justify-between mt-5 mb-1 px-1">
+        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Quest Progress</span>
         <div className="flex items-center gap-3">
-          <div className="w-24 h-2 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800/80 relative">
+          <div className="w-24 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
             <div 
-              className="h-full bg-gradient-to-r from-amber-500 to-emerald-500 transition-all duration-700 ease-out rounded-full shadow-[0_0_8px_rgba(16,185,129,0.3)]" 
+              className="h-full bg-zinc-400 transition-all duration-500 ease-out" 
               style={{ width: `${totalQuests > 0 ? (completedQuests / totalQuests) * 100 : 0}%` }}
             />
           </div>
-          <span className="text-zinc-400 font-bold font-mono">{completedQuests}/{totalQuests}</span>
+          <span className="text-[11px] text-zinc-400 font-medium tabular-nums">{completedQuests}/{totalQuests}</span>
         </div>
       </div>
 
+      <div className="h-px w-full bg-zinc-800/60 my-5" />
+
       {/* WEEKLY PROGRESS REPORT CARD */}
-      <Card className="p-4 bg-zinc-950/60 border border-zinc-900 shadow-xl backdrop-blur-sm flex flex-col gap-3.5 rounded-xl">
-        <div className="flex items-center justify-between border-b border-zinc-900/60 pb-2.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">
+      <div className="flex flex-col gap-4 mb-2">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
             Weekly Progress
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <button 
               onClick={() => setWeekOffset(prev => prev - 1)}
-              className="p-1 hover:bg-zinc-900 border border-zinc-900 hover:border-zinc-800 text-zinc-500 hover:text-zinc-300 rounded transition-colors cursor-pointer"
+              className="p-1 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 rounded transition-colors cursor-pointer"
               title="Previous Week"
             >
-              <ChevronLeft size={11} />
+              <ChevronLeft size={14} />
             </button>
-            <span className="text-[9px] font-mono text-zinc-400 px-1.5 py-0.5 bg-zinc-900/60 border border-zinc-900 rounded font-bold">
+            <span className="text-[11px] text-zinc-300 font-medium min-w-[70px] text-center">
               {weekOffset === 0 ? "This Week" : weeklyReport.weekLabel}
             </span>
             <button 
               disabled={weekOffset >= 0}
               onClick={() => setWeekOffset(prev => prev + 1)}
-              className="p-1 hover:bg-zinc-900 border border-zinc-900 hover:border-zinc-800 text-zinc-500 hover:text-zinc-300 rounded transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed cursor-pointer"
+              className="p-1 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 rounded transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed cursor-pointer"
               title="Next Week"
             >
-              <ChevronRight size={11} />
+              <ChevronRight size={14} />
             </button>
           </div>
         </div>
 
         {/* Weekly Stats Grid */}
-        <div className="grid grid-cols-2 gap-x-6 gap-y-3.5 pt-1 text-xs font-mono">
-          <div className="flex items-center justify-between">
-            <span className="text-zinc-500 text-[10px]">Solved</span>
-            <span className="font-bold text-zinc-200">{weeklyReport.solvedCount}</span>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-[#09090b] border border-zinc-800/60 rounded-xl p-3 flex flex-col items-center justify-center text-center hover:border-zinc-700 transition-colors">
+            <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mb-1">Solved</span>
+            <span className="text-lg font-semibold text-zinc-100">{weeklyReport.solvedCount}</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-zinc-500 text-[10px]">Highest</span>
-            <span className="font-bold text-[#dfa054]">{weeklyReport.highestRating || "—"}</span>
+          <div className="bg-[#09090b] border border-zinc-800/60 rounded-xl p-3 flex flex-col items-center justify-center text-center hover:border-zinc-700 transition-colors">
+            <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mb-1">Highest</span>
+            <span className="text-lg font-semibold text-amber-500">{weeklyReport.highestRating || "—"}</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-zinc-500 text-[10px]">Average</span>
-            <span className="font-bold text-zinc-200">{weeklyReport.averageRating || "—"}</span>
+          <div className="bg-[#09090b] border border-zinc-800/60 rounded-xl p-3 flex flex-col items-center justify-center text-center hover:border-zinc-700 transition-colors">
+            <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mb-1">Average</span>
+            <span className="text-lg font-semibold text-zinc-100">{weeklyReport.averageRating || "—"}</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-zinc-500 text-[10px]">Improvement</span>
-            <span className={`font-bold ${weeklyReport.improvement >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-              {weeklyReport.improvement >= 0 ? `+${weeklyReport.improvement}` : weeklyReport.improvement}
-            </span>
-          </div>
-          <div className="flex items-center justify-between col-span-2 border-t border-zinc-900/60 pt-2.5">
-            <span className="text-zinc-500 text-[10px]">Active Streak</span>
-            <span className="font-bold text-[#dfa054]">{weeklyReport.streak} days</span>
+          
+          <div className="col-span-3 grid grid-cols-2 gap-3">
+            <div className="bg-[#09090b] border border-zinc-800/60 rounded-xl p-3.5 flex items-center justify-between hover:border-zinc-700 transition-colors">
+              <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Improvement</span>
+              <span className={`text-sm font-semibold ${weeklyReport.improvement > 0 ? "text-emerald-500" : weeklyReport.improvement < 0 ? "text-red-500" : "text-zinc-400"}`}>
+                {weeklyReport.improvement > 0 ? `+${weeklyReport.improvement}` : weeklyReport.improvement}
+              </span>
+            </div>
+            <div className="bg-[#09090b] border border-zinc-800/60 rounded-xl p-3.5 flex items-center justify-between hover:border-zinc-700 transition-colors">
+              <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Streak</span>
+              <span className="text-sm font-semibold text-zinc-100">{weeklyReport.streak} <span className="text-[10px] text-zinc-500 font-normal">days</span></span>
+            </div>
           </div>
         </div>
-      </Card>
+      </div>
       
       {/* Dynamic Sync Info */}
       <div className="flex items-center gap-1.5 px-1 py-0.5 text-[8.5px] text-zinc-650 font-mono">
