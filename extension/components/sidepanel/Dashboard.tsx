@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { ArrowUpRight, CheckCircle2, Clock3, Target, Play, RotateCcw, Square, Compass, Sparkles, TrendingUp, Flame, Info, Lightbulb, ChevronLeft, ChevronRight } from "lucide-react"
+import { ArrowUpRight, CheckCircle2, Clock3, Target, Play, RotateCcw, Square, Compass, Sparkles, TrendingUp, Flame, Info, Lightbulb, ChevronLeft, ChevronRight, LockKeyhole } from "lucide-react"
 import { Card } from "../ui/Card"
 import { Skeleton } from "../ui/Skeleton"
 import { fetchDashboard, fetchHeatmap, fetchPotd, fetchRevisionQueue, fetchWeakness, fetchAllSessions, reviewRevisionCard } from "../../lib/api/backend"
