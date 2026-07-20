@@ -1,7 +1,6 @@
 import type { PlasmoCSConfig } from "plasmo"
 import { STUDY_LISTS } from "../lib/study-lists"
 import { getLeetCodeProblemSlug } from "../lib/leetcode-url"
-import { buildZerotracRatingMap } from "../lib/zerotrac"
 import { showZenithQuestModal } from "./ZenithSystemOverlay"
 
 export const config: PlasmoCSConfig = {
@@ -14,7 +13,6 @@ let ratingInjected = false;
 let acceptanceHidden = false;
 let predictionInjected = false;
 let predictionData: any = null;
-let zerotracRatingMap: Map<string, number> | null = null;
 
 const fetchPrediction = async () => {
   const slug = getLeetCodeProblemSlug()
@@ -120,10 +118,9 @@ const injectAlgoVaultOverlay = () => {
     diffTag.setAttribute("data-algovault-rating", currentSlug);
     diffTag.querySelector(".av-rating")?.remove();
 
-    const applyRating = () => {
+    const applyRating = (rating: number) => {
       // LeetCode is a SPA. Ignore async responses whose page context is stale.
       if (getLeetCodeProblemSlug() !== currentSlug) return
-      const rating = zerotracRatingMap?.get(currentSlug.toLowerCase())
       if (!Number.isFinite(rating)) return
 
       const rounded = Math.round(Number(rating))
@@ -139,19 +136,12 @@ const injectAlgoVaultOverlay = () => {
       ratingInjected = true
     }
 
-    if (zerotracRatingMap) {
-      applyRating()
-    } else {
-      // Fetch rating from ZeroTrac via background to bypass CSP.
-      chrome.runtime.sendMessage({ action: "get_zerotrac" }, (data) => {
-        if (!data || data.error) {
-          console.error("AlgoVault: Failed to fetch ZeroTrac rating", data?.error)
-          return
-        }
-        zerotracRatingMap = buildZerotracRatingMap(data)
-        applyRating()
-      })
-    }
+    // Fetch rating for current problem via background to bypass CSP.
+    chrome.runtime.sendMessage({ action: "get_problem_rating", slug: currentSlug }, (data) => {
+      if (data && typeof data.Rating === "number") {
+        applyRating(data.Rating)
+      }
+    })
   }
 
   // Compact study-list membership entry point.

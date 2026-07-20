@@ -132,6 +132,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true
   }
 
+  if (message.action === "get_problem_rating") {
+    getSingleProblemRating(message.slug || "")
+      .then((rating) => sendResponse(rating))
+      .catch((err) => sendResponse({ error: err.message }))
+    return true
+  }
+
   if (message.action === "get_solved_problem_slugs") {
     getSolvedProblemSlugs()
       .then((data) => sendResponse({ ok: true, data }))
@@ -722,6 +729,39 @@ async function getCachedZerotracRatings() {
   })
   
   await setZerotracData(data)
+  
+  // Re-build memory cache map on fetch
+  const tempMap = new Map()
+  for (const item of data) {
+    if (item && item.TitleSlug) {
+      tempMap.set(item.TitleSlug.toLowerCase(), item)
+    }
+  }
+  zerotracInMemoryMap = tempMap
+
   return data
+}
+
+let zerotracInMemoryMap: Map<string, any> | null = null
+
+async function getSingleProblemRating(slug: string) {
+  if (!slug) return null
+  if (!zerotracInMemoryMap) {
+    try {
+      const cached = await getCachedZerotracRatings()
+      if (cached && Array.isArray(cached)) {
+        const tempMap = new Map()
+        for (const item of cached) {
+          if (item && item.TitleSlug) {
+            tempMap.set(item.TitleSlug.toLowerCase(), item)
+          }
+        }
+        zerotracInMemoryMap = tempMap
+      }
+    } catch (e) {
+      console.error("AlgoVault: Error loading ZeroTrac cache into memory Map", e)
+    }
+  }
+  return zerotracInMemoryMap ? zerotracInMemoryMap.get(slug.toLowerCase()) || null : null
 }
 
