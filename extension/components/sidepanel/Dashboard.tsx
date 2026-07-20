@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { ArrowUpRight, CheckCircle2, Clock3, Target, Play, RotateCcw, Square, Compass, Sparkles, TrendingUp, Flame } from "lucide-react"
+import { ArrowUpRight, CheckCircle2, Clock3, Target, Play, RotateCcw, Square, Compass, Sparkles, TrendingUp, Flame, Info, Lightbulb, ChevronLeft, ChevronRight } from "lucide-react"
 import { Card } from "../ui/Card"
 import { Skeleton } from "../ui/Skeleton"
 import { fetchDashboard, fetchHeatmap, fetchPotd, fetchRevisionQueue, fetchWeakness, fetchAllSessions, reviewRevisionCard } from "../../lib/api/backend"
@@ -16,6 +16,7 @@ import {
 import { AchievementShowcase } from "./AchievementShowcase"
 import { buildAchievementStats, getAchievements } from "../../lib/achievements"
 import { normalizeZerotracPayload } from "../../lib/zerotrac"
+import { STUDY_LISTS } from "../../lib/study-lists"
 
 function message<T>(payload: Record<string, unknown>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -48,6 +49,7 @@ export const Dashboard = () => {
   const [rankingInfo, setRankingInfo] = useState<any>(null)
   const [reviewingCardId, setReviewingCardId] = useState<number | null>(null)
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [weekOffset, setWeekOffset] = useState<number>(0)
 
   const handleReviewSubmit = async (cardId: number, quality: number) => {
     setReviewSubmitting(true)
@@ -509,526 +511,550 @@ export const Dashboard = () => {
       </Card>
     )
   }
-
   if (!data) return <Card className="py-8 text-center"><div className="text-sm font-semibold text-zinc-200">Sync required</div><div className="mt-1 text-xs text-zinc-500">Run one full LeetCode history sync in Settings to build your dashboard.</div></Card>
 
-  const weakest = weakness?.weakTags?.[0]
-  const plan = [
-    queue[0] && { type: "Review", id: queue[0].id, title: queue[0].title || queue[0].problemTitle, slug: queue[0].titleSlug },
-    potd[0] && { type: potd[0].type || "Practice", title: potd[0].title, slug: potd[0].titleSlug, reason: potd[0].reason },
-    weakest && { type: "Practice signal", title: weakest.tag, reason: "needs more recent evidence" }
-  ].filter(Boolean) as any[]
+  // 1. Prioritize Review Queue cards from NeetCode 150 & Striver SDE sheet
+  const prioritizedReviews = useMemo(() => {
+    if (!queue || queue.length === 0) return []
+    const isStudyListProblem = (slug: string) => {
+      if (!slug) return false
+      return STUDY_LISTS.some(list => list.problems.some(p => p.slug === slug))
+    }
+    const studyListQueue = queue.filter(card => isStudyListProblem(card.titleSlug || card.slug))
+    const otherQueue = queue.filter(card => !isStudyListProblem(card.titleSlug || card.slug))
+    return [...studyListQueue, ...otherQueue]
+  }, [queue])
+
+  // 2. Recommend unsolved problem targeting user's weakest topic
+  const weakRecommendation = useMemo(() => {
+    if (!weakness?.weakTags || weakness.weakTags.length === 0) return null
+    const weakest = weakness.weakTags[0]
+    if (!weakest || !weakest.tag) return null
+
+    const getListName = (slug: string) => {
+      const found = STUDY_LISTS.find(list => list.problems.some(p => p.slug === slug))
+      return found ? found.name.replace("NeetCode ", "NC ").replace("Striver ", "Striver ") : "Curriculum"
+    }
+
+    // Try finding an unsolved problem on the study sheets matching this tag
+    for (const list of STUDY_LISTS) {
+      const matching = list.problems.filter(p => 
+        p.topic.toLowerCase() === weakest.tag.toLowerCase() || 
+        p.topic.toLowerCase().includes(weakest.tag.toLowerCase())
+      )
+      const unsolved = matching.find(p => !solved.has(p.slug))
+      if (unsolved) {
+        return {
+          type: "Concept weakness",
+          title: unsolved.title,
+          slug: unsolved.slug,
+          tag: weakest.tag,
+          reason: `${getListName(unsolved.slug)} · Unsolved`
+        }
+      }
+    }
+
+    // Fallback: Pick any unsolved problem on the sheets
+    for (const list of STUDY_LISTS) {
+      const unsolved = list.problems.find(p => !solved.has(p.slug))
+      if (unsolved) {
+        return {
+          type: "Concept weakness",
+          title: unsolved.title,
+          slug: unsolved.slug,
+          tag: weakest.tag,
+          reason: `${getListName(unsolved.slug)} · Focus Area`
+        }
+      }
+    }
+    return null
+  }, [weakness, solved])
+
+  // 3. Recommend unsolved ZeroTrac rated problem in target Glicko rating range
+  const ratedChallenge = useMemo(() => {
+    if (!zerotrac || !range) return null
+    const candidates = zerotrac.filter(p => {
+      const slug = p.TitleSlug
+      if (!slug || solved.has(slug)) return false
+      return p.Rating >= range.low && p.Rating <= range.high
+    })
+    if (candidates.length === 0) return null
+
+    // Pick candidate closest to range center
+    const center = (range.low + range.high) / 2
+    candidates.sort((a, b) => Math.abs(a.Rating - center) - Math.abs(b.Rating - center))
+    const selected = candidates[0]
+
+    return {
+      type: "Target rating challenge",
+      title: selected.Title || selected.TitleSlug,
+      slug: selected.TitleSlug,
+      rating: Math.round(selected.Rating),
+      contest: selected.ContestID_en || "LeetCode Contest",
+      index: selected.ProblemIndex || "?"
+    }
+  }, [zerotrac, range, solved])
 
   const allSolvedStat = profile?.submitStats?.acSubmissionNum?.find((item: any) => item.difficulty === "All")
   const officialTotalSolved = allSolvedStat ? allSolvedStat.count : data.totalSolved
-  const primaryAction = plan.find((item) => item.slug) || plan[0]
-  const practiceRange = range ? `${range.low}–${range.high}` : "Building baseline"
   const syncLabel = lastSync ? `Synced ${new Date(lastSync).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : "History not synced"
+  
+  const activeReviewCard = prioritizedReviews[0]
+  
+  // Quest completion checks
+  const isReviewDone = !activeReviewCard || solved.has(activeReviewCard.titleSlug || activeReviewCard.slug || "")
+  const isPracticeDone = !weakRecommendation || solved.has(weakRecommendation.slug)
+  const isChallengeDone = !ratedChallenge || solved.has(ratedChallenge.slug)
+
+  // Today's Quest progress calculations
+  const activeQuestsList = [
+    activeReviewCard && { key: "review", done: isReviewDone },
+    weakRecommendation && { key: "practice", done: isPracticeDone },
+    ratedChallenge && { key: "challenge", done: isChallengeDone }
+  ].filter(Boolean) as Array<{ key: string; done: boolean }>
+
+  const totalQuests = activeQuestsList.length
+  const completedQuests = activeQuestsList.filter(q => q.done).length
+  const remainingTasks = totalQuests - completedQuests
+
+  const getProgressBar = (completed: number, total: number) => {
+    if (total === 0) return "█████"
+    const filled = Math.round((completed / total) * 5)
+    return "█".repeat(filled) + "░".repeat(5 - filled)
+  }
+
+  // Helper for computing week ranges
+  const getWeekRange = (offset: number) => {
+    const now = new Date()
+    const day = now.getDay()
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1) // Mon start
+    const monday = new Date(now.setDate(diff))
+    monday.setHours(0, 0, 0, 0)
+    monday.setDate(monday.getDate() + offset * 7)
+    
+    const sunday = new Date(monday)
+    sunday.setDate(sunday.getDate() + 6)
+    sunday.setHours(23, 59, 59, 999)
+    return { start: monday, end: sunday }
+  }
+
+  // Weekly stats calculator
+  const weeklyReport = useMemo(() => {
+    const rangeOfWeeks = getWeekRange(weekOffset)
+    const weekDays = (stats?.calendarDays || []).filter((day: any) => {
+      if (!day) return false
+      const date = new Date(day.dateStr)
+      return date >= rangeOfWeeks.start && date <= rangeOfWeeks.end
+    })
+
+    const solvedProblems: any[] = []
+    for (const day of weekDays) {
+      if (day.problems) {
+        solvedProblems.push(...day.problems)
+      }
+    }
+
+    const solvedCount = solvedProblems.length
+    let highestRating = 0
+    let totalRating = 0
+    let ratedCount = 0
+    for (const p of solvedProblems) {
+      if (p.rating && typeof p.rating === "number" && p.rating > 0) {
+        totalRating += p.rating
+        ratedCount += 1
+        if (p.rating > highestRating) {
+          highestRating = Math.round(p.rating)
+        }
+      }
+    }
+
+    const averageRating = ratedCount > 0 ? Math.round(totalRating / ratedCount) : 0
+
+    // Compare with previous week
+    const prevWeekRange = getWeekRange(weekOffset - 1)
+    const prevWeekDays = (stats?.calendarDays || []).filter((day: any) => {
+      if (!day) return false
+      const date = new Date(day.dateStr)
+      return date >= prevWeekRange.start && date <= prevWeekRange.end
+    })
+    const prevSolvedProblems: any[] = []
+    for (const day of prevWeekDays) {
+      if (day.problems) {
+        prevSolvedProblems.push(...day.problems)
+      }
+    }
+    let prevTotalRating = 0
+    let prevRatedCount = 0
+    for (const p of prevSolvedProblems) {
+      if (p.rating && typeof p.rating === "number" && p.rating > 0) {
+        prevTotalRating += p.rating
+        prevRatedCount += 1
+      }
+    }
+    const prevAverageRating = prevRatedCount > 0 ? Math.round(prevTotalRating / prevRatedCount) : 0
+    const improvement = prevAverageRating > 0 && averageRating > 0 ? averageRating - prevAverageRating : 0
+
+    // Compute streak for this week
+    let streak = 0
+    const activeDaysThisWeek = weekDays.filter((d: any) => d.solved > 0).length
+    // Use current active streak if current week
+    if (weekOffset === 0) {
+      streak = data.currentStreak || 0
+    } else {
+      // rough estimate of consecutive days in that week
+      let maxStreak = 0
+      let curStreak = 0
+      for (const d of weekDays) {
+        if (d.solved > 0) {
+          curStreak += 1
+          if (curStreak > maxStreak) maxStreak = curStreak
+        } else {
+          curStreak = 0
+        }
+      }
+      streak = maxStreak
+    }
+
+    const weekLabel = `${rangeOfWeeks.start.toLocaleDateString(undefined, { month: "short", day: "numeric" })} - ${rangeOfWeeks.end.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
+
+    return {
+      solvedCount,
+      highestRating,
+      averageRating,
+      improvement,
+      streak,
+      weekLabel
+    }
+  }, [stats, weekOffset, data])
 
   return (
-    <div className="grid gap-3.5 select-none">
-      <Card className="relative overflow-hidden border-amber-500/20 bg-[#15130f] p-0 shadow-[0_12px_30px_rgba(0,0,0,0.22)]">
-        <div className="absolute inset-y-0 left-0 w-1 bg-[#dfa054]" />
-        <div className="p-4 pl-5">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 panel-label">
-              <Compass size={13} className="text-[#dfa054]" /> Today&apos;s next move
-            </div>
-            <span className="rounded-full border border-zinc-700/80 bg-zinc-950/40 px-2 py-1 text-[9px] font-mono text-zinc-500">{syncLabel}</span>
+    <div className="grid gap-3.5 select-none font-sans pb-4">
+      {/* TODAY'S QUEST HEADER PANEL */}
+      <Card className="relative overflow-hidden border-zinc-900 bg-zinc-950 p-4 shadow-xl">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-[#dfa054] font-mono">
+            <Target size={12} /> TODAY&apos;S QUEST
           </div>
-          <div className="mt-3 flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <h2 className="truncate text-lg font-semibold tracking-tight text-zinc-100">
-                {primaryAction?.title || "Choose your first practice track"}
-              </h2>
-              <p className="mt-1 text-[11px] leading-relaxed text-zinc-400">
-                {primaryAction?.reason || "Your history becomes a useful daily plan after one full sync."}
-              </p>
-            </div>
-            <div className="shrink-0 text-right">
-              <div className="panel-label">Practice range</div>
-              <div className="metric-value mt-1 text-sm font-semibold text-[#dfa054]">{practiceRange}</div>
-            </div>
-          </div>
-          <div className="mt-4 flex gap-2">
-            {primaryAction?.slug ? (
-              <a
-                href={`https://leetcode.com/problems/${primaryAction.slug}/`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex min-h-8 items-center gap-1.5 rounded-md bg-[#dfa054] px-3 text-[10px] font-bold text-zinc-950 transition-colors hover:bg-[#efb76e]"
-              >
-                Open problem <ArrowUpRight size={12} />
-              </a>
-            ) : (
-              <button
-                onClick={() => handleStartSession()}
-                className="inline-flex min-h-8 items-center gap-1.5 rounded-md bg-[#dfa054] px-3 text-[10px] font-bold text-zinc-950 transition-colors hover:bg-[#efb76e]"
-              >
-                Start a session <Play size={11} fill="currentColor" />
-              </button>
-            )}
-            <a
-              href="https://leetcode.com/problemset/"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex min-h-8 items-center rounded-md border border-zinc-700 bg-zinc-950/30 px-3 text-[10px] font-medium text-zinc-300 transition-colors hover:border-zinc-600 hover:bg-zinc-900"
-            >
-              Explore
-            </a>
-          </div>
-        </div>
-        <div className="grid grid-cols-3 divide-x divide-zinc-800/80 border-t border-zinc-800/80 bg-zinc-950/30">
-          <div className="px-4 py-2.5"><div className="panel-label">Solved</div><div className="metric-value mt-1 text-lg font-semibold text-zinc-100">{officialTotalSolved}</div></div>
-          <div className="px-4 py-2.5"><div className="panel-label">This week</div><div className="metric-value mt-1 text-lg font-semibold text-zinc-100">{data.todaySolves || 0}<span className="ml-1 text-[10px] font-normal text-zinc-500">today</span></div></div>
-          <div className="px-4 py-2.5"><div className="panel-label">Streak</div><div className="metric-value mt-1 text-lg font-semibold text-zinc-100">{data.currentStreak || 0}<span className="ml-1 text-[10px] font-normal text-zinc-500">days</span></div></div>
-        </div>
-      </Card>
-
-      <div className="flex items-center justify-between px-1 pt-1">
-        <div className="flex items-center gap-2 panel-label"><TrendingUp size={13} className="text-emerald-400" /> Evidence and momentum</div>
-        <span className="text-[10px] font-mono text-zinc-600">{range ? `${range.evidence} solved signals` : "needs rated history"}</span>
-      </div>
-
-
-
-      {/* Solve range card */}
-      <Card className="p-4 bg-zinc-950/20 border border-zinc-900 shadow-inner">
-        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500"><Target size={13} />Practice range</div>
-        {range ? (
-          <>
-            <div className="mt-2 text-3xl font-extrabold font-mono text-zinc-100 tabular-nums tracking-tight">{range.low} <span className="text-zinc-600 font-normal">→</span> {range.high}</div>
-            <div className="mt-1 text-[10px] text-zinc-500 leading-snug">Evidence-based estimate from {range.source}.</div>
-            <div className="mt-3 border-t border-zinc-900/60 pt-2.5 text-[11px] font-mono text-zinc-400">
-              Stretch range: <span className="text-[#dfa054] font-bold bg-[#dfa054]/10 border border-[#dfa054]/20 px-2 py-0.5 rounded ml-1">{range.challengeLow} - {range.challengeHigh}</span>
-            </div>
-          </>
-        ) : (
-          <div className="mt-3 text-xs text-zinc-500">Establish a range by syncing your LeetCode history.</div>
-        )}
-      </Card>
-
-      {/* Dynamic Practice Session Card */}
-      <Card className="p-4 flex flex-col gap-3">
-        <div className="flex items-center justify-between border-b border-zinc-900 pb-2 mb-1">
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-zinc-500">
-            <Clock3 size={13} /> Current Practice Session
-          </div>
-          {liveSession ? (
-            <span className="flex h-2 w-2 relative shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-          ) : (
-            <span className="text-[9px] font-mono text-zinc-600 uppercase">Standby</span>
-          )}
+          <span className="rounded-full border border-zinc-900 bg-zinc-900/50 px-2 py-0.5 text-[8.5px] font-mono text-zinc-500">
+            {remainingTasks === 0 ? "All Clear" : `${remainingTasks} tasks remaining`}
+          </span>
         </div>
 
-        {/* Telemetry metrics */}
-        <div className="grid grid-cols-4 gap-2 text-center font-mono">
-          <div className="bg-zinc-900/30 border border-zinc-900 py-1.5 rounded-lg flex flex-col">
-            <span className="text-[8px] text-zinc-500 uppercase tracking-wider font-semibold">Time</span>
-            <span className="font-bold text-zinc-200 mt-0.5 tabular-nums text-xs">
-              {liveSession ? `${Math.floor(sessionSeconds / 60)}:${String(sessionSeconds % 60).padStart(2, "0")}` : "0:00"}
-            </span>
-          </div>
-          <div className="bg-zinc-900/30 border border-zinc-900 py-1.5 rounded-lg flex flex-col">
-            <span className="text-[8px] text-zinc-500 uppercase tracking-wider font-semibold">Focus</span>
-            <span className="font-bold text-zinc-200 mt-0.5 tabular-nums text-xs">
-              {liveSession ? `${liveSession.focusScore}%` : "100%"}
-            </span>
-          </div>
-          <div className="bg-zinc-900/30 border border-zinc-900 py-1.5 rounded-lg flex flex-col">
-            <span className="text-[8px] text-zinc-500 uppercase tracking-wider font-semibold">Switches</span>
-            <span className="font-bold text-zinc-200 mt-0.5 tabular-nums text-xs">
-              {liveSession ? liveSession.tabSwitches : 0}
-            </span>
-          </div>
-          <div className="bg-zinc-900/30 border border-zinc-900 py-1.5 rounded-lg flex flex-col">
-            <span className="text-[8px] text-zinc-500 uppercase tracking-wider font-semibold">Pastes</span>
-            <span className="font-bold text-zinc-200 mt-0.5 tabular-nums text-xs">
-              {liveSession ? liveSession.pasteCount : 0}
-            </span>
-          </div>
-        </div>
-
-        {/* Controls */}
-        <div className="flex gap-2 mt-1">
-          {liveSession ? (
-            <>
+        {liveSession ? (
+          // Active practicing timer session
+          <div className="mt-3.5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[10px] text-zinc-400 font-mono">Active Focus Session</span>
+                <span className="flex items-center gap-1.5 mt-0.5">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-xs font-bold text-zinc-100 font-mono">
+                    {liveSession.mode || "PRACTICE"}
+                  </span>
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-[9px] text-zinc-500 block uppercase font-mono tracking-wider">ELAPSED</span>
+                <span className="text-sm font-bold font-mono text-zinc-200 tabular-nums">
+                  {Math.floor(sessionSeconds / 60)}:{String(sessionSeconds % 60).padStart(2, "0")}
+                </span>
+              </div>
+            </div>
+            {/* Controls */}
+            <div className="flex gap-2 pt-1">
               <button
                 onClick={handleResetSession}
-                className="flex-1 border border-amber-600/35 hover:border-amber-500 hover:bg-amber-950/10 text-amber-400 font-bold text-[10px] py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 uppercase font-mono tracking-wider cursor-pointer"
+                className="flex-1 border border-zinc-800 hover:border-zinc-700 bg-zinc-900/40 hover:bg-zinc-900 text-zinc-300 font-bold text-[9px] py-1.5 rounded transition-colors flex items-center justify-center gap-1.5 uppercase font-mono cursor-pointer"
               >
-                <RotateCcw size={11} /> Reset
+                <RotateCcw size={10} /> Reset
               </button>
               <button
                 onClick={handleEndSession}
-                className="flex-1 border border-red-600/35 hover:border-red-500 hover:bg-red-950/10 text-red-400 font-bold text-[10px] py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 uppercase font-mono tracking-wider cursor-pointer"
+                className="flex-1 border border-red-900/40 hover:border-red-800 bg-red-950/20 hover:bg-red-950/40 text-red-400 font-bold text-[9px] py-1.5 rounded transition-colors flex items-center justify-center gap-1.5 uppercase font-mono cursor-pointer"
               >
-                <Square size={11} /> Stop & Save
+                <Square size={9} /> Stop
               </button>
-            </>
-          ) : (
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 flex items-center justify-between gap-4">
+            <p className="text-[11px] leading-relaxed text-zinc-400 max-w-[190px]">
+              Ready to log a deliberate practice run? Start a session to track tab switches and focus.
+            </p>
             <button
               onClick={() => handleStartSession()}
-              className="w-full bg-[#dfa054] hover:bg-[#eab308] text-zinc-950 font-bold text-[10px] py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 uppercase font-mono tracking-wider cursor-pointer hover:shadow-[0_0_12px_rgba(223,160,84,0.2)]"
+              className="shrink-0 bg-[#dfa054] hover:bg-[#eab308] text-zinc-950 font-bold text-[10px] px-3.5 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 uppercase font-mono tracking-wider cursor-pointer hover:shadow-[0_0_12px_rgba(223,160,84,0.2)]"
             >
-              <Play size={11} fill="currentColor" /> Start Practice Session
+              <Play size={10} fill="currentColor" /> Start Session
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </Card>
 
-      {/* 📊 Session Analytics & Calendar Heatmap */}
-      <Card className="p-4 flex flex-col gap-3.5 bg-gradient-to-b from-[#141416] to-[#0a0a0b] border border-zinc-850 shadow-lg">
-        <div className="flex items-center justify-between border-b border-zinc-900 pb-2.5">
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-            <Clock3 size={13} /> Practice Telemetry
-          </div>
-          <div className="text-[9px] font-mono text-zinc-500">Last 28 Days</div>
-        </div>
-
-        {/* History Stats Grid */}
-        <div className="grid grid-cols-3 gap-2 text-center font-mono">
-          <div className="bg-gradient-to-br from-zinc-900/60 to-zinc-950/80 border border-zinc-900/60 p-2 rounded-lg flex flex-col items-center justify-center relative overflow-hidden">
-            <Flame size={13} className="text-orange-400 absolute opacity-20 -right-1 -bottom-1 w-8 h-8" />
-            <div className="flex items-center justify-center gap-1.5 mb-0.5"><Flame size={11} className="text-orange-400" /><span className="text-[8px] text-zinc-500 uppercase">Total Hours</span></div>
-            <span className="text-xs font-bold text-zinc-200">{stats.totalHours.toFixed(1)}h</span>
-          </div>
-          <div className="bg-gradient-to-br from-zinc-900/60 to-zinc-950/80 border border-zinc-900/60 p-2 rounded-lg flex flex-col items-center justify-center relative overflow-hidden">
-            <Clock3 size={13} className="text-sky-400 absolute opacity-20 -right-1 -bottom-1 w-8 h-8" />
-            <div className="flex items-center justify-center gap-1.5 mb-0.5"><Clock3 size={11} className="text-sky-400" /><span className="text-[8px] text-zinc-500 uppercase">Avg Session</span></div>
-            <span className="text-xs font-bold text-zinc-200">{stats.avgSessionMin}m</span>
-          </div>
-          <div className="bg-gradient-to-br from-zinc-900/60 to-zinc-950/80 border border-zinc-900/60 p-2 rounded-lg flex flex-col items-center justify-center relative overflow-hidden">
-            <Target size={13} className="text-emerald-400 absolute opacity-20 -right-1 -bottom-1 w-8 h-8" />
-            <div className="flex items-center justify-center gap-1.5 mb-0.5"><Target size={11} className="text-emerald-400" /><span className="text-[8px] text-zinc-500 uppercase">Daily Avg</span></div>
-            <span className="text-xs font-bold text-zinc-200">{stats.dailyAvgMin}m</span>
-          </div>
-        </div>
-
-        {/* Daily Performance Score Indicator Card */}
-        <div className="bg-zinc-950/50 border border-zinc-900 p-3 rounded-xl flex gap-4 items-center">
-          <div className="flex-1 flex flex-col gap-2">
-            <div>
-              <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest block font-mono">Today&apos;s activity signal</span>
-              <span className={`inline-block mt-1 text-[9px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider font-mono ${todayStats.badgeColor}`}>
-                {todayStats.badgeText}
+      {/* THREE MAIN QUEST CARDS */}
+      <div className="space-y-3">
+        {/* Card 1: Review Quest */}
+        <div className="group relative overflow-hidden bg-zinc-950/40 border border-zinc-900 hover:border-zinc-800/80 transition-all duration-300 rounded-xl p-4 pl-5 shadow-sm min-h-[96px] flex flex-col justify-between">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[#dfa054]/90 to-amber-600/90" />
+          <Lightbulb size={64} className="absolute -right-3 -bottom-3 text-zinc-800 opacity-[0.04] transition-all duration-500 group-hover:opacity-15 group-hover:scale-110 group-hover:text-amber-500 group-hover:drop-shadow-[0_0_18px_rgba(245,158,11,0.3)] pointer-events-none" />
+          
+          <div className="flex items-start justify-between gap-3 relative z-10">
+            <div className="min-w-0">
+              <span className="text-[9px] font-bold uppercase tracking-widest text-[#dfa054]/90 font-mono">
+                ① Review
               </span>
-            </div>
-
-            {/* Breakdown parameters list */}
-            <div className="flex flex-col gap-1.5 pt-1.5 border-t border-zinc-900/40 text-[9px] font-mono text-zinc-400">
-              <div className="flex justify-between">
-                <span>Focus Mins:</span>
-                <span className="text-zinc-200 font-bold">{todayStats.minutes}m <span className="text-zinc-500 text-[8px] font-normal">(+{((todayStats.minutes / 30) * 1.0).toFixed(1)} pts)</span></span>
-              </div>
-              <div className="flex justify-between">
-                <span>Solved Count:</span>
-                <span className="text-zinc-200 font-bold">{todayStats.solved} <span className="text-zinc-500 text-[8px] font-normal">(+{(todayStats.solved * 2.5).toFixed(1)} pts)</span></span>
-              </div>
-              {todayStats.tabSwitches > 0 && (
-                <div className="flex justify-between text-red-400">
-                  <span>Interrupted:</span>
-                  <span className="font-bold">{todayStats.tabSwitches} switches</span>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <div className="shrink-0 relative w-16 h-16 mr-1">
-            <svg className="w-full h-full -rotate-90 drop-shadow-lg" viewBox="0 0 36 36">
-              <circle cx="18" cy="18" r="15" fill="none" stroke="#27272a" strokeWidth="4" />
-              <circle cx="18" cy="18" r="15" fill="none" 
-                stroke={todayStats.score >= 8 ? '#10b981' : todayStats.score >= 4 ? '#dfa054' : '#ef4444'}
-                strokeWidth="4" strokeDasharray={`${todayStats.score * 9.42} 94.2`} strokeLinecap="round" className="transition-all duration-1000 ease-out" />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-[13px] leading-none font-black font-mono text-zinc-100">{todayStats.score}</span>
-              <span className="text-[7px] leading-none text-zinc-500 font-mono font-bold uppercase mt-0.5">/ 10</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Premium Calendar Heatmap Grid */}
-        <div className="flex flex-col gap-2 pt-1 border-t border-zinc-900/60 mt-1">
-          <div className="flex justify-between items-center text-[9px] font-mono font-bold uppercase tracking-widest text-zinc-650 mb-1">
-            <span>Activity Map</span>
-            <span>28 Days</span>
-          </div>
-          
-          <div className="flex">
-            {/* Y-axis days (optional, commonly Mon/Wed/Fri) */}
-            <div className="grid grid-rows-7 gap-1.5 text-[7px] font-mono text-zinc-600 pr-2.5 pb-1 uppercase font-bold justify-items-end pt-1">
-              <span className="flex items-center text-transparent">Sun</span>
-              <span className="flex items-center">Mon</span>
-              <span className="flex items-center text-transparent">Tue</span>
-              <span className="flex items-center">Wed</span>
-              <span className="flex items-center text-transparent">Thu</span>
-              <span className="flex items-center">Fri</span>
-              <span className="flex items-center text-transparent">Sat</span>
-            </div>
-
-            <div className="grid grid-rows-7 grid-flow-col gap-1.5 flex-1">
-              {stats.calendarDays.map((day: any, idx: number) => {
-                if (day === null) {
-                  return <div key={`empty-${idx}`} className="w-full aspect-square" />
-                }
-
-                const score = day.score
-                let colorClass = "bg-zinc-900/60 border border-zinc-900 hover:border-zinc-700"
-                if (score >= 8.0) {
-                  colorClass = "bg-emerald-500/80 border border-emerald-400/30 hover:bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.25)]"
-                } else if (score >= 4.0) {
-                  colorClass = "bg-emerald-600/60 border border-emerald-500/20 hover:bg-emerald-500"
-                } else if (score > 0.0) {
-                  colorClass = "bg-emerald-900/50 border border-emerald-800/20 hover:bg-emerald-700/60"
-                }
-
-                return (
-                  <div
-                    key={day.dateStr}
-                    className={`w-full aspect-square rounded-sm cursor-help transition-all duration-300 relative group ${colorClass}`}
-                  >
-                    {/* Glassmorphic Tooltip */}
-                    <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 hidden group-hover:block z-50 p-2.5 rounded-lg border border-zinc-800/80 bg-zinc-950/95 backdrop-blur shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] whitespace-nowrap min-w-[150px]">
-                      {/* Tooltip triangle pointer */}
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-solid border-t-zinc-800/80 border-t-8 border-x-transparent border-x-8 border-b-0"></div>
-                      
-                      <div className="text-[10px] font-bold text-zinc-200 border-b border-zinc-800/60 pb-1 mb-1.5">{day.dateLabel}</div>
-                      <div className="flex flex-col gap-1 text-[9px] font-mono">
-                        <div className="flex justify-between items-center text-zinc-400 gap-3">
-                          <span>Focus Time:</span>
-                          <span className="text-emerald-400 font-bold">{day.minutes} min</span>
-                        </div>
-                        <div className="flex justify-between items-center text-zinc-400 gap-3 border-b border-zinc-800/60 pb-1.5 mb-1.5">
-                          <span>Solved:</span>
-                          <span className="text-[#dfa054] font-bold">{day.solved}</span>
-                        </div>
-                        {day.problems && day.problems.length > 0 && (
-                          <div className="flex flex-col gap-1 mb-1.5 text-[8px] text-zinc-400 leading-snug border-b border-zinc-800/60 pb-1.5">
-                            {day.problems.map((prob: any, idx: number) => (
-                              <div key={idx} className="flex justify-between gap-3">
-                                <span className="truncate max-w-[90px]">{prob.title}</span>
-                                <span className="text-[#dfa054] shrink-0 font-bold">{Math.round(prob.rating)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {day.tabSwitches > 0 && (
-                          <div className="flex justify-between items-center text-red-400 gap-3">
-                            <span>Tab Switches:</span>
-                            <span className="font-bold">{day.tabSwitches}</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between items-center text-zinc-200 border-t border-zinc-800/60 pt-1.5 mt-0.5 font-bold text-[10px]">
-                          <span>Daily Score:</span>
-                          <span className="text-emerald-400">{day.score}/10</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Legend scale */}
-          <div className="flex justify-end items-center gap-1.5 mt-2.5 text-[8px] font-mono text-zinc-500 uppercase">
-            <span>Rest</span>
-            <div className="w-2.5 h-2.5 rounded-sm bg-zinc-900/60 border border-zinc-900" />
-            <div className="w-2.5 h-2.5 rounded-sm bg-emerald-900/50 border border-emerald-800/20" />
-            <div className="w-2.5 h-2.5 rounded-sm bg-emerald-600/60 border border-emerald-500/20" />
-            <div className="w-2.5 h-2.5 rounded-sm bg-emerald-500/80 border border-emerald-400/30 animate-pulse" />
-            <span>Elite</span>
-          </div>
-
-          {/* Insight */}
-          <div className="mt-2.5 p-2.5 rounded-lg bg-zinc-900/40 border border-zinc-800/50 text-[10px] text-zinc-400 font-mono">
-            <span className="text-[#dfa054]">💡</span> {(() => {
-              // Current streak calculation
-              let streak = 0;
-              const validDays = stats.calendarDays.filter((d: any) => d !== null);
-              for (let i = validDays.length - 1; i >= 0; i--) {
-                if (validDays[i].score > 0) streak++;
-                else if (i !== validDays.length - 1) break; // ignore today if 0, but break if yesterday was 0
-              }
-              
-              if (streak >= 3) return `${streak}-day streak! Consistency builds mastery.`;
-              
-              // Week solved
-              let weekSolved = 0;
-              for (let i = Math.max(0, validDays.length - 7); i < validDays.length; i++) {
-                weekSolved += validDays[i].solved;
-              }
-              if (weekSolved >= 10) return `Strong week — ${weekSolved} problems solved in the last 7 days.`;
-
-              // Best day
-              let bestDay = validDays[0];
-              for (const day of validDays) {
-                if (day.score > bestDay?.score) bestDay = day;
-              }
-              if (bestDay && bestDay.score > 5) return `Your most productive day was ${bestDay.dateLabel} (${bestDay.score}/10).`;
-
-              return "Start a session to build your practice momentum.";
-            })()}
-          </div>
-        </div>
-      </Card>
-      {/* Achievement Showcase */}
-      <AchievementShowcase achievements={achievements} variant="compact" />
-
-      {/* Recommendation plan section */}
-      <section className="mt-1">
-        <h2 className="mb-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Today's plan</h2>
-        <div className="grid gap-2">
-          {plan.map((item, index) => {
-            const isReview = item.type === "Review";
-            const isWeakness = item.type.includes("Practice signal");
-            const sideColor = isReview ? "bg-[#dfa054]" : isWeakness ? "bg-teal-500" : "bg-blue-500";
-            const iconColor = isReview ? "text-[#dfa054]" : isWeakness ? "text-teal-400" : "text-blue-400";
-            
-            return (
-              <a 
-                key={`${item.type}-${index}`} 
-                href={item.slug ? `https://leetcode.com/problems/${item.slug}/` : undefined} 
-                target={item.slug ? "_blank" : undefined} 
-                rel="noreferrer" 
-                className="group relative flex items-center justify-between gap-3 rounded-lg border border-zinc-850 bg-zinc-950/20 p-3 transition duration-200 hover:-translate-y-0.5 hover:border-zinc-700 hover:bg-zinc-900/40"
-              >
-                {/* Left accent indicator */}
-                <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg ${sideColor}`} />
-                
-                <div className="flex items-center gap-2.5 min-w-0 pl-1.5">
-                  <div className={`p-1.5 rounded bg-zinc-900/50 ${iconColor}`}>
-                    {isReview ? <RotateCcw size={12} /> : isWeakness ? <Target size={12} /> : <Compass size={12} />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs font-semibold text-zinc-200 transition group-hover:text-white">
-                      {item.title}
-                    </div>
-                    <div className="truncate text-[9px] font-mono text-zinc-550 mt-0.5 uppercase tracking-wide">
-                      {item.type}{item.reason ? ` · ${item.reason}` : ""}
-                    </div>
-                  </div>
-                </div>
-                {item.slug && <ArrowUpRight size={13} className="text-zinc-600 transition group-hover:text-zinc-300 mr-1" />}
-              </a>
-            );
-          })}
-          {plan.length === 0 && (
-            <div className="rounded-lg border border-dashed border-zinc-800 bg-zinc-950/10 px-4 py-6 text-center text-xs text-zinc-500">
-              No recommendations are available yet.
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* 🔄 Spaced Repetition Review Queue */}
-      {queue.length > 0 && (
-        <Card className="p-4 bg-gradient-to-br from-[#1c120c]/40 to-black/80 border border-[#dfa054]/15 shadow-xl flex flex-col gap-3 relative overflow-hidden">
-          {/* Subtle orange ambient glow */}
-          <div className="absolute -top-10 -right-10 w-24 h-24 bg-[#dfa054]/5 rounded-full blur-2xl pointer-events-none" />
-          
-          <div className="flex items-center justify-between border-b border-zinc-900 pb-2 mb-0.5">
-            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-              <RotateCcw size={13} className="text-[#dfa054] animate-spin-slow" /> Review Queue ({queue.length} Due)
-            </div>
-            <span className="text-[9px] font-mono text-[#dfa054]/70 bg-[#dfa054]/5 px-1.5 py-0.5 rounded border border-[#dfa054]/15">SM-2 Scheduled</span>
-          </div>
-
-          <div className="flex justify-between items-start gap-2">
-            <div className="min-w-0 flex-1">
-              <a 
-                href={`https://leetcode.com/problems/${queue[0].titleSlug}/`} 
-                target="_blank" 
-                rel="noreferrer"
-                className="font-bold text-xs text-zinc-200 hover:text-[#dfa054] transition-colors flex items-center gap-1.5 group/link"
-              >
-                {queue[0].title || queue[0].problemTitle} 
-                <ArrowUpRight size={11} className="text-zinc-650 transition group-hover/link:text-[#dfa054]" />
-              </a>
-              <p className="text-[9px] text-zinc-500 font-mono mt-1">
-                Interval: <span className="text-zinc-300 font-bold">{queue[0].intervalDays?.toFixed(1) || "1.0"}d</span> · Reviews: <span className="text-zinc-300 font-bold">{queue[0].reviewCount || 0}</span>
+              <h3 className="mt-1 text-sm font-semibold text-zinc-100 truncate pr-4">
+                {activeReviewCard ? (activeReviewCard.title || activeReviewCard.problemTitle) : "Review Queue Clear"}
+              </h3>
+              <p className="mt-0.5 text-[10px] text-zinc-500 font-mono">
+                {activeReviewCard ? `Interval: ${activeReviewCard.intervalDays?.toFixed(1) || "1.0"}d` : "Recall deck fully updated."}
               </p>
             </div>
-
-            {reviewingCardId === queue[0].id ? (
-              <button 
-                onClick={() => setReviewingCardId(null)}
-                className="px-2.5 py-1 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200 text-[10px] rounded-md transition-all font-mono uppercase cursor-pointer"
-              >
-                Cancel
-              </button>
-            ) : (
-              <button 
-                onClick={() => setReviewingCardId(queue[0].id)}
-                className="px-3 py-1 bg-[#dfa054]/10 hover:bg-[#dfa054]/20 border border-[#dfa054]/30 text-[#dfa054] text-[10px] font-bold rounded-md transition-all font-mono uppercase cursor-pointer shadow-[0_0_10px_rgba(223,160,84,0.05)]"
-              >
-                Log Review
-              </button>
+            
+            {activeReviewCard && (
+              <div className="flex items-center gap-2">
+                <a 
+                  href={`https://leetcode.com/problems/${activeReviewCard.titleSlug}/`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="bg-[#dfa054] hover:bg-[#eab308] text-zinc-950 text-[10px] font-bold px-3 py-1.5 rounded transition-all shadow-[0_0_10px_rgba(223,160,84,0.1)] cursor-pointer shrink-0"
+                >
+                  Review
+                </a>
+              </div>
             )}
           </div>
 
-          {reviewingCardId === queue[0].id && (
-            <div className="flex flex-col gap-2 bg-zinc-950/80 border border-zinc-900 p-2.5 rounded-lg mt-1">
-              <div className="text-[9px] font-mono text-zinc-400 font-bold uppercase tracking-wider">Rate recall quality:</div>
-              <div className="grid grid-cols-4 gap-1.5 font-mono text-[9px] font-bold">
+          {activeReviewCard && (
+            <div className="mt-2.5 pt-2 border-t border-zinc-900/60 relative z-10">
+              {reviewingCardId === activeReviewCard.id ? (
+                <div className="space-y-1.5">
+                  <div className="text-[8px] font-mono text-zinc-500 font-bold uppercase tracking-wider">Rate recall quality:</div>
+                  <div className="grid grid-cols-4 gap-1 font-mono text-[8.5px] font-bold">
+                    <button 
+                      disabled={reviewSubmitting}
+                      onClick={() => handleReviewSubmit(activeReviewCard.id, 1)}
+                      className="bg-red-500/10 border border-red-500/25 hover:bg-red-500/20 text-red-400 py-1 rounded cursor-pointer text-center"
+                    >
+                      Forgot
+                    </button>
+                    <button 
+                      disabled={reviewSubmitting}
+                      onClick={() => handleReviewSubmit(activeReviewCard.id, 3)}
+                      className="bg-amber-500/10 border border-amber-500/25 hover:bg-amber-500/20 text-amber-400 py-1 rounded cursor-pointer text-center"
+                    >
+                      Hard
+                    </button>
+                    <button 
+                      disabled={reviewSubmitting}
+                      onClick={() => handleReviewSubmit(activeReviewCard.id, 4)}
+                      className="bg-blue-500/10 border border-blue-500/25 hover:bg-blue-500/20 text-blue-400 py-1 rounded cursor-pointer text-center"
+                    >
+                      Good
+                    </button>
+                    <button 
+                      disabled={reviewSubmitting}
+                      onClick={() => handleReviewSubmit(activeReviewCard.id, 5)}
+                      className="bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 text-emerald-400 py-1 rounded cursor-pointer text-center"
+                    >
+                      Easy
+                    </button>
+                  </div>
+                </div>
+              ) : (
                 <button 
-                  disabled={reviewSubmitting}
-                  onClick={() => handleReviewSubmit(queue[0].id, 1)}
-                  className="bg-red-550/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 py-1.5 rounded transition-all cursor-pointer text-center"
+                  onClick={() => setReviewingCardId(activeReviewCard.id)}
+                  className="w-full bg-zinc-900/50 hover:bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 text-[9px] font-mono py-1 rounded transition-colors uppercase cursor-pointer"
                 >
-                  Forgot (1)
+                  Log Recall Quality
                 </button>
-                <button 
-                  disabled={reviewSubmitting}
-                  onClick={() => handleReviewSubmit(queue[0].id, 3)}
-                  className="bg-amber-550/10 border border-amber-500/20 hover:bg-amber-500/20 text-amber-400 py-1.5 rounded transition-all cursor-pointer text-center"
-                >
-                  Hard (3)
-                </button>
-                <button 
-                  disabled={reviewSubmitting}
-                  onClick={() => handleReviewSubmit(queue[0].id, 4)}
-                  className="bg-blue-550/10 border border-blue-500/20 hover:bg-blue-500/20 text-blue-400 py-1.5 rounded transition-all cursor-pointer text-center"
-                >
-                  Good (4)
-                </button>
-                <button 
-                  disabled={reviewSubmitting}
-                  onClick={() => handleReviewSubmit(queue[0].id, 5)}
-                  className="bg-emerald-555/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-400 py-1.5 rounded transition-all cursor-pointer text-center"
-                >
-                  Easy (5)
-                </button>
-              </div>
+              )}
             </div>
           )}
-        </Card>
-      )}
+        </div>
 
-      {/* Premium Compact Zenith Record */}
-      {data?.solvedRankGrid && (
-        <Card className="p-3 bg-gradient-to-r from-zinc-950/40 to-zinc-900/20 border-zinc-800/80 flex items-center justify-between mt-1 transition-all duration-300 hover:border-cyan-950/40 hover:shadow-[0_4px_20px_rgba(6,182,212,0.05)]">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-cyan-400">
-              <Sparkles size={11} className="animate-pulse" /> Zenith
+        {/* Card 2: Practice Quest */}
+        <div className="group relative overflow-hidden bg-zinc-950/40 border border-zinc-900 hover:border-zinc-800/80 transition-all duration-300 rounded-xl p-4 pl-5 shadow-sm min-h-[96px] flex flex-col justify-between">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-teal-500 to-emerald-600" />
+          <Lightbulb size={64} className="absolute -right-3 -bottom-3 text-zinc-800 opacity-[0.04] transition-all duration-500 group-hover:opacity-15 group-hover:scale-110 group-hover:text-teal-400 group-hover:drop-shadow-[0_0_18px_rgba(20,184,166,0.3)] pointer-events-none" />
+          
+          <div className="flex items-start justify-between gap-3 relative z-10">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-teal-400 font-mono">
+                  ② Practice
+                </span>
+                
+                {weakRecommendation && (
+                  <div className="group/tooltip relative cursor-pointer">
+                    <Info size={11} className="text-zinc-650 hover:text-zinc-400 transition-colors" />
+                    {/* Glassmorphic coach tooltip */}
+                    <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-0 hidden group-hover/tooltip:block z-50 p-3 rounded-lg border border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md shadow-2xl min-w-[190px] text-[10px] text-zinc-400 font-mono">
+                      {/* Tooltip pointer */}
+                      <div className="absolute top-full left-2 -mt-[1px] border-solid border-t-zinc-800/80 border-t-6 border-x-transparent border-x-6 border-b-0"></div>
+                      <div className="font-bold text-zinc-200 border-b border-zinc-900 pb-1 mb-1.5 uppercase tracking-wider text-[9px] flex items-center gap-1 text-[#dfa054]"><Sparkles size={10} /> Coach Report</div>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between"><span>Weak Topic:</span><span className="text-zinc-200 font-bold">{weakRecommendation.tag}</span></div>
+                        <div className="flex justify-between"><span>Reason:</span><span className="text-zinc-200 font-semibold">{weakness?.weakTags?.[0]?.score > 0.4 ? "Needs more recent solved signals" : "No solved problems in 14+ days"}</span></div>
+                        <div className="flex justify-between"><span>Capability:</span><span className="text-emerald-400 font-bold">{range ? Math.round((range.low + range.high) / 2) : 1500}</span></div>
+                        <div className="flex justify-between"><span>Confidence:</span><span className="text-[#dfa054] font-bold">High</span></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <h3 className="mt-1 text-sm font-semibold text-zinc-100 truncate pr-4">
+                {weakRecommendation ? weakRecommendation.title : "Practice Target Solved"}
+              </h3>
+              <p className="mt-0.5 text-[10px] text-zinc-500 font-mono">
+                {weakRecommendation ? weakRecommendation.reason : "All practice targets solved!"}
+              </p>
             </div>
-            <div className="h-4 w-px bg-zinc-800" />
-            <div className="flex gap-1.5 text-[9px] font-mono font-bold">
-              <span className="bg-gradient-to-r from-yellow-500 to-[#dfa054] text-zinc-950 px-1.5 py-0.5 rounded shadow-[0_0_8px_rgba(245,158,11,0.15)]">S+: {Object.values(data.solvedRankGrid.S_PLUS || {}).reduce((a: any, b: any) => a + Number(b || 0), 0)}</span>
-              <span className="bg-cyan-500/10 text-cyan-455 border border-cyan-500/20 px-1.5 py-0.5 rounded">S: {Object.values(data.solvedRankGrid.S || {}).reduce((a: any, b: any) => a + Number(b || 0), 0)}</span>
-              <span className="bg-emerald-500/10 text-emerald-455 border border-emerald-500/20 px-1.5 py-0.5 rounded">A: {Object.values(data.solvedRankGrid.A || {}).reduce((a: any, b: any) => a + Number(b || 0), 0)}</span>
-              <span className="bg-blue-500/10 text-blue-455 border border-blue-500/20 px-1.5 py-0.5 rounded">B: {Object.values(data.solvedRankGrid.B || {}).reduce((a: any, b: any) => a + Number(b || 0), 0)}</span>
+
+            {weakRecommendation && (
+              <a 
+                href={`https://leetcode.com/problems/${weakRecommendation.slug}/`}
+                target="_blank"
+                rel="noreferrer"
+                className="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 text-[10px] font-bold px-3 py-1.5 rounded transition-all cursor-pointer shrink-0"
+              >
+                Practice
+              </a>
+            )}
+          </div>
+        </div>
+
+        {/* Card 3: Challenge Quest */}
+        <div className="group relative overflow-hidden bg-zinc-950/40 border border-zinc-900 hover:border-zinc-800/80 transition-all duration-300 rounded-xl p-4 pl-5 shadow-sm min-h-[96px] flex flex-col justify-between">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 to-indigo-600" />
+          <Lightbulb size={64} className="absolute -right-3 -bottom-3 text-zinc-800 opacity-[0.04] transition-all duration-500 group-hover:opacity-15 group-hover:scale-110 group-hover:text-blue-400 group-hover:drop-shadow-[0_0_18px_rgba(59,130,246,0.3)] pointer-events-none" />
+          
+          <div className="flex items-start justify-between gap-3 relative z-10">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-blue-400 font-mono">
+                  ③ Challenge
+                </span>
+
+                {ratedChallenge && (
+                  <div className="group/tooltip relative cursor-pointer">
+                    <Info size={11} className="text-zinc-650 hover:text-zinc-400 transition-colors" />
+                    {/* Glassmorphic coach tooltip */}
+                    <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-0 hidden group-hover/tooltip:block z-50 p-3 rounded-lg border border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md shadow-2xl min-w-[190px] text-[10px] text-zinc-400 font-mono">
+                      {/* Tooltip pointer */}
+                      <div className="absolute top-full left-2 -mt-[1px] border-solid border-t-zinc-800/80 border-t-6 border-x-transparent border-x-6 border-b-0"></div>
+                      <div className="font-bold text-zinc-200 border-b border-zinc-900 pb-1 mb-1.5 uppercase tracking-wider text-[9px] flex items-center gap-1 text-[#dfa054]"><Sparkles size={10} /> Coach Report</div>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between"><span>Target Rating:</span><span className="text-zinc-200 font-bold">{ratedChallenge.rating}</span></div>
+                        <div className="flex justify-between"><span>Match Reason:</span><span className="text-zinc-200 font-semibold">Active Glicko target level</span></div>
+                        <div className="flex justify-between"><span>Contest:</span><span className="text-zinc-200 font-semibold truncate max-w-[100px]">{ratedChallenge.contest}</span></div>
+                        <div className="flex justify-between"><span>Index:</span><span className="text-blue-400 font-bold">{ratedChallenge.index}</span></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <h3 className="mt-1 text-sm font-semibold text-zinc-100 truncate pr-4">
+                {ratedChallenge ? ratedChallenge.title : "Challenge Goal Cleared"}
+              </h3>
+              <p className="mt-0.5 text-[10px] text-zinc-500 font-mono truncate pr-4">
+                {ratedChallenge ? `${ratedChallenge.contest} (${ratedChallenge.index}) · ${ratedChallenge.rating} rating` : "All challenges met!"}
+              </p>
             </div>
+
+            {ratedChallenge && (
+              <a 
+                href={`https://leetcode.com/problems/${ratedChallenge.slug}/`}
+                target="_blank"
+                rel="noreferrer"
+                className="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 text-[10px] font-bold px-3 py-1.5 rounded transition-all cursor-pointer shrink-0"
+              >
+                Attempt
+              </a>
+            )}
           </div>
-          <div className="text-[10px] font-black font-mono text-zinc-400 text-right leading-none">
-            {Object.values(data.solvedRankGrid || {}).reduce((total: number, row: any) => total + Object.values(row || {}).reduce((sum: number, count: any) => sum + Number(count || 0), 0), 0)} <span className="text-[8px] text-zinc-650 font-normal uppercase block mt-0.5">Sessions</span>
+        </div>
+      </div>
+
+      {/* QUEST PROGRESS BAR */}
+      <div className="flex items-center justify-between border-t border-b border-zinc-900/60 py-3.5 px-1 mt-1 text-[10px] font-mono text-zinc-500">
+        <span className="font-bold uppercase tracking-wider">Quest Progress</span>
+        <div className="flex items-center gap-3">
+          <span className="text-[#dfa054] font-bold tracking-widest text-[12px]">{getProgressBar(completedQuests, totalQuests)}</span>
+          <span className="text-zinc-400 font-bold font-mono">{completedQuests}/{totalQuests}</span>
+        </div>
+      </div>
+
+      {/* WEEKLY PROGRESS REPORT CARD */}
+      <Card className="p-4 bg-zinc-950/40 border border-zinc-900 shadow-sm flex flex-col gap-3">
+        <div className="flex items-center justify-between border-b border-zinc-900/60 pb-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">
+            Weekly Progress
+          </span>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setWeekOffset(prev => prev - 1)}
+              className="p-1 hover:bg-zinc-900 border border-zinc-900 hover:border-zinc-800 text-zinc-500 hover:text-zinc-300 rounded transition-colors cursor-pointer"
+              title="Previous Week"
+            >
+              <ChevronLeft size={11} />
+            </button>
+            <span className="text-[9px] font-mono text-zinc-400 px-1 font-semibold">
+              {weekOffset === 0 ? "This Week" : weeklyReport.weekLabel}
+            </span>
+            <button 
+              disabled={weekOffset >= 0}
+              onClick={() => setWeekOffset(prev => prev + 1)}
+              className="p-1 hover:bg-zinc-900 border border-zinc-900 hover:border-zinc-800 text-zinc-500 hover:text-zinc-300 rounded transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed cursor-pointer"
+              title="Next Week"
+            >
+              <ChevronRight size={11} />
+            </button>
           </div>
-        </Card>
-      )}
+        </div>
+
+        {/* This Week indicator */}
+        <div className="flex items-center justify-between text-[9px] font-mono text-zinc-500">
+          <span>{weekOffset === 0 ? "This Week" : "Week Performance"}</span>
+          <span className="text-emerald-400 tracking-wider font-bold">██████████</span>
+        </div>
+
+        {/* Weekly Stats Grid */}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-3.5 pt-1 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-zinc-500 font-mono text-[10px]">Solved</span>
+            <span className="font-bold text-zinc-200 font-mono">{weeklyReport.solvedCount}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-zinc-500 font-mono text-[10px]">Highest</span>
+            <span className="font-bold text-[#dfa054] font-mono">{weeklyReport.highestRating || "—"}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-zinc-500 font-mono text-[10px]">Average</span>
+            <span className="font-bold text-zinc-200 font-mono">{weeklyReport.averageRating || "—"}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-zinc-500 font-mono text-[10px]">Improvement</span>
+            <span className={`font-bold font-mono ${weeklyReport.improvement >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              {weeklyReport.improvement >= 0 ? `+${weeklyReport.improvement}` : weeklyReport.improvement}
+            </span>
+          </div>
+          <div className="flex items-center justify-between col-span-2 border-t border-zinc-900/60 pt-2">
+            <span className="text-zinc-500 font-mono text-[10px]">Active Streak</span>
+            <span className="font-bold text-[#dfa054] font-mono">{weeklyReport.streak} days</span>
+          </div>
+        </div>
+      </Card>
+      
+      {/* Dynamic Sync Info */}
+      <div className="flex items-center gap-1.5 px-1 py-0.5 text-[8.5px] text-zinc-650 font-mono">
+        <LockKeyhole size={10} /> History synced to {profile ? profile.username : "local metadata"}.
+      </div>
     </div>
   )
 }
