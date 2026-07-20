@@ -486,33 +486,6 @@ export const Dashboard = () => {
     }
   }, [stats])
 
-  if (loading) return <div className="grid gap-3"><Skeleton className="h-28" /><Skeleton className="h-20" /><Skeleton className="h-48" /></div>
-
-  if (error) {
-    return (
-      <Card className="py-8 text-center border-red-900/35 bg-red-950/20">
-        <div className="text-sm font-semibold text-red-400">Dashboard Failed to Load</div>
-        <div className="mt-1.5 text-[10px] text-zinc-400 font-mono px-4 break-all">{error}</div>
-        <button 
-          onClick={() => window.location.reload()} 
-          className="mt-4 px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-[10px] font-mono border border-zinc-700"
-        >
-          Retry
-        </button>
-      </Card>
-    )
-  }
-
-  if (!data && solved.size > 0) {
-    return (
-      <Card className="py-8 text-center">
-        <div className="text-sm font-semibold text-zinc-200">Local history cache active</div>
-        <div className="mt-1 text-xs text-zinc-500">{solved.size} solved problems are available locally{lastSync ? ` · last full sync ${new Date(lastSync).toLocaleDateString()}` : ""}.</div>
-      </Card>
-    )
-  }
-  if (!data) return <Card className="py-8 text-center"><div className="text-sm font-semibold text-zinc-200">Sync required</div><div className="mt-1 text-xs text-zinc-500">Run one full LeetCode history sync in Settings to build your dashboard.</div></Card>
-
   // 1. Prioritize Review Queue cards from NeetCode 150 & Striver SDE sheet
   const prioritizedReviews = useMemo(() => {
     if (!queue || queue.length === 0) return []
@@ -595,52 +568,24 @@ export const Dashboard = () => {
     }
   }, [zerotrac, range, solved])
 
-  const allSolvedStat = profile?.submitStats?.acSubmissionNum?.find((item: any) => item.difficulty === "All")
-  const officialTotalSolved = allSolvedStat ? allSolvedStat.count : data.totalSolved
-  const syncLabel = lastSync ? `Synced ${new Date(lastSync).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : "History not synced"
-  
-  const activeReviewCard = prioritizedReviews[0]
-  
-  // Quest completion checks
-  const isReviewDone = !activeReviewCard || solved.has(activeReviewCard.titleSlug || activeReviewCard.slug || "")
-  const isPracticeDone = !weakRecommendation || solved.has(weakRecommendation.slug)
-  const isChallengeDone = !ratedChallenge || solved.has(ratedChallenge.slug)
-
-  // Today's Quest progress calculations
-  const activeQuestsList = [
-    activeReviewCard && { key: "review", done: isReviewDone },
-    weakRecommendation && { key: "practice", done: isPracticeDone },
-    ratedChallenge && { key: "challenge", done: isChallengeDone }
-  ].filter(Boolean) as Array<{ key: string; done: boolean }>
-
-  const totalQuests = activeQuestsList.length
-  const completedQuests = activeQuestsList.filter(q => q.done).length
-  const remainingTasks = totalQuests - completedQuests
-
-  const getProgressBar = (completed: number, total: number) => {
-    if (total === 0) return "█████"
-    const filled = Math.round((completed / total) * 5)
-    return "█".repeat(filled) + "░".repeat(5 - filled)
-  }
-
-  // Helper for computing week ranges
-  const getWeekRange = (offset: number) => {
-    const now = new Date()
-    const day = now.getDay()
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1) // Mon start
-    const monday = new Date(now.setDate(diff))
-    monday.setHours(0, 0, 0, 0)
-    monday.setDate(monday.getDate() + offset * 7)
-    
-    const sunday = new Date(monday)
-    sunday.setDate(sunday.getDate() + 6)
-    sunday.setHours(23, 59, 59, 999)
-    return { start: monday, end: sunday }
-  }
-
   // Weekly stats calculator
   const weeklyReport = useMemo(() => {
-    const rangeOfWeeks = getWeekRange(weekOffset)
+    // Helper for computing week ranges
+    const getWeekRangeLocal = (offset: number) => {
+      const now = new Date()
+      const day = now.getDay()
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1) // Mon start
+      const monday = new Date(now.setDate(diff))
+      monday.setHours(0, 0, 0, 0)
+      monday.setDate(monday.getDate() + offset * 7)
+      
+      const sunday = new Date(monday)
+      sunday.setDate(sunday.getDate() + 6)
+      sunday.setHours(23, 59, 59, 999)
+      return { start: monday, end: sunday }
+    }
+
+    const rangeOfWeeks = getWeekRangeLocal(weekOffset)
     const weekDays = (stats?.calendarDays || []).filter((day: any) => {
       if (!day) return false
       const date = new Date(day.dateStr)
@@ -671,7 +616,7 @@ export const Dashboard = () => {
     const averageRating = ratedCount > 0 ? Math.round(totalRating / ratedCount) : 0
 
     // Compare with previous week
-    const prevWeekRange = getWeekRange(weekOffset - 1)
+    const prevWeekRange = getWeekRangeLocal(weekOffset - 1)
     const prevWeekDays = (stats?.calendarDays || []).filter((day: any) => {
       if (!day) return false
       const date = new Date(day.dateStr)
@@ -697,11 +642,9 @@ export const Dashboard = () => {
     // Compute streak for this week
     let streak = 0
     const activeDaysThisWeek = weekDays.filter((d: any) => d.solved > 0).length
-    // Use current active streak if current week
     if (weekOffset === 0) {
-      streak = data.currentStreak || 0
+      streak = data?.currentStreak || 0
     } else {
-      // rough estimate of consecutive days in that week
       let maxStreak = 0
       let curStreak = 0
       for (const d of weekDays) {
@@ -726,6 +669,36 @@ export const Dashboard = () => {
       weekLabel
     }
   }, [stats, weekOffset, data])
+
+  if (loading) return <div className="grid gap-3"><Skeleton className="h-28" /><Skeleton className="h-20" /><Skeleton className="h-48" /></div>
+
+  if (error) {
+    return (
+      <Card className="py-8 text-center border-red-900/35 bg-red-950/20">
+        <div className="text-sm font-semibold text-red-400">Dashboard Failed to Load</div>
+        <div className="mt-1.5 text-[10px] text-zinc-400 font-mono px-4 break-all">{error}</div>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="mt-4 px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-[10px] font-mono border border-zinc-700"
+        >
+          Retry
+        </button>
+      </Card>
+    )
+  }
+
+  if (!data && solved.size > 0) {
+    return (
+      <Card className="py-8 text-center">
+        <div className="text-sm font-semibold text-zinc-200">Local history cache active</div>
+        <div className="mt-1 text-xs text-zinc-500">{solved.size} solved problems are available locally{lastSync ? ` · last full sync ${new Date(lastSync).toLocaleDateString()}` : ""}.</div>
+      </Card>
+    )
+  }
+  if (!data) return <Card className="py-8 text-center"><div className="text-sm font-semibold text-zinc-200">Sync required</div><div className="mt-1 text-xs text-zinc-500">Run one full LeetCode history sync in Settings to build your dashboard.</div></Card>
+
+  
+
 
   return (
     <div className="grid gap-3.5 select-none font-sans pb-4">
