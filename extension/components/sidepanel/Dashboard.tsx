@@ -697,8 +697,33 @@ export const Dashboard = () => {
   }
   if (!data) return <Card className="py-8 text-center"><div className="text-sm font-semibold text-zinc-200">Sync required</div><div className="mt-1 text-xs text-zinc-500">Run one full LeetCode history sync in Settings to build your dashboard.</div></Card>
 
+  const allSolvedStat = profile?.submitStats?.acSubmissionNum?.find((item: any) => item.difficulty === "All")
+  const officialTotalSolved = allSolvedStat ? allSolvedStat.count : data.totalSolved
+  const syncLabel = lastSync ? `Synced ${new Date(lastSync).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : "History not synced"
   
+  const activeReviewCard = prioritizedReviews[0]
+  
+  // Quest completion checks
+  const isReviewDone = !activeReviewCard || solved.has(activeReviewCard.titleSlug || activeReviewCard.slug || "")
+  const isPracticeDone = !weakRecommendation || solved.has(weakRecommendation.slug)
+  const isChallengeDone = !ratedChallenge || solved.has(ratedChallenge.slug)
 
+  // Today's Quest progress calculations
+  const activeQuestsList = [
+    activeReviewCard && { key: "review", done: isReviewDone },
+    weakRecommendation && { key: "practice", done: isPracticeDone },
+    ratedChallenge && { key: "challenge", done: isChallengeDone }
+  ].filter(Boolean) as Array<{ key: string; done: boolean }>
+
+  const totalQuests = activeQuestsList.length
+  const completedQuests = activeQuestsList.filter(q => q.done).length
+  const remainingTasks = totalQuests - completedQuests
+
+  const getProgressBar = (completed: number, total: number) => {
+    if (total === 0) return "█████"
+    const filled = Math.round((completed / total) * 5)
+    return "█".repeat(filled) + "░".repeat(5 - filled)
+  }
 
   return (
     <div className="grid gap-3.5 select-none font-sans pb-4">
