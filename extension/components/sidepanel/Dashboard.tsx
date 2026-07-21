@@ -94,15 +94,19 @@ const ActionButton = ({ href, children, tone = "zinc" }: { href: string; childre
   return <a href={href} target="_blank" rel="noreferrer" className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-[11px] font-bold transition-colors ${tones[tone]}`}>{children} <ArrowUpRight size={13} /></a>
 }
 
+interface UserContestRanking { rating?: number; attendedContestsCount?: number; globalRanking?: number; topPercentage?: number; }
+interface LiveSession { isActive?: boolean; startTime?: number; titleSlug?: string; }
+interface ZerotracRecord { titleSlug: string; rating: number; }
+
 export const Dashboard = () => {
   const [data, setData] = useState<DashboardData | null>(null)
   const [queue, setQueue] = useState<RevisionCard[]>([])
   const [weakness, setWeakness] = useState<WeaknessData | null>(null)
   const [sessions, setSessions] = useState<SessionData[]>([])
   const [solved, setSolved] = useState<Set<string>>(new Set())
-  const [zerotrac, setZerotrac] = useState<any[] | null>(null)
-  const [ranking, setRanking] = useState<any>(null)
-  const [liveSession, setLiveSession] = useState<any>(null)
+  const [zerotrac, setZerotrac] = useState<ZerotracRecord[] | null>(null)
+  const [ranking, setRanking] = useState<UserContestRanking | null>(null)
+  const [liveSession, setLiveSession] = useState<LiveSession | null>(null)
   const [sessionSeconds, setSessionSeconds] = useState(0)
   const [lastSync, setLastSync] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)

@@ -106,9 +106,12 @@ const NestedBarShape = (props: any) => {
   );
 };
 
+interface HeatmapDataPoint { date: string; count: number; }
+interface DashboardDataSummary { totalSolved?: number; streak?: number; lastActive?: string; }
+
 export const Heatmap = () => {
-  const [data, setData] = useState<any[]>([]);
-  const [dashboard, setDashboard] = useState<any>(null);
+  const [data, setData] = useState<HeatmapDataPoint[]>([]);
+  const [dashboard, setDashboard] = useState<DashboardDataSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedRating, setSelectedRating] = useState<number | null>(null)
 

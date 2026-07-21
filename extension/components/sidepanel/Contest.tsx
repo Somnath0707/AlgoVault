@@ -34,15 +34,20 @@ function getMetricBadgeColor(val: string) {
   return "bg-zinc-900 border-zinc-800 text-zinc-500"
 }
 
+interface UserProfile { realName?: string; userAvatar?: string; reputation?: number; ranking?: number; }
+interface RankingInfo { rating?: number; attendedContestsCount?: number; topPercentage?: number; globalRanking?: number; }
+interface RankingHistory { contest?: { title?: string; startTime?: number; }; rating?: number; }
+interface ContestAnalytics { contest?: { title?: string; }; rating?: number; }
+
 export const Contest = () => {
   const [activeTab, setActiveTab] = useState<"stats" | "history" | "upcoming">("stats")
   const [data, setData] = useState<ContestLifecycleItem[]>([])
   const [predictedResult, setPredictedResult] = useState<PredictedContestResult | null>(null)
   const [loadingPredicted, setLoadingPredicted] = useState(false)
-  const [profile, setProfile] = useState<any>(null)
-  const [rankingInfo, setRankingInfo] = useState<any>(null)
-  const [rankingHistory, setRankingHistory] = useState<any[]>([])
-  const [analytics, setAnalytics] = useState<any[]>([])
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [rankingInfo, setRankingInfo] = useState<RankingInfo | null>(null)
+  const [rankingHistory, setRankingHistory] = useState<RankingHistory[]>([])
+  const [analytics, setAnalytics] = useState<ContestAnalytics[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [username, setUsernameState] = useState("")

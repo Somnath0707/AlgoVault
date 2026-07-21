@@ -260,14 +260,19 @@ const injectAlgoVaultOverlay = () => {
 }
 
 let observerTimeout: number | null = null;
-const observer = new MutationObserver(() => {
+const observer = new MutationObserver((mutations) => {
+  // Completely ignore mutations happening inside the code editor to prevent typing lag
+  if (mutations.every(m => (m.target as Element).closest?.('.monaco-editor, .view-lines, .CodeMirror, [data-track-load="code_editor"]'))) {
+    return;
+  }
+
   if (ratingInjected && !document.querySelector('div[class*="text-difficulty"] span')) ratingInjected = false;
   if (predictionInjected && !document.getElementById('av-solve-chance-bubble')) predictionInjected = false;
   
   if (observerTimeout) window.clearTimeout(observerTimeout);
   observerTimeout = window.setTimeout(() => {
     injectAlgoVaultOverlay();
-  }, 100);
+  }, 250);
 });
 
 observer.observe(document.body, { childList: true, subtree: true });

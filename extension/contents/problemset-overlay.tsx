@@ -54,10 +54,19 @@ export default function ProblemsetOverlay() {
       injectRatings()
     })
 
-    const observer = new MutationObserver(injectRatings)
+    let injectTimeout: number | null = null;
+    const observer = new MutationObserver((mutations) => {
+      // Ignore rapid mutations coming from code editors if any
+      if (mutations.every(m => (m.target as Element).closest?.('.monaco-editor, .view-lines, .CodeMirror'))) {
+        return;
+      }
+      if (injectTimeout) window.clearTimeout(injectTimeout);
+      injectTimeout = window.setTimeout(injectRatings, 250);
+    })
     observer.observe(document.body, { childList: true, subtree: true })
     return () => {
       disposed = true
+      if (injectTimeout) window.clearTimeout(injectTimeout);
       observer.disconnect()
     }
   }, [])

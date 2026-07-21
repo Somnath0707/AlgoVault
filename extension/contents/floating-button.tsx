@@ -1,6 +1,12 @@
 import cssText from "data-text:~style.css"
 import type { PlasmoCSConfig, PlasmoGetStyle } from "plasmo"
 import { useEffect, useState } from "react"
+import { Storage } from "@plasmohq/storage"
+
+interface ActiveSession { isActive?: boolean; startTime?: number; titleSlug?: string; mode?: string; focusScore?: number; tabSwitches?: number; pasteCount?: number; }
+interface SessionState { isSolved?: boolean; finalSeconds?: number; focusScore?: number; tabSwitches?: number; copyPastes?: number; }
+
+const storage = new Storage()
 
 export const config: PlasmoCSConfig = {
   matches: ["https://leetcode.com/problems/*", "https://leetcode.com/contest/*/problems/*"]
@@ -13,8 +19,8 @@ export const getStyle: PlasmoGetStyle = () => {
 }
 
 const FloatingButton = () => {
-  const [session, setSession] = useState<any>(null)
-  const [sessionState, setSessionState] = useState<any>(null)
+  const [session, setSession] = useState<ActiveSession | null>(null)
+  const [sessionState, setSessionState] = useState<SessionState | null>(null)
   const [problemStartTime, setProblemStartTime] = useState<string | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const [expanded, setExpanded] = useState(false)

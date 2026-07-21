@@ -17,7 +17,7 @@ import { motion, AnimatePresence } from "framer-motion"
 export default function SidePanel() {
   const [activeTab, setActiveTab] = useState<Tab>('Dashboard')
   const [username, setUsername] = useState<string>("")
-  const [session, setSession] = useState<any>(null)
+  const [session, setSession] = useState<ActiveSession | null>(null)
 
   useEffect(() => {
     chrome.storage.local.get("algovault.requestedTab", (result) => {

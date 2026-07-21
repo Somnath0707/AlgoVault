@@ -12,20 +12,25 @@ import {
 import { fetchUserStatus } from "../../lib/api/leetcode"
 import { getSettings, updateSettings, exportUserData } from "../../lib/api/backend"
 
+interface SyncStatus {
+  message: string;
+  type: "success" | "error" | "loading" | "info";
+}
+
 export const Settings = () => {
   const [hideAccRate, setHideAccRate] = useState(true);
   const [celebrationOverlay, setCelebrationOverlay] = useState(true);
   const [celebrationSound, setCelebrationSound] = useState(true);
   const [celebrationTheme, setCelebrationTheme] = useState("gta");
-  const [syncStatus, setSyncStatus] = useState<any>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const [username, setUsername] = useState<string>('');
   const [activeLcUser, setActiveLcUser] = useState<string | null>(null);
   const [loadingActiveUser, setLoadingActiveUser] = useState<boolean>(true);
   const [githubPat, setGithubPat] = useState<string>('');
   const [githubRepo, setGithubRepo] = useState<string>('');
   const [githubSaved, setGithubSaved] = useState<boolean>(false);
-  const [gitSyncStatus, setGitSyncStatus] = useState<any>(null);
-  const [syncHasMore, setSyncHasMore] = useState<any>(null);
+  const [gitSyncStatus, setGitSyncStatus] = useState<SyncStatus | null>(null);
+  const [syncHasMore, setSyncHasMore] = useState<boolean | null>(null);
   const [lastSync, setLastSync] = useState<number | null>(null);
   const [settingsSynced, setSettingsSynced] = useState<boolean>(false);
   const [exporting, setExporting] = useState<boolean>(false);
