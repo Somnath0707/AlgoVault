@@ -81,24 +81,19 @@ public class AuthController {
         }
         String normalized = username.trim();
         List<User> users = userRepository.findAll();
-        User user;
-        if (users.isEmpty()) {
+        User user = users.stream()
+                .filter(u -> normalized.equalsIgnoreCase(u.getLcUsername()))
+                .findFirst()
+                .orElse(null);
+
+        if (user == null) {
+            // Create a new user for this new LeetCode ID instead of blocking it
             user = userRepository.save(User.builder()
                 .githubId("local:" + normalized.toLowerCase())
                 .username(normalized)
                 .lcUsername(normalized)
                 .virtualRating(1500)
                 .build());
-        } else {
-            user = users.get(0);
-            if (user.getLcUsername() != null && !user.getLcUsername().equalsIgnoreCase(normalized)) {
-                return ResponseEntity.status(409).body("This local AlgoVault is already linked to " + user.getLcUsername() + ".");
-            }
-            if (user.getLcUsername() == null) {
-                user.setLcUsername(normalized);
-                user.setUsername(normalized);
-                userRepository.save(user);
-            }
         }
         return ResponseEntity.ok(Map.of("token", jwtService.generateToken(user.getId(), user.getUsername())));
     }
