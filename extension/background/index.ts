@@ -23,6 +23,7 @@ export {}
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((error) => console.error(error))
 
 let isSyncing = false;
+let syncAbortController: AbortController | null = null;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "open_side_panel" && sender.tab) {
@@ -113,7 +114,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true
     }
     isSyncing = true
-    runSync(message.username, message.startOffset || 0)
+    syncAbortController = new AbortController()
+    runSync(message.username, message.startOffset || 0, syncAbortController.signal)
       .then((res) => {
         isSyncing = false
         sendResponse(res)
@@ -122,6 +124,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         isSyncing = false
         sendResponse({ ok: false, error: error.message })
       })
+    return true
+  }
+
+  if (message.action === "stop_sync") {
+    if (syncAbortController) {
+      syncAbortController.abort()
+      syncAbortController = null
+    }
+    isSyncing = false
+    chrome.storage.local.set({ syncStatus: { status: "INFO", message: "Sync stopped by user", count: 0, subCount: 0 } })
+    sendResponse({ ok: true })
     return true
   }
 
@@ -465,7 +478,7 @@ async function updateGithubHelpReport(report: any) {
   })
 }
 
-async function runSync(username: string, startOffset = 0) {
+async function runSync(username: string, startOffset = 0, signal?: AbortSignal) {
   if (!username || !username.trim()) {
     throw new Error("LeetCode username is required")
   }
@@ -477,6 +490,7 @@ async function runSync(username: string, startOffset = 0) {
   }
 
   try {
+    if (signal?.aborted) throw new Error("Sync stopped by user");
     const isHistoryBackfill = startOffset > 0
     updateStatus("RUNNING", isHistoryBackfill ? `Syncing older history from submission ${startOffset + 1}...` : "Verifying LeetCode session...")
     const statusRes = await fetchUserStatus()
@@ -502,6 +516,7 @@ async function runSync(username: string, startOffset = 0) {
       const problemPageSize = 100
       let totalSolved = Number.POSITIVE_INFINITY
       while (problems.length < totalSolved) {
+        if (signal?.aborted) throw new Error("Sync stopped by user");
         const problemsRes = await fetchSolvedProblems(problemOffset, problemPageSize)
         const page = problemsRes.data?.problemsetQuestionList
         if (!page) throw new Error("LeetCode did not return solved-problem data")
@@ -527,6 +542,7 @@ async function runSync(username: string, startOffset = 0) {
         const problemPageSize = 100
         let totalSolved = Number.POSITIVE_INFINITY
         while (problems.length < totalSolved) {
+          if (signal?.aborted) throw new Error("Sync stopped by user");
           const problemsRes = await fetchSolvedProblems(problemOffset, problemPageSize)
           const page = problemsRes.data?.problemsetQuestionList
           if (!page) throw new Error("LeetCode did not return solved-problem data")
@@ -557,6 +573,7 @@ async function runSync(username: string, startOffset = 0) {
     let foundAlreadySynced = false
 
     while (hasNext && rawSubs.length < maxSubmissionsToSync && !foundAlreadySynced) {
+      if (signal?.aborted) throw new Error("Sync stopped by user");
       const subsRes = await fetchSubmissionPage(offset, limit)
       const pageSubs = subsRes.submissions_dump || []
       if (pageSubs.length === 0) {
@@ -618,6 +635,7 @@ async function runSync(username: string, startOffset = 0) {
         .filter((slug) => slug && !knownSlugs.has(slug))
     ))
     for (let index = 0; index < attemptedOnlySlugs.length; index += 40) {
+      if (signal?.aborted) throw new Error("Sync stopped by user");
       const metadata = await fetchProblemMetadata(attemptedOnlySlugs.slice(index, index + 40))
       problems.push(...metadata)
       updateStatus("RUNNING", "Enriching attempted problems...", problems.length, startOffset + submissions.length)
@@ -664,7 +682,8 @@ async function runSync(username: string, startOffset = 0) {
       // Keep a deliberate pause between 400-record uploads. The cursor is
       // persisted above, so an interrupted extension can still resume safely.
       await new Promise((resolve) => setTimeout(resolve, 1500))
-      return runSync(normalizedUsername, offset)
+      if (signal?.aborted) throw new Error("Sync stopped by user");
+      return runSync(normalizedUsername, offset, signal)
     }
     updateStatus("SUCCESS", completionMessage, problems.length, startOffset + submissions.length)
     return { ok: true, hasMore: hasMoreHistory, nextOffset: offset }

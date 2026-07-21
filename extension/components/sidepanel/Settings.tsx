@@ -186,6 +186,10 @@ export const Settings = () => {
     setSyncStatus({ status: 'RUNNING', message: 'Starting sync...', count: 0, subCount: 0 });
   };
 
+  const handleStopSync = () => {
+    chrome.runtime.sendMessage({ action: "stop_sync" });
+  };
+
   const handleGithubSave = async () => {
     persistGithubPat(githubPat.trim());
     persistGithubRepo(githubRepo.trim());
@@ -360,7 +364,10 @@ export const Settings = () => {
             <div className="bg-zinc-950 border border-zinc-800 p-3 rounded-lg font-mono text-[10px] text-zinc-400">
                 <div className="flex justify-between items-center mb-2 pb-1 border-b border-zinc-900/50">
                     <span className="text-[#dfa054] animate-pulse">SYNCHRONIZING LOGGER</span>
-                    <div className="w-3.5 h-3.5 rounded-full border border-[#dfa054] border-t-transparent animate-spin" />
+                    <div className="flex items-center gap-2">
+                        <button onClick={handleStopSync} className="text-red-400 hover:text-red-300 uppercase tracking-widest text-[9px] border border-red-900/50 bg-red-950/30 px-2 py-0.5 rounded transition-colors cursor-pointer">Stop</button>
+                        <div className="w-3.5 h-3.5 rounded-full border border-[#dfa054] border-t-transparent animate-spin" />
+                    </div>
                 </div>
                 <div className="space-y-1">
                   <div className="text-zinc-200">{syncStatus.message}</div>
