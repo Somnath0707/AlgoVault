@@ -209,18 +209,18 @@ const injectAlgoVaultOverlay = () => {
       const { solveChance, expectedTimeMinutes, confidence } = predictionData;
       const roundedSolveChance = typeof solveChance === 'number' ? Math.round(solveChance) : 0;
       
-      let assessment = "No chance";
+      let assessment = "Stretch";
       let assessmentBg = "rgba(239, 68, 68, 0.08)";
       let assessmentBorder = "rgba(239, 68, 68, 0.2)";
       let assessmentColor = "#ef4444";
       
       if (roundedSolveChance >= 80) {
-        assessment = "Will get it";
+        assessment = "Accessible";
         assessmentBg = "rgba(16, 185, 129, 0.08)";
         assessmentBorder = "rgba(16, 185, 129, 0.2)";
         assessmentColor = "#10b981";
       } else if (roundedSolveChance >= 40) {
-        assessment = "Try try try";
+        assessment = "Uncertain";
         assessmentBg = "rgba(245, 158, 11, 0.08)";
         assessmentBorder = "rgba(245, 158, 11, 0.2)";
         assessmentColor = "#f59e0b";
@@ -238,7 +238,7 @@ const injectAlgoVaultOverlay = () => {
       chanceBubble.style.border = `1px solid ${assessmentBorder}`;
       chanceBubble.style.color = assessmentColor;
       chanceBubble.style.marginLeft = '8px';
-      chanceBubble.innerHTML = `⚡ Solve Chance: <strong style="font-weight:700; margin-left:2px; margin-right:2px;">${assessment}</strong> (${roundedSolveChance}%)`;
+      chanceBubble.innerHTML = `⚡ Practice estimate: <strong style="font-weight:700; margin-left:2px; margin-right:2px;">${assessment}</strong> (${roundedSolveChance}%)`;
       container.appendChild(chanceBubble);
 
       // 2. Confidence Bubble

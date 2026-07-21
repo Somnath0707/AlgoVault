@@ -9,20 +9,23 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class CorsConfig {
 
-    @Value("${spring.profiles.active:prod}")
-    private String activeProfile;
+    @Value("${cors.allowed-origins:}")
+    private String allowedOrigins;
 
     @Bean
     public WebMvcConfigurer corsConfigurer() {
         return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
-                String[] allowedOrigins = "dev".equals(activeProfile) 
-                        ? new String[]{"chrome-extension://*", "http://localhost:*"}
-                        : new String[]{"chrome-extension://*"};
-                        
+                String[] origins = java.util.Arrays.stream(allowedOrigins.split(","))
+                        .map(String::trim)
+                        .filter(origin -> !origin.isBlank())
+                        .toArray(String[]::new);
+                if (origins.length == 0) {
+                    return;
+                }
                 registry.addMapping("/api/**")
-                        .allowedOriginPatterns(allowedOrigins)
+                        .allowedOrigins(origins)
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(true);

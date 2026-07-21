@@ -35,7 +35,9 @@ public class TopicRatingService {
         Map<String, TopicRating> tagRatings = new HashMap<>();
 
         // Group into problem attempts
-        Map<Long, List<Submission>> problemAttempts = new HashMap<>();
+        // Preserve the chronological first-seen order. HashMap iteration made
+        // a full recomputation non-deterministic even after sorting submissions.
+        Map<Long, List<Submission>> problemAttempts = new LinkedHashMap<>();
         for (Submission sub : allSubs) {
             problemAttempts.computeIfAbsent(sub.getProblem().getId(), k -> new ArrayList<>()).add(sub);
         }

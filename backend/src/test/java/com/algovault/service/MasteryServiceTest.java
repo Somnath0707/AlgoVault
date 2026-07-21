@@ -74,6 +74,7 @@ class MasteryServiceTest {
         when(submissionRepository.findByUserIdOrderBySubmittedAtDesc(1L)).thenReturn(subs);
         when(submissionRepository.findByUserId(1L)).thenReturn(subs);
         when(submissionRepository.findByUserIdAndProblemId(1L, 10L)).thenReturn(subs);
+        when(submissionRepository.findByUserIdAndTag(1L, "Array")).thenReturn(subs);
 
         TagMastery tagMastery = TagMastery.builder().user(testUser).tag("Array").build();
         when(tagMasteryRepository.findByUserIdAndTag(1L, "Array")).thenReturn(Optional.of(tagMastery));

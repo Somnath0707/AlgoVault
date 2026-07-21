@@ -5,7 +5,9 @@ server:
 
 app:
   auth:
-    mode: ${APP_AUTH_MODE:single-user}
+    # AlgoVault is a local, single-person companion. The extension creates a
+    # local session for the LeetCode account currently being synced.
+    mode: single-user
 
 spring:
   jackson:
@@ -18,7 +20,7 @@ spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/algovault}
     username: ${SPRING_DATASOURCE_USERNAME:algovault}
-    password: ${SPRING_DATASOURCE_PASSWORD:algovault_dev}
+    password: ${SPRING_DATASOURCE_PASSWORD:?Set SPRING_DATASOURCE_PASSWORD}
     hikari:
       maximum-pool-size: 20
       minimum-idle: 5
@@ -45,11 +47,13 @@ spring:
             client-secret: ${GITHUB_CLIENT_SECRET:dummy}
 
 jwt:
-  secret: ${JWT_SECRET:algovault_super_secret_key_that_needs_to_be_long_enough_for_hmac_sha256}
+  secret: ${JWT_SECRET:?Set JWT_SECRET to a random value of at least 32 bytes}
   expiration: 86400000
 
 cors:
-  allowed-origins: chrome-extension://*
+  # Comma-separated exact origins, for example chrome-extension://<your-extension-id>.
+  # Do not use wildcard extension origins: any installed extension could otherwise call the API.
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:}
 
 logging:
   level:

@@ -20,6 +20,7 @@ import { Card } from "../ui/Card"
 import { motion, AnimatePresence } from "framer-motion"
 import { STUDY_LISTS, type StudyProblem } from "../../lib/study-lists"
 import { getAchievementAssetUrl } from "../../lib/achievements"
+import { CurriculumBoard } from "./CurriculumBoard"
 
 const ROADMAP_TOPICS = [
   { id: "arrays", title: "Arrays & Hashing", description: "Build fast lookup instincts and learn how to preserve information while you scan.", accent: "#f472b6", asset: "first-blood.png", icon: Compass, x: 50, y: 5, requires: [] },
@@ -149,21 +150,21 @@ const RoadmapTree = () => {
         <div className="absolute inset-0 opacity-50 bg-[radial-gradient(circle_at_22%_18%,rgba(223,160,84,0.08),transparent_24%),radial-gradient(circle_at_78%_0%,rgba(223,160,84,0.06),transparent_28%)]" />
         <div className="relative flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#e7ba68]"><Waves size={14} /> Grand Line curriculum</div>
-            <h2 className="mt-1 text-lg font-semibold text-zinc-50">NeetCode 150 Voyage</h2>
-            <p className="mt-1 max-w-md text-[11px] leading-relaxed text-zinc-400">A prerequisite map of every NeetCode topic. Open a node to inspect its path and launch the next challenge.</p>
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#e7ba68]"><MapPinned size={14} /> Interview curriculum</div>
+            <h2 className="mt-1 text-lg font-semibold text-zinc-50">NeetCode 150 Roadmap</h2>
+            <p className="mt-1 max-w-md text-[11px] leading-relaxed text-zinc-400">A clear pattern sequence. Select a topic to see its prerequisite, progress, and the next problem to solve.</p>
           </div>
           <div className="shrink-0 rounded-md border border-zinc-800 bg-black/20 px-2.5 py-2 text-right">
             <div className="font-mono text-sm font-semibold text-[#f8d791]">{totalSolved}<span className="text-zinc-500">/{totalProblems}</span></div>
-            <div className="mt-0.5 text-[9px] uppercase tracking-[0.12em] text-zinc-500">charted</div>
+            <div className="mt-0.5 text-[9px] uppercase tracking-[0.12em] text-zinc-500">completed</div>
           </div>
         </div>
         <div className="relative mt-4 flex items-center gap-2 text-[10px] text-zinc-500"><CircleCheck size={13} className="text-emerald-400" /> {completedTopics} of {topicProgress.length} topics cleared <span className="h-px flex-1 bg-zinc-800/80" /> <span className="font-mono text-[#e7ba68]">{totalProblems ? Math.round((totalSolved / totalProblems) * 100) : 0}%</span></div>
       </div>
 
-      <div className="overflow-x-auto bg-zinc-950 p-3.5 flex justify-start sm:justify-center [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-zinc-950 [&::-webkit-scrollbar-thumb]:bg-zinc-800 [&::-webkit-scrollbar-thumb]:rounded-full scrollbar-thin">
-        <div ref={containerRef} className="relative w-full rounded-xl border border-zinc-900 bg-[radial-gradient(circle_at_18%_8%,rgba(223,160,84,0.04),transparent_24%),radial-gradient(circle_at_86%_90%,rgba(223,160,84,0.03),transparent_25%),linear-gradient(rgba(255,255,255,.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.01)_1px,transparent_1px)] bg-[size:auto,auto,24px_24px,24px_24px] p-6 flex flex-col items-center gap-10 min-h-[640px]">
-          <div className="absolute left-4 top-4 flex items-center gap-2 text-[9px] font-mono uppercase tracking-[0.15em] text-[#d9a441]/75 z-20"><ShipWheel size={13} /> Prerequisite route</div>
+      <div className="overflow-x-auto bg-zinc-950 p-3 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-zinc-950 [&::-webkit-scrollbar-thumb]:bg-zinc-800 [&::-webkit-scrollbar-thumb]:rounded-full scrollbar-thin">
+        <div ref={containerRef} className="relative min-w-[610px] rounded-xl border border-zinc-800 bg-[#0d0d0f] p-4 flex flex-col items-center gap-4">
+          <div className="w-full px-1 text-[9px] font-semibold uppercase tracking-[0.15em] text-zinc-500">Foundation → patterns → advanced applications</div>
           
           <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
             {svgLines.map(line => (
@@ -207,7 +208,7 @@ const RoadmapTree = () => {
             
             return tiers.map((tierList, tierIdx) => (
               <div key={tierIdx} className="flex flex-col items-center w-full relative z-10">
-                <div className="flex justify-center gap-4 w-full">
+                <div className="flex justify-center gap-3 w-full">
                   {tierList.map((id, index) => {
                     const item = topicProgress.find(p => p.topic.id === id)!;
                     const { topic } = item;
@@ -217,13 +218,13 @@ const RoadmapTree = () => {
                     const prerequisitesCleared = topic.requires.every((reqId) => progressById.get(reqId)?.percent === 100);
                     const isLocked = !prerequisitesCleared && topic.requires.length > 0;
                     
-                    let cardBorderClass = "border-zinc-800 bg-zinc-950/80 hover:border-zinc-700"
+                    let cardBorderClass = "border-zinc-800 bg-[#151518] hover:border-zinc-600"
                     if (isSelected) {
-                      cardBorderClass = "border-[#dfa054] bg-zinc-900 shadow-[0_0_15px_rgba(223,160,84,0.15)]"
+                      cardBorderClass = "border-[#dfa054] bg-[#1c1914] shadow-[0_0_0_1px_rgba(223,160,84,0.12)]"
                     } else if (isDone) {
-                      cardBorderClass = "border-emerald-500/30 bg-emerald-950/20 shadow-[0_0_12px_rgba(16,185,129,0.06)]"
+                      cardBorderClass = "border-emerald-500/35 bg-emerald-950/20"
                     } else if (isLocked) {
-                      cardBorderClass = "border-zinc-900/50 bg-zinc-950/50 opacity-40 hover:opacity-60"
+                      cardBorderClass = "border-zinc-800 bg-[#111114] opacity-65 hover:opacity-100"
                     }
 
                     return (
@@ -232,7 +233,7 @@ const RoadmapTree = () => {
                         ref={(el) => { nodeRefs.current[topic.id] = el; }}
                         type="button" 
                         onClick={() => setSelectedTopicId(topic.id)} 
-                        className={`group w-[124px] text-left focus:outline-none transition-all`}
+                        className={`group w-[136px] text-left focus:outline-none transition-all`}
                         initial={{ opacity: 0, y: 8 }} 
                         animate={{ opacity: 1, y: 0 }} 
                         transition={{ delay: 0.1 + tierIdx * 0.05 + index * 0.02, type: "spring", stiffness: 220, damping: 22 }} 
@@ -240,11 +241,11 @@ const RoadmapTree = () => {
                         whileTap={{ scale: 0.97 }} 
                         aria-pressed={isSelected}
                       >
-                        <div className={`relative overflow-hidden rounded-lg border p-2 h-[60px] flex flex-col justify-between transition-all duration-350 ${cardBorderClass}`}>
+                        <div className={`relative overflow-hidden rounded-lg border p-2.5 h-[68px] flex flex-col justify-between transition-all duration-200 ${cardBorderClass}`}>
                           {/* Title & Icon Header */}
                           <div className="flex items-start gap-1.5 min-w-0">
                             <Icon size={11} className="shrink-0 mt-0.5" style={{ color: isDone ? "#10b981" : topic.accent }} />
-                            <span className="text-[9.5px] font-bold text-zinc-200 leading-tight block">
+                            <span className="text-[10px] font-bold text-zinc-200 leading-tight block">
                               {topic.title}
                             </span>
                           </div>
@@ -408,7 +409,7 @@ export const Resources = () => {
             exit={{ opacity: 0, y: -5 }}
             transition={{ duration: 0.2 }}
           >
-            <RoadmapTree />
+            <CurriculumBoard />
           </motion.div>
         ) : (
           <motion.div

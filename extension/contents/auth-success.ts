@@ -2,7 +2,7 @@ import type { PlasmoCSConfig } from "plasmo"
 import { setJwtToken } from "../lib/storage"
 
 export const config: PlasmoCSConfig = {
-  matches: ["http://localhost:8080/api/auth/success*", "https://*/api/auth/success*"],
+  matches: ["http://localhost:8080/api/auth/success*"],
   run_at: "document_end"
 }
 

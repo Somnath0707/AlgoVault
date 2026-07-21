@@ -1,3 +1,10 @@
+import type { PlasmoCSConfig } from "plasmo"
+
+export const config: PlasmoCSConfig = {
+  matches: ["https://leetcode.com/problems/*"],
+  run_at: "document_idle"
+}
+
 /**
  * Solo Leveling themed System Overlay UI for Zenith Focus Mode.
  */

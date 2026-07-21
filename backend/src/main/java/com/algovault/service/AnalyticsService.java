@@ -5,11 +5,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Collections;
-import com.algovault.engine.Glicko2MasteryEngine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,7 +21,6 @@ public class AnalyticsService {
     private final HeatmapService heatmapService;
     private final com.algovault.repository.UserRepository userRepository;
     private final com.algovault.repository.SubmissionRepository submissionRepository;
-    private final com.algovault.engine.Glicko2MasteryEngine glickoEngine;
 
     @org.springframework.cache.annotation.Caching(evict = {
         @org.springframework.cache.annotation.CacheEvict(value = "dashboard", key = "#userId"),
@@ -130,28 +126,15 @@ public class AnalyticsService {
             double rating = subs.get(0).getProblem().getActualRating();
             minAttemptedRating = Math.min(minAttemptedRating, rating);
 
-            // Sort submissions chronologically to count attempts before AC
+            // A capability estimate must use the first independent attempt.
+            // Treating an eventual AC after hints/editorials as a fractional
+            // success biases the estimate upward and double-counts persistence.
             subs.sort(Comparator.comparing(Submission::getSubmittedAt));
-            boolean solved = false;
-            int attemptsBeforeAc = 0;
-            for (Submission s : subs) {
-                if ("Accepted".equals(s.getVerdict())) {
-                    solved = true;
-                    break;
-                }
-                attemptsBeforeAc++;
-            }
-
-            double outcome = 0.0;
-            if (solved) {
+            boolean firstAttemptAccepted = "Accepted".equals(subs.get(0).getVerdict());
+            double outcome = firstAttemptAccepted ? 1.0 : 0.0;
+            if (firstAttemptAccepted) {
                 solvedCount++;
                 maxSolvedRating = Math.max(maxSolvedRating, rating);
-                if (attemptsBeforeAc == 0) outcome = 1.0;
-                else if (attemptsBeforeAc == 1) outcome = 0.8;
-                else if (attemptsBeforeAc == 2) outcome = 0.6;
-                else outcome = 0.4;
-            } else {
-                outcome = 0.0;
             }
 
             // Calculate temporal weight based on 365-day half-life of concept retention
@@ -222,50 +205,11 @@ public class AnalyticsService {
             double estimatedRating = targetNormRating * 500.0 + 1500.0;
             estimatedRating = Math.max(800.0, Math.min(3000.0, estimatedRating));
 
-            // Chronological Glicko-2 Simulation
-            List<Submission> allSubs = new ArrayList<>(submissions);
-            allSubs.sort(Comparator.comparing(Submission::getSubmittedAt));
-
-            Map<Long, List<Submission>> chronologicalAttempts = new LinkedHashMap<>();
-            for (Submission s : allSubs) {
-                if (s.getProblem() != null && s.getProblem().getActualRating() != null) {
-                    chronologicalAttempts.computeIfAbsent(s.getProblem().getId(), k -> new ArrayList<>()).add(s);
-                }
-            }
-
-            double startingRating = 1500.0;
-            Glicko2MasteryEngine.GlickoRating userGlicko = new Glicko2MasteryEngine.GlickoRating(startingRating, 350.0, 0.06);
-
-            for (List<Submission> problemAttemptsList : chronologicalAttempts.values()) {
-                Submission first = problemAttemptsList.get(0);
-                Submission accepted = problemAttemptsList.stream()
-                    .filter(sub -> "Accepted".equals(sub.getVerdict()))
-                    .findFirst()
-                    .orElse(null);
-
-                double score = 0.0;
-                if (accepted != null) {
-                    score = "Accepted".equals(first.getVerdict()) ? 1.0 : 0.7;
-                }
-
-                double opponentRating = first.getProblem().getActualRating();
-
-                // Skip large rating bumps for problems far below user level
-                if (opponentRating < userGlicko.rating - 300.0 && score > 0.0) {
-                    userGlicko = glickoEngine.updateRating(userGlicko, Collections.emptyList());
-                } else {
-                    userGlicko = glickoEngine.updateRating(userGlicko, List.of(
-                        new Glicko2MasteryEngine.MatchResult(opponentRating, 50.0, score)
-                    ));
-                }
-            }
-
-            double glickoRating = userGlicko.rating - (2.0 * userGlicko.rd);
-            glickoRating = Math.max(800.0, Math.min(3000.0, glickoRating));
-
-            // Blend Glicko-2 and Sigmoid Fit (50/50)
-            double blendedRating = 0.5 * estimatedRating + 0.5 * glickoRating;
-            user.setVirtualRating((int) Math.round(blendedRating));
+            // This is the estimated 50% first-attempt rating from one
+            // regularized model. Do not blend it with a pseudo-Glicko value:
+            // both consume the same submissions and their average has no
+            // statistical interpretation.
+            user.setVirtualRating((int) Math.round(estimatedRating));
         }
 
         userRepository.save(user);

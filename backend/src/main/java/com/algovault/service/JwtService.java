@@ -20,28 +20,10 @@ public class JwtService {
     @Value("${jwt.expiration:86400000}") // 24 hours
     private long expiration;
 
-    @Value("${spring.security.oauth2.client.registration.github.client-secret:}")
-    private String githubClientSecret;
-
-    @org.springframework.beans.factory.annotation.Autowired
-    private org.springframework.core.env.Environment env;
-
     @jakarta.annotation.PostConstruct
     public void validateSecrets() {
-        boolean isDevOrLocal = false;
-        for (String profile : env.getActiveProfiles()) {
-            if ("dev".equalsIgnoreCase(profile) || "local".equalsIgnoreCase(profile)) {
-                isDevOrLocal = true;
-                break;
-            }
-        }
-        
-        String defaultSecret = "algovault_super_secret_key_that_needs_to_be_long_enough_for_hmac_sha256";
-        if (defaultSecret.equals(secret) && !isDevOrLocal) {
-            throw new IllegalStateException("JWT secret must be customized in production profile!");
-        }
-        if ("dummy".equals(githubClientSecret) && !isDevOrLocal) {
-            throw new IllegalStateException("GitHub OAuth client secret must be customized in production profile!");
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException("JWT_SECRET must be set and contain at least 32 bytes");
         }
     }
 

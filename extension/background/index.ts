@@ -477,7 +477,8 @@ async function runSync(username: string, startOffset = 0) {
   }
 
   try {
-    updateStatus("RUNNING", startOffset === 0 ? "Verifying LeetCode session..." : "Resuming sync session...")
+    const isHistoryBackfill = startOffset > 0
+    updateStatus("RUNNING", isHistoryBackfill ? `Syncing older history from submission ${startOffset + 1}...` : "Verifying LeetCode session...")
     const statusRes = await fetchUserStatus()
     const sessionUser = statusRes.data?.userStatus?.username
     if (!sessionUser || sessionUser.toLowerCase() !== normalizedUsername.toLowerCase()) {
@@ -546,6 +547,9 @@ async function runSync(username: string, startOffset = 0) {
     let offset = startOffset
     const limit = 20
     let hasNext = true
+    // LeetCode exposes submission pages in small chunks. We deliberately
+    // collect at most 400 records before one backend upload so history syncs
+    // are rate-friendly and resumable without losing the pagination cursor.
     const maxSubmissionsToSync = 400
 
     // Read the timestamp of the last successfully synced submission
@@ -562,7 +566,11 @@ async function runSync(username: string, startOffset = 0) {
       
       for (const sub of pageSubs) {
         const subTs = Number(sub.timestamp) || 0
-        if (latestSyncedTs > 0 && subTs <= latestSyncedTs) {
+        // The timestamp checkpoint belongs only to a normal incremental
+        // refresh. Applying it when resuming older pages makes every older
+        // submission look "already synced" and stops a full history backfill
+        // after its first 400-record batch.
+        if (!isHistoryBackfill && latestSyncedTs > 0 && subTs <= latestSyncedTs) {
           foundAlreadySynced = true
           break
         }
@@ -583,8 +591,9 @@ async function runSync(username: string, startOffset = 0) {
     }
 
     // Save status to chrome storage for settings view
+    const hasMoreHistory = hasNext && !foundAlreadySynced
     await storage.set("algovault.syncHasMore", {
-      hasMore: hasNext,
+      hasMore: hasMoreHistory,
       nextOffset: offset,
       username: normalizedUsername
     })
@@ -634,7 +643,7 @@ async function runSync(username: string, startOffset = 0) {
     await setLastSync(Date.now())
 
     // Save the timestamp of the newest submission in this sync
-    if (submissions.length > 0) {
+    if (!isHistoryBackfill && submissions.length > 0) {
       let maxTimestamp = 0
       submissions.forEach((s: any) => {
         const ts = Number(s.timestamp) || 0
@@ -647,8 +656,18 @@ async function runSync(username: string, startOffset = 0) {
       }
     }
 
-    updateStatus("SUCCESS", "Sync completed successfully. This full sync remains valid for long-term dashboard use.", problems.length, startOffset + submissions.length)
-    return { ok: true }
+    const completionMessage = hasMoreHistory
+      ? `Synced ${submissions.length} submissions. Older history is ready for the next 400-record batch.`
+      : `Sync completed successfully. Your history is up to date.`
+    if (hasMoreHistory) {
+      updateStatus("RUNNING", `${completionMessage} Continuing automatically…`, problems.length, startOffset + submissions.length)
+      // Keep a deliberate pause between 400-record uploads. The cursor is
+      // persisted above, so an interrupted extension can still resume safely.
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+      return runSync(normalizedUsername, offset)
+    }
+    updateStatus("SUCCESS", completionMessage, problems.length, startOffset + submissions.length)
+    return { ok: true, hasMore: hasMoreHistory, nextOffset: offset }
   } catch (e: any) {
     console.error("Sync Error:", e)
     updateStatus("ERROR", e.message || "An unknown error occurred during sync")
@@ -764,4 +783,3 @@ async function getSingleProblemRating(slug: string) {
   }
   return zerotracInMemoryMap ? zerotracInMemoryMap.get(slug.toLowerCase()) || null : null
 }
-

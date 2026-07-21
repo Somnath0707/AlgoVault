@@ -51,10 +51,12 @@ graph TD
 
 ## 🧮 Mathematical Modeling & Core Calculations
 
-### 1. Expected Solve Probability (ZeroTrac Logistic Curve)
-We model the probability $P$ of a user solving a problem of difficulty rating $R_p$ with a personal rating $R_u$ using the standard logistic function:
+### 1. Practice Estimate (smoothed comparable first attempts)
+The practice estimate is not a promise of a solve. It starts with a weak rating prior and combines it with the user's **first attempts** on previously attempted problems within ±150 ZeroTrac rating points. A Beta-binomial prior of strength 8 prevents tiny samples from producing extreme percentages:
 
-$$P(\text{solve}) = \frac{1}{1 + 10^{\frac{R_p - R_u}{400}}}$$
+$$P = \frac{8P_{rating} + \text{first-attempt accepts}}{8 + \text{comparable first attempts}}$$
+
+The UI labels estimates with fewer than five comparable problems as low-evidence and only reports an expected time when comparable tracked sessions exist.
 
 ### 2. Topic ELO Rating Update
 Upon solving or failing a problem with rating $R_p$, your topic rating $R_u$ updates via:
@@ -308,6 +310,5 @@ Tracks keyboard metrics (manual typing vs copy-paste detection), tab focus switc
 </p>
 
 ---
-
 
 

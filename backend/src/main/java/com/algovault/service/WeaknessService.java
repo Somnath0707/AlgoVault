@@ -62,9 +62,6 @@ public class WeaknessService {
                 problems = problemRepository.findRecommendedUnsolved(userId, weakTag.getTag(), 800.0, 3000.0, targetRating, 40);
             }
             
-            // Shuffle them in memory so the "Shuffle" button actually gives different problems
-            java.util.Collections.shuffle(problems);
-            
             int addedForTag = 0;
             for (Problem p : problems) {
                 if (addedForTag >= 8) break;

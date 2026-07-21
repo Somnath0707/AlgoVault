@@ -101,7 +101,7 @@ public class MasteryService {
                         String help = event.getSelfReportedHelp();
                         if ("EDITORIAL".equals(help) || "EXTERNAL".equals(help)) {
                             score = 0.0;
-                        } else if ("HINT".equals(help) || (event.getFocusScore() != null && event.getFocusScore() < 50)) {
+                        } else if ("HINT".equals(help)) {
                             score = Math.min(score, 0.5);
                         }
                         if (event.getFocusSeconds() != null && event.getFocusSeconds() > 0) {
@@ -238,7 +238,7 @@ public class MasteryService {
                     String help = event.getSelfReportedHelp();
                     if ("EDITORIAL".equals(help) || "EXTERNAL".equals(help)) {
                         score = 0.0;
-                    } else if ("HINT".equals(help) || (event.getFocusScore() != null && event.getFocusScore() < 50)) {
+                    } else if ("HINT".equals(help)) {
                         score = Math.min(score, 0.5);
                     }
                     if (event.getFocusSeconds() != null && event.getFocusSeconds() > 0) {

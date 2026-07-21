@@ -13,12 +13,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.beans.factory.annotation.Value;
-import jakarta.annotation.PostConstruct;
-
 import java.util.Map;
-import lombok.extern.slf4j.Slf4j;
+import java.util.List;
 
-@Slf4j
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -27,18 +24,8 @@ public class AuthController {
     private final JwtService jwtService;
     private final UserRepository userRepository;
 
-    @Value("${app.auth.mode:}")
+    @Value("${app.auth.mode:single-user}")
     private String authMode;
-
-    @PostConstruct
-    public void logWarning() {
-        if ("single-user".equalsIgnoreCase(authMode)) {
-            log.warn("****************************************************************");
-            log.warn("WARNING: SINGLE-USER MODE ACTIVE. AUTHENTICATION BYPASS ENABLED.");
-            log.warn("THIS MODE IS ONLY SAFE ON A MACHINE ONLY YOU CAN REACH.");
-            log.warn("****************************************************************");
-        }
-    }
 
     @GetMapping("/success")
     public ResponseEntity<?> oauthSuccess(@AuthenticationPrincipal OAuth2User oauth2User) {
@@ -78,32 +65,41 @@ public class AuthController {
             .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Local-only bootstrap for the companion extension. It deliberately
+     * permits exactly one persisted profile: once linked, a different
+     * LeetCode username cannot create another local account.
+     */
     @PostMapping("/extension-login")
     public ResponseEntity<?> extensionLogin(@RequestBody Map<String, String> request) {
         if (!"single-user".equalsIgnoreCase(authMode)) {
-            return ResponseEntity.status(403).body("Extension login bypass is disabled. OAuth required.");
+            return ResponseEntity.status(403).body("Local extension access is disabled.");
         }
-        if (request == null) {
-            return ResponseEntity.badRequest().body("Request body required");
-        }
-        String username = request.get("username");
+        String username = request == null ? null : request.get("username");
         if (username == null || username.isBlank() || username.length() > 100) {
-            return ResponseEntity.badRequest().body("Username required and must be under 100 characters");
+            return ResponseEntity.badRequest().body("A LeetCode username is required.");
         }
-        username = username.trim();
-        String normalizedUsername = username;
-
-        User user = userRepository.findByLcUsernameIgnoreCase(normalizedUsername).orElseGet(() -> {
-            User newUser = User.builder()
-                .githubId("leetcode:" + normalizedUsername.toLowerCase())
-                .username(normalizedUsername)
-                .lcUsername(normalizedUsername)
+        String normalized = username.trim();
+        List<User> users = userRepository.findAll();
+        User user;
+        if (users.isEmpty()) {
+            user = userRepository.save(User.builder()
+                .githubId("local:" + normalized.toLowerCase())
+                .username(normalized)
+                .lcUsername(normalized)
                 .virtualRating(1500)
-                .build();
-            return userRepository.save(newUser);
-        });
-
-        String token = jwtService.generateToken(user.getId(), user.getUsername());
-        return ResponseEntity.ok(Map.of("token", token));
+                .build());
+        } else {
+            user = users.get(0);
+            if (user.getLcUsername() != null && !user.getLcUsername().equalsIgnoreCase(normalized)) {
+                return ResponseEntity.status(409).body("This local AlgoVault is already linked to " + user.getLcUsername() + ".");
+            }
+            if (user.getLcUsername() == null) {
+                user.setLcUsername(normalized);
+                user.setUsername(normalized);
+                userRepository.save(user);
+            }
+        }
+        return ResponseEntity.ok(Map.of("token", jwtService.generateToken(user.getId(), user.getUsername())));
     }
 }

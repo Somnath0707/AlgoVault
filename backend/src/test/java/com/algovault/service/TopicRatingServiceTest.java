@@ -68,6 +68,7 @@ class TopicRatingServiceTest {
         List<Submission> subs = Arrays.asList(sub1, sub2);
         when(submissionRepository.findByUserId(1L)).thenReturn(subs);
         when(submissionRepository.findByUserIdAndProblemId(1L, 10L)).thenReturn(subs);
+        when(submissionRepository.findByUserIdAndTag(1L, "Array")).thenReturn(subs);
 
         TopicRating tr = TopicRating.builder().user(testUser).tag("Array").eloRating(1200).peakRating(1200).problemsPlayed(0).build();
         when(topicRatingRepository.findByUserIdAndTag(1L, "Array")).thenReturn(Optional.of(tr));

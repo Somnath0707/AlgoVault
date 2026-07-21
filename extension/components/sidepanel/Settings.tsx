@@ -10,8 +10,6 @@ import {
   getLastSync
 } from "../../lib/storage"
 import { fetchUserStatus } from "../../lib/api/leetcode"
-import { BACKEND_URL } from "../../lib/constants"
-import { getJwtToken, clearJwtToken } from "../../lib/storage"
 import { getSettings, updateSettings, exportUserData } from "../../lib/api/backend"
 
 export const Settings = () => {
@@ -29,7 +27,6 @@ export const Settings = () => {
   const [gitSyncStatus, setGitSyncStatus] = useState<any>(null);
   const [syncHasMore, setSyncHasMore] = useState<any>(null);
   const [lastSync, setLastSync] = useState<number | null>(null);
-  const [hasJwt, setHasJwt] = useState<boolean>(false);
   const [settingsSynced, setSettingsSynced] = useState<boolean>(false);
   const [exporting, setExporting] = useState<boolean>(false);
 
@@ -134,7 +131,6 @@ export const Settings = () => {
           try { hasMoreVal = JSON.parse(hasMoreVal) } catch (e) {}
         }
         setSyncHasMore(hasMoreVal || null);
-        setHasJwt(!!res['algovault.jwt']);
       });
     };
     checkSync();
@@ -145,13 +141,6 @@ export const Settings = () => {
     };
   }, []);
 
-  const handleGithubLogin = () => {
-    chrome.tabs.create({ url: `${BACKEND_URL}/oauth2/authorization/github` });
-  };
-
-  const handleLogout = () => {
-    clearJwtToken().then(() => setHasJwt(false));
-  };
 
   const toggleAccRate = () => {
     const val = !hideAccRate;
@@ -197,15 +186,10 @@ export const Settings = () => {
     persistGithubRepo(githubRepo.trim());
     setGithubSaved(true);
     setTimeout(() => setGithubSaved(false), 2000);
-    if (hasJwt) {
-      try {
-        await updateSettings({
-          githubPat: githubPat.trim(),
-          githubRepo: githubRepo.trim()
-        });
-      } catch (e) {
-        console.error("Failed to sync github credentials to server:", e);
-      }
+    try {
+      await updateSettings({ githubPat: githubPat.trim(), githubRepo: githubRepo.trim() });
+    } catch (e) {
+      console.error("Failed to sync github credentials to server:", e);
     }
   };
 
@@ -321,37 +305,9 @@ export const Settings = () => {
       </Card>
 
       <Card className="p-3.5">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-2">AlgoVault Account</h3>
-        <p className="text-[11px] text-zinc-500 font-mono leading-relaxed mb-3">
-          Authenticate using GitHub OAuth to protect your metrics and enable secure sync functions.
-        </p>
-        {hasJwt ? (
-          <div className="space-y-2">
-            <div className="text-[10px] text-emerald-400 font-mono bg-emerald-950/15 border border-emerald-900/25 rounded-lg px-3 py-2 flex items-center justify-between">
-              <span>Authenticated via GitHub</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold text-xs py-2 px-4 rounded-lg transition-colors border border-zinc-700 font-mono tracking-wider uppercase"
-            >
-              Sign Out
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={handleGithubLogin}
-            className="w-full bg-[#dfa054] hover:bg-[#e5b376] text-zinc-950 font-semibold text-xs py-2 px-4 rounded-lg transition-colors border border-[#dfa054]/20 font-mono tracking-wider uppercase"
-          >
-            Log in with GitHub
-          </button>
-        )}
-      </Card>
-
-      <Card className="p-3.5">
         <h3 className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-2">Data Synchronization</h3>
         <p className="text-[11px] text-zinc-500 font-mono leading-relaxed mb-3.5">
-            AlgoVault maps your entire LeetCode history once, then keeps new accepted submissions live through the extension.
+            AlgoVault imports history in safe batches of up to 400 submissions, then keeps new submissions up to date.
         </p>
         {lastSync && (
           <div className="mb-3 text-[10px] text-emerald-400 font-mono bg-emerald-950/15 border border-emerald-900/25 rounded-lg px-3 py-2">
@@ -438,7 +394,7 @@ export const Settings = () => {
                     }}
                     className="w-full bg-zinc-800 hover:bg-zinc-800 text-zinc-200 hover:text-white font-semibold text-[10px] py-1.5 px-3 rounded border border-zinc-700 font-mono tracking-wider uppercase"
                 >
-                    Sync Older Submissions (Offset: {syncHasMore.nextOffset})
+                    Sync next history batch (starting at {syncHasMore.nextOffset + 1})
                 </button>
             </div>
         )}

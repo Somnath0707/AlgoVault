@@ -1,27 +1,6 @@
 import { BACKEND_URL } from "../constants"
-import { getUsername, getJwtToken, clearJwtToken } from "../storage"
+import { getJwtToken, getUsername, clearJwtToken } from "../storage"
 import type { PredictionResult } from "../types"
-
-let cachedToken: string | null = null;
-let cachedTokenUsername: string | null = null;
-let cachedTokenTime: number = 0;
-
-async function getAuthToken(username: string): Promise<string> {
-  const now = Date.now();
-  if (cachedToken && cachedTokenUsername === username && (now - cachedTokenTime < 30 * 60 * 1000)) return cachedToken;
-
-  const res = await fetch(`${BACKEND_URL}/api/auth/extension-login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username })
-  });
-  if (!res.ok) throw new Error("Failed to authenticate extension");
-  const data = await res.json();
-  cachedToken = data.token;
-  cachedTokenUsername = username;
-  cachedTokenTime = Date.now();
-  return data.token;
-}
 
 export const exchangeGithubCode = async (code: string) => {
   const res = await fetch(`${BACKEND_URL}/api/auth/github-exchange`, {
@@ -37,20 +16,15 @@ export const exchangeGithubCode = async (code: string) => {
 }
 
 async function backendFetch(path: string, init: RequestInit = {}) {
-  const username = await getUsername()
   const jwt = await getJwtToken()
+  const username = await getUsername()
   const headers = new Headers(init.headers)
   headers.set("Content-Type", headers.get("Content-Type") || "application/json")
 
   if (jwt) {
     headers.set("Authorization", `Bearer ${jwt}`)
   } else if (username) {
-    try {
-      const token = await getAuthToken(username);
-      headers.set("Authorization", `Bearer ${token}`);
-    } catch (e) {
-      console.warn("Failed to get JWT via extension-login", e);
-    }
+    headers.set("Authorization", `Bearer ${await getLocalToken(username)}`)
   }
 
   const controller = new AbortController();
@@ -64,39 +38,13 @@ async function backendFetch(path: string, init: RequestInit = {}) {
   clearTimeout(timeoutId);
 
   if (res.status === 401) {
-    if (jwt) {
-      await clearJwtToken()
+    await clearJwtToken()
+    localToken = null
+    localTokenUsername = null
+    if (username) {
+      return backendFetch(path, init)
     }
-    // ALWAYS clear the in-memory cache on 401, regardless of where the token came from.
-    // If the token was rejected, we must force a new one.
-    cachedToken = null;
-    cachedTokenUsername = null;
-    
-    // Retry once
-    const nextJwt = await getJwtToken()
-    const headersRetry = new Headers(init.headers)
-    headersRetry.set("Content-Type", headersRetry.get("Content-Type") || "application/json")
-    if (nextJwt) {
-      headersRetry.set("Authorization", `Bearer ${nextJwt}`)
-    } else if (username) {
-      try {
-        const token = await getAuthToken(username);
-        headersRetry.set("Authorization", `Bearer ${token}`);
-      } catch (e) {
-        console.warn("Failed to get JWT via extension-login on retry", e);
-      }
-    }
-    
-    const retryController = new AbortController();
-    const retryTimeoutId = setTimeout(() => retryController.abort(), 15000);
-    const retryRes = await fetch(`${BACKEND_URL}${path}`, { ...init, headers: headersRetry, signal: retryController.signal });
-    clearTimeout(retryTimeoutId);
-    if (!retryRes.ok) {
-      const body = await retryRes.text().catch(() => "")
-      throw new Error(body || `Backend request failed: ${retryRes.status}`)
-    }
-    if (retryRes.status === 204) return null;
-    return retryRes.json();
+    throw new Error("Open LeetCode and choose the account you want to sync first.")
   }
 
   if (!res.ok) {
@@ -232,4 +180,19 @@ export const exportUserData = async (): Promise<Blob> => {
   }
   return response.blob()
 }
+let localToken: string | null = null
+let localTokenUsername: string | null = null
 
+async function getLocalToken(username: string) {
+  if (localToken && localTokenUsername === username) return localToken
+  const response = await fetch(`${BACKEND_URL}/api/auth/extension-login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username })
+  })
+  if (!response.ok) throw new Error(await response.text().catch(() => "Unable to connect your local profile."))
+  const payload = await response.json()
+  localToken = payload.token
+  localTokenUsername = username
+  return payload.token as string
+}
