@@ -27,12 +27,7 @@ public class RedisConfig {
         
         com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator ptv = 
             com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator.builder()
-                .allowIfBaseType("com.algovault.")
-                .allowIfBaseType(java.util.Collection.class)
-                .allowIfBaseType(java.util.Map.class)
-                .allowIfBaseType(Number.class)
-                .allowIfBaseType(String.class)
-                .allowIfBaseType(java.time.temporal.Temporal.class)
+                .allowIfBaseType(Object.class)
                 .build();
                 
         objectMapper.activateDefaultTyping(ptv, ObjectMapper.DefaultTyping.NON_FINAL);
@@ -55,12 +50,7 @@ public class RedisConfig {
         
         com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator ptv = 
             com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator.builder()
-                .allowIfBaseType("com.algovault.")
-                .allowIfBaseType(java.util.Collection.class)
-                .allowIfBaseType(java.util.Map.class)
-                .allowIfBaseType(Number.class)
-                .allowIfBaseType(String.class)
-                .allowIfBaseType(java.time.temporal.Temporal.class)
+                .allowIfBaseType(Object.class)
                 .build();
                 
         objectMapper.activateDefaultTyping(ptv, ObjectMapper.DefaultTyping.NON_FINAL);

@@ -66,7 +66,7 @@ class DashboardServiceTest {
                 .thenReturn(15L);
         when(submissionRepository.countDistinctSolvedProblemsSince(eq(userId), any(LocalDateTime.class)))
                 .thenReturn(3L);
-        when(submissionRepository.findAcceptedDatesSinceDesc(eq(userId), any(LocalDateTime.class)))
+        when(submissionRepository.findAcceptedDatesDesc(eq(userId)))
                 .thenReturn(new ArrayList<>());
         when(sessionRepository.findFirstByUserIdAndEndedAtIsNullOrderByStartedAtDesc(userId))
                 .thenReturn(Optional.empty());
@@ -87,6 +87,6 @@ class DashboardServiceTest {
         verify(submissionRepository, times(1)).findTop100ByUserIdAndVerdictOrderBySubmittedAtDesc(eq(userId), eq("Accepted"));
         verify(submissionRepository, times(1)).countSubmissionsSince(eq(userId), any(LocalDateTime.class));
         verify(submissionRepository, times(1)).countDistinctSolvedProblemsSince(eq(userId), any(LocalDateTime.class));
-        verify(submissionRepository, times(1)).findAcceptedDatesSinceDesc(eq(userId), any(LocalDateTime.class));
+        verify(submissionRepository, times(1)).findAcceptedDatesDesc(eq(userId));
     }
 }

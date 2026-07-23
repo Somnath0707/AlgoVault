@@ -1,13 +1,17 @@
 package com.algovault.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class DashboardResponse {
     private Integer lcRating;
     private Integer virtualRating;
@@ -29,6 +33,8 @@ public class DashboardResponse {
 
     @Data
     @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class RecentSolve {
         private String title;
         private String titleSlug;

@@ -5,6 +5,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import java.util.ArrayList;
+import java.util.List;
 
 @Configuration
 public class CorsConfig {
@@ -17,15 +19,21 @@ public class CorsConfig {
         return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
-                String[] origins = java.util.Arrays.stream(allowedOrigins.split(","))
-                        .map(String::trim)
-                        .filter(origin -> !origin.isBlank())
-                        .toArray(String[]::new);
-                if (origins.length == 0) {
-                    return;
+                List<String> origins = new ArrayList<>();
+                if (allowedOrigins != null && !allowedOrigins.isBlank()) {
+                    for (String origin : allowedOrigins.split(",")) {
+                        String trimmed = origin.trim();
+                        if (!trimmed.isBlank()) {
+                            origins.add(trimmed);
+                        }
+                    }
                 }
+                
+                // Always allow Chrome Extension origins for the companion extension
+                origins.add("chrome-extension://*");
+
                 registry.addMapping("/api/**")
-                        .allowedOrigins(origins)
+                        .allowedOriginPatterns(origins.toArray(new String[0]))
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(true);

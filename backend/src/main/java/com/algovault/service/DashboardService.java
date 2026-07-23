@@ -74,7 +74,7 @@ public class DashboardService {
                 .build())
             .collect(Collectors.toList());
 
-        List<LocalDateTime> acceptedDates = submissionRepository.findAcceptedDatesSinceDesc(userId, LocalDateTime.now().minusDays(90));
+        List<LocalDateTime> acceptedDates = submissionRepository.findAcceptedDatesDesc(userId);
 
         // Calculate Zenith Metrics
         List<ZenithSession> zenithSessions = zenithSessionRepository.findByUserId(userId);

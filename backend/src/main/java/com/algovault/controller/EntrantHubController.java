@@ -23,18 +23,6 @@ public class EntrantHubController {
                 .body(json);
     }
 
-    @GetMapping("/ranking")
-    public ResponseEntity<String> getRanking(
-            @RequestParam String contestSlug,
-            @RequestParam String username) {
-        String json = entrantHubService.fetchRanking(contestSlug, username);
-        if (json == null || json.trim().isEmpty()) {
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .body(json);
-    }
 
     @GetMapping("/upcoming")
     public ResponseEntity<String> getUpcoming() {

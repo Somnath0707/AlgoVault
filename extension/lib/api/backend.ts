@@ -140,9 +140,7 @@ export const fetchEntrantHubHistoryBackend = async (username: string, region: st
   return backendFetch(`/api/entranthub/history?username=${encodeURIComponent(username)}&region=${encodeURIComponent(region)}`)
 }
 
-export const fetchEntrantHubRankingPredictionBackend = async (contestSlug: string, username: string): Promise<any> => {
-  return backendFetch(`/api/entranthub/ranking?contestSlug=${encodeURIComponent(contestSlug)}&username=${encodeURIComponent(username)}`)
-}
+
 
 export const fetchEntrantHubUpcomingBackend = async (): Promise<any> => {
   return backendFetch("/api/entranthub/upcoming")

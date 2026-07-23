@@ -1,11 +1,15 @@
 package com.algovault.dto;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ContestAnalysisResponse {
     private String contestTitle;
     private String contestSlug;
@@ -26,6 +30,8 @@ public class ContestAnalysisResponse {
 
     @Data
     @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class QuestionTiming {
         private String questionLabel;
         private Double minutesSpent;

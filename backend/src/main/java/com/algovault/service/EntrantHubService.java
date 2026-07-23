@@ -33,22 +33,6 @@ public class EntrantHubService {
         }
     }
 
-    public String fetchRanking(String contestSlug, String username) {
-        String url = UriComponentsBuilder.fromHttpUrl(ENTRANTHUB_BASE_URL)
-                .path("/contests/leetcode/contests/{contestSlug}/rankings")
-                .queryParam("limit", 25)
-                .queryParam("offset", 0)
-                .queryParam("userSlug", username)
-                .buildAndExpand(contestSlug)
-                .toUriString();
-
-        try {
-            return restTemplate.getForObject(url, String.class);
-        } catch (Exception e) {
-            log.error("Failed to fetch EntrantHub ranking for {} in {}: {}", username, contestSlug, e.getMessage());
-            return null;
-        }
-    }
 
     public String fetchUpcoming() {
         List<Map<String, Object>> list = new ArrayList<>();

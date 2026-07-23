@@ -13,7 +13,7 @@ import {
   endSession,
   fetchContests,
   syncLeetcode,
-  fetchEntrantHubRankingPredictionBackend,
+
   fetchZerotracRatingsBackend,
   addToVault
 } from "../lib/api/backend"
@@ -44,23 +44,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true
   }
 
-  if (message.action === "get_entranthub_prediction") {
-    const { contestSlug, username } = message.payload;
-    console.log("background/index.ts: get_entranthub_prediction called with:", { contestSlug, username })
-
-    fetchEntrantHubRankingPredictionBackend(contestSlug, username)
-      .then((data) => {
-        console.log("background/index.ts: fetchEntrantHubRankingPredictionBackend resolved with:", data)
-        sendResponse({ ok: true, data })
-      })
-      .catch(async (err) => {
-        console.error("background/index.ts: fetchEntrantHubRankingPredictionBackend rejected with error:", err)
-        const fallback = await fetchLeetCodeContestRankFallback(contestSlug, username).catch(() => null)
-        console.log("background/index.ts: fetchLeetCodeContestRankFallback returned:", fallback)
-        sendResponse({ ok: false, error: err.message, fallback })
-      })
-    return true
-  }
 
   if (message.action === "get_leetcode_past_contests") {
     fetchPastContests(1, 20)
@@ -325,29 +308,7 @@ function helpTypeLabel(helpType?: string) {
   }
 }
 
-async function fetchLeetCodeContestRankFallback(contestSlug: string, username: string) {
-  if (!contestSlug || !username) return null
-  const url = `https://leetcode.com/contest/api/ranking/${encodeURIComponent(contestSlug)}/?pagination=1&region=global&username=${encodeURIComponent(username)}`
-  const response = await fetch(url, { credentials: "include" })
-  if (!response.ok) throw new Error(`LeetCode ranking fallback failed: ${response.status}`)
-  const data = await response.json()
-  const rows = [
-    ...(Array.isArray(data?.total_rank) ? data.total_rank : []),
-    ...(Array.isArray(data?.user_rank) ? data.user_rank : [])
-  ]
-  const row = rows.find((item: any) => {
-    const rowName = item?.username || item?.user_slug || item?.user?.username || item?.user?.user_slug
-    return rowName && String(rowName).toLowerCase() === username.toLowerCase()
-  }) || rows[0]
-  if (!row) return null
-  return {
-    attended: true,
-    rank: Number(row.rank ?? row.ranking ?? row.real_rank) || null,
-    score: Number(row.score ?? row.total_score) || null,
-    finishTimeSeconds: Number(row.finish_time ?? row.finishTimeInSeconds) || null,
-    source: "LEETCODE_RANKING"
-  }
-}
+
 
 async function buildGithubArtifact(payload: any, helpType: string, sessionData?: any) {
   const metaList = await fetchProblemMetadata([payload.titleSlug]).catch(() => [])

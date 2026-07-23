@@ -31,13 +31,13 @@ function message<T>(payload: Record<string, unknown>): Promise<T> {
 
 function displayDelta(contest?: ContestLifecycleItem) {
   if (!contest) return "Contest analytics"
-  const delta = contest.status === "FINALIZED" ? contest.ratingDelta : contest.predictedDelta
-  const rating = contest.status === "FINALIZED" ? contest.ratingAfter : contest.predictedRating
+  const delta = contest.ratingDelta;
+  const rating = contest.ratingAfter;
   if (delta == null) {
     if (contest.status === "FINALIZED" && rating != null) return `${Math.round(rating)} official`
-    return contest.predictionError ? "Prediction unavailable" : "Prediction pending"
+    return "Pending"
   }
-  return `${delta >= 0 ? "+" : ""}${Math.round(delta)} ${contest.status === "FINALIZED" ? "official" : "predicted"}`
+  return `${delta >= 0 ? "+" : ""}${Math.round(delta)} official`
 }
 
 export default function ProfileOverlay() {
@@ -131,13 +131,13 @@ export default function ProfileOverlay() {
                   .filter((c) => c.status === "FINALIZED")
                   .slice(0, 12)
                   .map((contest) => {
-                    const delta = contest.status === "FINALIZED" ? contest.ratingDelta : contest.predictedDelta
-                    const rating = contest.status === "FINALIZED" ? contest.ratingAfter : contest.predictedRating
+                    const delta = contest.ratingDelta
+                    const rating = contest.ratingAfter
                     return (
                       <div key={contest.contestSlug} className="rounded-md border border-zinc-800 bg-zinc-900/60 p-2.5">
                         <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0"><div className="truncate text-xs font-semibold">{contest.contestTitle}</div><div className="mt-1 text-[10px] text-zinc-500">Rank {contest.rank ?? contest.predictedRank ?? "n/a"} · {contest.problemsSolved ?? "?"}/{contest.totalProblems ?? "?"}</div></div>
-                          <div className="shrink-0 text-right"><div className={`text-xs font-bold ${delta == null ? "text-zinc-500" : delta >= 0 ? "text-emerald-400" : "text-red-400"}`}>{delta == null ? (contest.status === "FINALIZED" && rating != null ? `${Math.round(rating)} official` : contest.predictionError ? "Unavailable" : "Pending") : `${rating == null ? "" : `${Math.round(rating)} `}${delta >= 0 ? "+" : ""}${Math.round(delta)}`}</div><div className={`text-[9px] ${contest.status === "FINALIZED" ? "text-emerald-500" : contest.predictionError ? "text-zinc-500" : "text-amber-400"}`}>{contest.status === "FINALIZED" ? "OFFICIAL" : contest.predictionError ? "SOURCE BLOCKED" : contest.status}</div></div>
+                          <div className="min-w-0"><div className="truncate text-xs font-semibold">{contest.contestTitle}</div><div className="mt-1 text-[10px] text-zinc-500">Rank {contest.rank ?? "n/a"} · {contest.problemsSolved ?? "?"}/{contest.totalProblems ?? "?"}</div></div>
+                          <div className="shrink-0 text-right"><div className={`text-xs font-bold ${delta == null ? "text-zinc-500" : delta >= 0 ? "text-emerald-400" : "text-red-400"}`}>{delta == null ? (contest.status === "FINALIZED" && rating != null ? `${Math.round(rating)} official` : "Pending") : `${rating == null ? "" : `${Math.round(rating)} `}${delta >= 0 ? "+" : ""}${Math.round(delta)}`}</div><div className={`text-[9px] ${contest.status === "FINALIZED" ? "text-emerald-500" : "text-amber-400"}`}>{contest.status === "FINALIZED" ? "OFFICIAL" : contest.status}</div></div>
                         </div>
                       </div>
                     )
