@@ -2,13 +2,10 @@ package com.algovault.service;
 
 import com.algovault.dto.PredictionResponse;
 import com.algovault.engine.SolveProbabilityEngine;
+import com.algovault.model.AnalyticsMetric;
 import com.algovault.model.Problem;
 import com.algovault.model.User;
-import com.algovault.repository.ContestResultRepository;
-import com.algovault.repository.ProblemOpenEventRepository;
-import com.algovault.repository.SubmissionRepository;
-import com.algovault.repository.TagMasteryRepository;
-import com.algovault.repository.UserRepository;
+import com.algovault.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -16,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -44,6 +42,9 @@ class SolveProbabilityServiceTest {
     @Mock
     private ProblemOpenEventRepository problemOpenEventRepository;
 
+    @Mock
+    private AnalyticsMetricRepository analyticsMetricRepository;
+
     @InjectMocks
     private SolveProbabilityService service;
 
@@ -57,7 +58,7 @@ class SolveProbabilityServiceTest {
         Long userId = 1L;
         String titleSlug = "brand-new-problem";
         User user = User.builder().id(userId).username("testuser").build();
-        Problem problem = Problem.builder().titleSlug(titleSlug).title("Brand New Problem").build();
+        Problem problem = Problem.builder().id(10L).titleSlug(titleSlug).title("Brand New Problem").build();
         PredictionResponse expectedResponse = PredictionResponse.builder()
                 .solveChance(50)
                 .expectedTimeMinutes(30)
@@ -66,7 +67,6 @@ class SolveProbabilityServiceTest {
                 .build();
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        // Simulate getOrCreate creating the problem dynamically
         when(problemService.getOrCreate(titleSlug, null)).thenReturn(problem);
         when(submissionRepository.findByUserIdOrderBySubmittedAtDesc(userId)).thenReturn(new ArrayList<>());
         when(tagMasteryRepository.findByUserIdOrderByMasteryScoreDesc(userId)).thenReturn(new ArrayList<>());
@@ -84,5 +84,68 @@ class SolveProbabilityServiceTest {
         
         verify(problemService, times(1)).getOrCreate(titleSlug, null);
         verify(engine, times(1)).predict(eq(user), eq(problem), anyList(), anyList(), anyList(), anyList());
+        verify(analyticsMetricRepository, never()).save(any());
+    }
+
+    @Test
+    void predict_withSufficientData_savesAnalyticsMetricIfNotAlreadyPending() {
+        Long userId = 1L;
+        String titleSlug = "two-sum";
+        User user = User.builder().id(userId).username("testuser").build();
+        Problem problem = Problem.builder().id(10L).titleSlug(titleSlug).title("Two Sum").tags(List.of("Array")).actualRating(1200.0).build();
+        PredictionResponse expectedResponse = PredictionResponse.builder()
+                .solveChance(85)
+                .expectedTimeMinutes(15)
+                .confidence("HIGH")
+                .insufficientData(false)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(problemService.getOrCreate(titleSlug, null)).thenReturn(problem);
+        when(submissionRepository.findByUserIdOrderBySubmittedAtDesc(userId)).thenReturn(new ArrayList<>());
+        when(tagMasteryRepository.findByUserIdOrderByMasteryScoreDesc(userId)).thenReturn(new ArrayList<>());
+        when(contestResultRepository.findByUserIdOrderByContestDateDesc(userId)).thenReturn(new ArrayList<>());
+        when(problemOpenEventRepository.findByUserId(userId)).thenReturn(new ArrayList<>());
+        when(analyticsMetricRepository.existsByUserIdAndProblemIdAndActualResultIsNull(userId, 10L)).thenReturn(false);
+
+        when(engine.predict(eq(user), eq(problem), anyList(), anyList(), anyList(), anyList()))
+                .thenReturn(expectedResponse);
+
+        PredictionResponse response = service.predict(userId, titleSlug);
+
+        assertNotNull(response);
+        assertFalse(response.getInsufficientData());
+        assertEquals(85, response.getSolveChance());
+        verify(analyticsMetricRepository, times(1)).save(any(AnalyticsMetric.class));
+    }
+
+    @Test
+    void predict_withSufficientData_doesNotDuplicateIfAlreadyPending() {
+        Long userId = 1L;
+        String titleSlug = "two-sum";
+        User user = User.builder().id(userId).username("testuser").build();
+        Problem problem = Problem.builder().id(10L).titleSlug(titleSlug).title("Two Sum").tags(List.of("Array")).actualRating(1200.0).build();
+        PredictionResponse expectedResponse = PredictionResponse.builder()
+                .solveChance(85)
+                .expectedTimeMinutes(15)
+                .confidence("HIGH")
+                .insufficientData(false)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(problemService.getOrCreate(titleSlug, null)).thenReturn(problem);
+        when(submissionRepository.findByUserIdOrderBySubmittedAtDesc(userId)).thenReturn(new ArrayList<>());
+        when(tagMasteryRepository.findByUserIdOrderByMasteryScoreDesc(userId)).thenReturn(new ArrayList<>());
+        when(contestResultRepository.findByUserIdOrderByContestDateDesc(userId)).thenReturn(new ArrayList<>());
+        when(problemOpenEventRepository.findByUserId(userId)).thenReturn(new ArrayList<>());
+        when(analyticsMetricRepository.existsByUserIdAndProblemIdAndActualResultIsNull(userId, 10L)).thenReturn(true);
+
+        when(engine.predict(eq(user), eq(problem), anyList(), anyList(), anyList(), anyList()))
+                .thenReturn(expectedResponse);
+
+        PredictionResponse response = service.predict(userId, titleSlug);
+
+        assertNotNull(response);
+        verify(analyticsMetricRepository, never()).save(any(AnalyticsMetric.class));
     }
 }

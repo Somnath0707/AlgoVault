@@ -188,7 +188,7 @@ public class SolveProbabilityEngine {
                         || event.getFocusSeconds() == null) continue;
                 double diff = Math.abs(event.getProblem().getActualRating() - targetRating);
                 if (diff <= COMPARABLE_RATING_WINDOW && event.getFocusSeconds() > 0) {
-                    observedMinutes.add(Math.max(1, Math.round(event.getFocusSeconds() / 60.0f)));
+                    observedMinutes.add(Math.max(1, (int) Math.round(event.getFocusSeconds() / 60.0)));
                 }
             }
         }
@@ -199,9 +199,9 @@ public class SolveProbabilityEngine {
 
         // ─── Step 6: Confidence assessment ───────────────────────────────
         String confidence;
-        if (rawObservations >= 20) {
+        if (rawObservations >= 20 && totalWeight >= 12.0) {
             confidence = "HIGH";
-        } else if (rawObservations >= 8) {
+        } else if (rawObservations >= 8 && totalWeight >= 5.0) {
             confidence = "MEDIUM";
         } else {
             confidence = "LOW";
