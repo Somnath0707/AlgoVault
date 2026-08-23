@@ -67,6 +67,7 @@ public class SessionRequests {
         
         // Zenith Mode Telemetry
         private Boolean isZenith;
+        private Boolean isReview;
         @Pattern(regexp = "^(S_PLUS|S|A|B|C|D|F)$")
         private String grade;
         private Double focusScore;

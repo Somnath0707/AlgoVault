@@ -43,7 +43,17 @@ async function archivePracticeLog(sessionInput: any, isSolved: boolean, language
 
   const now = Date.now()
   const tElapsedStart = typeof session.tElapsedStart === "number" && !isNaN(session.tElapsedStart) ? session.tElapsedStart : now
-  const elapsedSecs = Math.floor(Math.max(0, now - tElapsedStart - (session.accPausedMs || 0)) / 1000)
+
+  let solvedAt = now
+  if ((isSolved || session.st === "SOLVED") && Array.isArray(session.timeline)) {
+    const solvedEvent = [...session.timeline].reverse().find(e => e && e.e === "SOLVED")
+    if (solvedEvent && typeof solvedEvent.t === "number" && !isNaN(solvedEvent.t)) {
+      solvedAt = solvedEvent.t
+    }
+  }
+
+  const elapsedMs = Math.max(0, solvedAt - tElapsedStart)
+  const elapsedSecs = Math.floor(elapsedMs / 1000)
 
   const accActiveMs = typeof session.accActiveMs === "number" && !isNaN(session.accActiveMs) ? session.accActiveMs : 0
   const activeOrigin = (typeof session.tActiveStart === "number" && !isNaN(session.tActiveStart))
@@ -143,7 +153,6 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
     const updatedSession = { ...active, tabs: (active.tabs || 0) + 1 }
     const updated = transitionSession(updatedSession, "PAUSED", "TAB", Date.now())
     await storage.set(ACTIVE_SESSION_KEY, updated)
-    await archivePracticeLog(updated, updated.st === "SOLVED")
     chrome.runtime.sendMessage({ action: "session_updated_v2", session: updated })
   }
 })
@@ -190,12 +199,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return
       }
 
-      const isTabSwitch = session.pr === "TAB" || (session.ownerTabId !== null && tabId !== null && session.ownerTabId !== tabId)
       const transitioned = transitionSession(session, "RUNNING", null, Date.now())
       const updated = {
         ...transitioned,
         ownerTabId: tabId || session.ownerTabId,
-        tabs: isTabSwitch ? (session.tabs || 0) + 1 : (session.tabs || 0)
+        tabs: session.tabs || 0
       }
       await storage.set(ACTIVE_SESSION_KEY, updated)
       chrome.runtime.sendMessage({ action: "session_updated_v2", session: updated })
@@ -281,7 +289,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const sessionWithTabs = isTabSwitch ? { ...session, tabs: (session.tabs || 0) + 1 } : session
       const updated = transitionSession(sessionWithTabs, "PAUSED", reason, Date.now())
       await storage.set(ACTIVE_SESSION_KEY, updated)
-      await archivePracticeLog(updated, updated.st === "SOLVED")
+      if (updated.st === "SOLVED") {
+        await archivePracticeLog(updated, true)
+      }
       chrome.runtime.sendMessage({ action: "session_updated_v2", session: updated })
       sendResponse({ ok: true, session: updated })
     })

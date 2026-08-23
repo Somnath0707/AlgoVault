@@ -1,8 +1,9 @@
 package com.algovault.service;
 
-import com.algovault.model.Session;
-import com.algovault.model.User;
-import com.algovault.repository.SessionRepository;
+import com.algovault.dto.SessionRequests;
+import com.algovault.engine.SpacedRepetitionEngine;
+import com.algovault.model.*;
+import com.algovault.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -12,6 +13,8 @@ import org.mockito.MockitoAnnotations;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -20,6 +23,36 @@ class SessionServiceTest {
 
     @Mock
     private SessionRepository sessionRepository;
+
+    @Mock
+    private ProblemService problemService;
+
+    @Mock
+    private ProblemRepository problemRepository;
+
+    @Mock
+    private ProblemOpenEventRepository problemOpenEventRepository;
+
+    @Mock
+    private SubmissionRepository submissionRepository;
+
+    @Mock
+    private RevisionCardRepository revisionCardRepository;
+
+    @Mock
+    private SyncMetadataRepository syncMetadataRepository;
+
+    @Mock
+    private AnalyticsService analyticsService;
+
+    @Mock
+    private AnalyticsMetricRepository analyticsMetricRepository;
+
+    @Mock
+    private ZenithSessionRepository zenithSessionRepository;
+
+    @Mock
+    private SpacedRepetitionEngine spacedRepetitionEngine;
 
     @InjectMocks
     private SessionService sessionService;
@@ -63,9 +96,6 @@ class SessionServiceTest {
         verify(sessionRepository, never()).save(freshSession);
     }
 
-    @Mock
-    private ProblemService problemService;
-
     @Test
     void heartbeat_accumulatesCorrectlyAcrossEpochs() {
         User user = User.builder().id(1L).build();
@@ -83,11 +113,11 @@ class SessionServiceTest {
                 .build();
 
         when(sessionRepository.findFirstByUserIdAndEndedAtIsNullOrderByStartedAtDesc(1L))
-                .thenReturn(java.util.Optional.of(session));
+                .thenReturn(Optional.of(session));
         when(sessionRepository.save(any(Session.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // 1. Heartbeat 1 (Epoch 1, 300s focus)
-        com.algovault.dto.SessionRequests.HeartbeatRequest req1 = new com.algovault.dto.SessionRequests.HeartbeatRequest();
+        SessionRequests.HeartbeatRequest req1 = new SessionRequests.HeartbeatRequest();
         req1.setHeartbeatEpoch("epoch-1");
         req1.setFocusSeconds(300);
         req1.setTabSwitches(2);
@@ -99,7 +129,7 @@ class SessionServiceTest {
         assertEquals("epoch-1", session.getLastHeartbeatEpoch());
 
         // 2. Simulated crash/restart (Epoch 2, starts at 50s focus)
-        com.algovault.dto.SessionRequests.HeartbeatRequest req2 = new com.algovault.dto.SessionRequests.HeartbeatRequest();
+        SessionRequests.HeartbeatRequest req2 = new SessionRequests.HeartbeatRequest();
         req2.setHeartbeatEpoch("epoch-2");
         req2.setFocusSeconds(50);
         req2.setTabSwitches(1);
@@ -117,13 +147,95 @@ class SessionServiceTest {
     @Test
     void heartbeat_withoutExplicitSession_doesNotCreateOne() {
         User user = User.builder().id(1L).build();
-        com.algovault.dto.SessionRequests.HeartbeatRequest request = new com.algovault.dto.SessionRequests.HeartbeatRequest();
+        SessionRequests.HeartbeatRequest request = new SessionRequests.HeartbeatRequest();
         request.setFocusSeconds(120);
 
         when(sessionRepository.findFirstByUserIdAndEndedAtIsNullOrderByStartedAtDesc(1L))
-            .thenReturn(java.util.Optional.empty());
+            .thenReturn(Optional.empty());
 
         assertNull(sessionService.heartbeat(user, request));
         verify(sessionRepository, never()).save(any(Session.class));
+    }
+
+    @Test
+    void recordSubmission_accepted_createsRevisionCardIfNoneExists() {
+        User user = User.builder().id(1L).build();
+        Problem problem = Problem.builder().id(10L).titleSlug("two-sum").title("Two Sum").build();
+        when(problemService.getOrCreate("two-sum", "Two Sum")).thenReturn(problem);
+
+        SessionRequests.SubmissionResultRequest request = new SessionRequests.SubmissionResultRequest();
+        request.setTitleSlug("two-sum");
+        request.setTitle("Two Sum");
+        request.setStatusDisplay("Accepted");
+        request.setIsReview(false);
+
+        when(problemOpenEventRepository.findFirstByUserIdAndProblemIdAndClosedAtIsNullOrderByOpenedAtDesc(1L, 10L))
+                .thenReturn(Optional.of(ProblemOpenEvent.builder().user(user).problem(problem).build()));
+        when(revisionCardRepository.findByUserIdAndProblemId(1L, 10L)).thenReturn(Optional.empty());
+
+        sessionService.recordSubmission(user, request);
+
+        verify(revisionCardRepository, times(1)).save(any(RevisionCard.class));
+        verify(spacedRepetitionEngine, never()).updateCard(any(), anyInt(), anyDouble(), anyBoolean());
+    }
+
+    @Test
+    void recordSubmission_accepted_withoutIsReview_doesNotAdvanceExistingRevisionCard() {
+        User user = User.builder().id(1L).build();
+        Problem problem = Problem.builder().id(10L).titleSlug("two-sum").title("Two Sum").build();
+        when(problemService.getOrCreate("two-sum", "Two Sum")).thenReturn(problem);
+
+        RevisionCard existingCard = RevisionCard.builder()
+                .id(99L)
+                .user(user)
+                .problem(problem)
+                .stability(5.0)
+                .confidence(4)
+                .build();
+
+        SessionRequests.SubmissionResultRequest request = new SessionRequests.SubmissionResultRequest();
+        request.setTitleSlug("two-sum");
+        request.setTitle("Two Sum");
+        request.setStatusDisplay("Accepted");
+        request.setIsReview(false);
+
+        when(problemOpenEventRepository.findFirstByUserIdAndProblemIdAndClosedAtIsNullOrderByOpenedAtDesc(1L, 10L))
+                .thenReturn(Optional.of(ProblemOpenEvent.builder().user(user).problem(problem).build()));
+        when(revisionCardRepository.findByUserIdAndProblemId(1L, 10L)).thenReturn(Optional.of(existingCard));
+
+        sessionService.recordSubmission(user, request);
+
+        verify(spacedRepetitionEngine, never()).updateCard(any(), anyInt(), anyDouble(), anyBoolean());
+        verify(revisionCardRepository, never()).save(existingCard);
+    }
+
+    @Test
+    void recordSubmission_accepted_withIsReview_advancesExistingRevisionCard() {
+        User user = User.builder().id(1L).build();
+        Problem problem = Problem.builder().id(10L).titleSlug("two-sum").title("Two Sum").build();
+        when(problemService.getOrCreate("two-sum", "Two Sum")).thenReturn(problem);
+
+        RevisionCard existingCard = RevisionCard.builder()
+                .id(99L)
+                .user(user)
+                .problem(problem)
+                .stability(5.0)
+                .confidence(4)
+                .build();
+
+        SessionRequests.SubmissionResultRequest request = new SessionRequests.SubmissionResultRequest();
+        request.setTitleSlug("two-sum");
+        request.setTitle("Two Sum");
+        request.setStatusDisplay("Accepted");
+        request.setIsReview(true);
+
+        when(problemOpenEventRepository.findFirstByUserIdAndProblemIdAndClosedAtIsNullOrderByOpenedAtDesc(1L, 10L))
+                .thenReturn(Optional.of(ProblemOpenEvent.builder().user(user).problem(problem).build()));
+        when(revisionCardRepository.findByUserIdAndProblemId(1L, 10L)).thenReturn(Optional.of(existingCard));
+
+        sessionService.recordSubmission(user, request);
+
+        verify(spacedRepetitionEngine, times(1)).updateCard(eq(existingCard), eq(4), eq(1.0), eq(false));
+        verify(revisionCardRepository, times(1)).save(existingCard);
     }
 }

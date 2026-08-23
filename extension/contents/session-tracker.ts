@@ -26,20 +26,44 @@ function normalizeText(text: string): string {
   return text.replace(/\s+/g, "").trim()
 }
 
-// Memory Copy Listener: Add internal code copies to ring buffer
-document.addEventListener("copy", () => {
+function getSelectionText(): string {
   const selection = window.getSelection()?.toString() || ""
-  const normalized = normalizeText(selection)
-  if (normalized.length > 5) {
+  if (selection.length > 0) return selection
+
+  const active = document.activeElement
+  if (active instanceof HTMLTextAreaElement) {
+    return active.value.substring(active.selectionStart || 0, active.selectionEnd || 0)
+  }
+  if (active instanceof HTMLInputElement) {
+    return active.value.substring(active.selectionStart || 0, active.selectionEnd || 0)
+  }
+  return ""
+}
+
+function handleInternalCopy(event?: ClipboardEvent) {
+  let text = getSelectionText()
+  if (!text && event && event.clipboardData) {
+    try {
+      text = event.clipboardData.getData("text") || ""
+    } catch {
+      // Ignored in non-readable contexts
+    }
+  }
+  const normalized = normalizeText(text)
+  if (normalized.length > 3) {
     const hash = fnv1aHash(normalized)
     if (!internalCopyHashes.includes(hash)) {
       internalCopyHashes.push(hash)
-      if (internalCopyHashes.length > 15) {
+      if (internalCopyHashes.length > 20) {
         internalCopyHashes.shift()
       }
     }
   }
-}, true)
+}
+
+// Memory Copy & Cut Listeners: Add internal code copies/cuts to ring buffer
+document.addEventListener("copy", (e) => handleInternalCopy(e), true)
+document.addEventListener("cut", (e) => handleInternalCopy(e), true)
 
 // Paste Listener: Only count external pastes
 document.addEventListener("paste", (event) => {
