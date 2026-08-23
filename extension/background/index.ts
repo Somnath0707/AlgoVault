@@ -285,7 +285,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ ok: false })
         return
       }
-      const isTabSwitch = reason === "TAB"
+      // If already paused with the same reason or already solved, do not double-increment or re-transition
+      if (session.st === "SOLVED" || (session.st === "PAUSED" && session.pr === reason)) {
+        sendResponse({ ok: true, session })
+        return
+      }
+
+      const isTabSwitch = reason === "TAB" && session.st === "RUNNING"
       const sessionWithTabs = isTabSwitch ? { ...session, tabs: (session.tabs || 0) + 1 } : session
       const updated = transitionSession(sessionWithTabs, "PAUSED", reason, Date.now())
       await storage.set(ACTIVE_SESSION_KEY, updated)
