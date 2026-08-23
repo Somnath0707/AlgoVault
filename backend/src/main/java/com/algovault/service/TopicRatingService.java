@@ -1,8 +1,6 @@
 package com.algovault.service;
 
-import com.algovault.engine.Glicko2MasteryEngine;
 import com.algovault.engine.Glicko2MasteryEngine.GlickoRating;
-import com.algovault.engine.Glicko2MasteryEngine.MatchResult;
 import com.algovault.model.ProblemOpenEvent;
 import com.algovault.model.Submission;
 import com.algovault.model.TopicRating;
@@ -16,8 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.util.*;
 
 @Service
@@ -30,7 +26,7 @@ public class TopicRatingService {
     private final TopicRatingRepository topicRatingRepository;
     private final UserRepository userRepository;
     private final ProblemOpenEventRepository problemOpenEventRepository;
-    private final Glicko2MasteryEngine glickoEngine;
+    private final MasteryService masteryService;
 
     @Transactional
     public void recomputeElo(Long userId) {
@@ -92,70 +88,10 @@ public class TopicRatingService {
         attempts.forEach(list -> list.sort(Comparator.comparing(Submission::getSubmittedAt)));
         attempts.sort(Comparator.comparing(list -> list.get(0).getSubmittedAt()));
 
-        GlickoRating gRating = new GlickoRating(1500.0, 350.0, 0.06);
-        int problemsPlayed = 0;
-        int maxRating = 1500;
-        LocalDateTime lastPracticedAt = null;
-
-        // Group matches by month of first submission
-        TreeMap<YearMonth, List<MatchResult>> monthBatches = new TreeMap<>();
-
-        for (List<Submission> subs : attempts) {
-            if (subs.isEmpty()) continue;
-            Submission firstSub = subs.get(0);
-            Submission acceptedSub = subs.stream()
-                .filter(s -> "Accepted".equals(s.getVerdict()))
-                .findFirst()
-                .orElse(null);
-
-            double opponentRating = firstSub.getProblem().getActualRating() != null
-                ? firstSub.getProblem().getActualRating()
-                : MasteryService.inferRatingFromDifficulty(firstSub.getProblem().getDifficulty());
-
-            double opponentRD = MasteryService.computeOpponentRD(firstSub.getProblem());
-
-            ProblemOpenEvent event = latestEventMap != null ? latestEventMap.get(firstSub.getProblem().getId()) : null;
-            double score = MasteryService.computeScore(firstSub, acceptedSub, event);
-
-            YearMonth month = YearMonth.from(firstSub.getSubmittedAt());
-            monthBatches.computeIfAbsent(month, k -> new ArrayList<>())
-                .add(new MatchResult(opponentRating, opponentRD, score));
-
-            problemsPlayed++;
-            if (firstSub.getSubmittedAt() != null && (lastPracticedAt == null || firstSub.getSubmittedAt().isAfter(lastPracticedAt))) {
-                lastPracticedAt = firstSub.getSubmittedAt();
-            }
-        }
-
-        if (problemsPlayed == 0) return;
-
-        // Process batches month-by-month with gap decay
-        YearMonth prevMonth = null;
-        for (Map.Entry<YearMonth, List<MatchResult>> batch : monthBatches.entrySet()) {
-            YearMonth currentMonth = batch.getKey();
-
-            if (prevMonth != null) {
-                long gapMonths = prevMonth.until(currentMonth, java.time.temporal.ChronoUnit.MONTHS) - 1;
-                if (gapMonths > 0) {
-                    gRating = glickoEngine.applyTimeDecay(gRating, (int) Math.min(gapMonths, 6));
-                }
-            }
-
-            gRating = glickoEngine.updateRating(gRating, batch.getValue());
-            int currentRoundRating = (int) Math.round(gRating.rating);
-            if (currentRoundRating > maxRating) {
-                maxRating = currentRoundRating;
-            }
-            prevMonth = currentMonth;
-        }
-
-        // Apply trailing inactivity time decay
-        if (lastPracticedAt != null) {
-            long monthsSince = java.time.Duration.between(lastPracticedAt, LocalDateTime.now()).toDays() / 30;
-            if (monthsSince > 0) {
-                gRating = glickoEngine.applyTimeDecay(gRating, (int) Math.min(monthsSince, 6));
-            }
-        }
+        // Delegate canonical Glicko-2 rating calculation to MasteryService
+        MasteryService.TagRatingResult result = masteryService.computeTagRating(user, attempts, latestEventMap);
+        GlickoRating gRating = result.finalRating();
+        if (gRating == null) return;
 
         TopicRating tr = topicRatingRepository.findByUserIdAndTag(user.getId(), tag)
                 .orElseGet(() -> TopicRating.builder().user(user).tag(tag).build());
@@ -168,9 +104,9 @@ public class TopicRatingService {
         tr.setConservativeRating(conservative);
 
         Integer prevPeak = tr.getPeakRating();
-        tr.setPeakRating(prevPeak == null ? maxRating : Math.max(prevPeak, maxRating));
-        tr.setProblemsPlayed(problemsPlayed);
-        tr.setLastPracticedAt(lastPracticedAt);
+        tr.setPeakRating(prevPeak == null ? finalRating : Math.max(prevPeak, finalRating));
+        tr.setProblemsPlayed(result.totalAttempted());
+        tr.setLastPracticedAt(result.lastSolvedAt());
 
         topicRatingRepository.save(tr);
     }
@@ -179,10 +115,10 @@ public class TopicRatingService {
         Map<Long, ProblemOpenEvent> latestEventMap = new HashMap<>();
         for (ProblemOpenEvent e : problemOpenEventRepository.findByUserId(userId)) {
             if (e.getProblem() == null || e.getProblem().getId() == null) continue;
-            Long pid = e.getProblem().getId();
-            if (!latestEventMap.containsKey(pid)
-                    || latestEventMap.get(pid).getOpenedAt().isBefore(e.getOpenedAt())) {
-                latestEventMap.put(pid, e);
+            Long pId = e.getProblem().getId();
+            ProblemOpenEvent prev = latestEventMap.get(pId);
+            if (prev == null || (e.getOpenedAt() != null && prev.getOpenedAt() != null && e.getOpenedAt().isAfter(prev.getOpenedAt()))) {
+                latestEventMap.put(pId, e);
             }
         }
         return latestEventMap;

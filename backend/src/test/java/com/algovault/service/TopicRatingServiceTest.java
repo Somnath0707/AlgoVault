@@ -1,6 +1,6 @@
 package com.algovault.service;
 
-import com.algovault.engine.Glicko2MasteryEngine;
+import com.algovault.engine.Glicko2MasteryEngine.GlickoRating;
 import com.algovault.model.*;
 import com.algovault.repository.ProblemOpenEventRepository;
 import com.algovault.repository.SubmissionRepository;
@@ -8,7 +8,6 @@ import com.algovault.repository.TopicRatingRepository;
 import com.algovault.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -34,7 +33,7 @@ class TopicRatingServiceTest {
     private ProblemOpenEventRepository problemOpenEventRepository;
 
     @Mock
-    private Glicko2MasteryEngine glickoEngine;
+    private MasteryService masteryService;
 
     @InjectMocks
     private TopicRatingService topicRatingService;
@@ -49,14 +48,10 @@ class TopicRatingServiceTest {
         testProblem = Problem.builder().id(10L).titleSlug("two-sum").tags(List.of("Array")).actualRating(1200.0).build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
         when(problemOpenEventRepository.findByUserId(1L)).thenReturn(Collections.emptyList());
-        when(glickoEngine.applyTimeDecay(any(), anyInt())).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     @Test
     void testEloRecomputeAndIncrementalAgreement() {
-        when(glickoEngine.updateRating(any(), any())).thenReturn(
-            new Glicko2MasteryEngine.GlickoRating(1250.0, 100.0, 0.06));
-
         Submission sub1 = Submission.builder()
                 .id(100L)
                 .user(testUser)
@@ -78,6 +73,17 @@ class TopicRatingServiceTest {
         when(submissionRepository.findByUserIdAndProblemId(1L, 10L)).thenReturn(subs);
         when(submissionRepository.findByUserIdAndTag(1L, "Array")).thenReturn(subs);
 
+        MasteryService.TagRatingResult ratingResult = new MasteryService.TagRatingResult(
+            new GlickoRating(1250.0, 100.0, 0.06),
+            1,
+            1,
+            1,
+            0.0,
+            0,
+            LocalDateTime.now()
+        );
+        when(masteryService.computeTagRating(eq(testUser), anyList(), any())).thenReturn(ratingResult);
+
         TopicRating tr = TopicRating.builder().user(testUser).tag("Array").eloRating(1200).peakRating(1200).problemsPlayed(0).build();
         when(topicRatingRepository.findByUserIdAndTag(1L, "Array")).thenReturn(Optional.of(tr));
         when(topicRatingRepository.save(any(TopicRating.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -96,46 +102,6 @@ class TopicRatingServiceTest {
 
         assertEquals(1, tr.getProblemsPlayed());
         assertEquals(1250, tr.getEloRating());
-    }
-
-    @Test
-    void testMonthlyBatching_bundlesMatchesInSameMonthIntoSingleRatingPeriod() {
-        when(glickoEngine.updateRating(any(), any())).thenReturn(
-            new Glicko2MasteryEngine.GlickoRating(1550.0, 250.0, 0.06));
-
-        Problem p1 = Problem.builder().id(10L).titleSlug("problem-1").tags(List.of("DP")).actualRating(1400.0).build();
-        Problem p2 = Problem.builder().id(20L).titleSlug("problem-2").tags(List.of("DP")).actualRating(1600.0).build();
-
-        LocalDateTime sameMonth = LocalDateTime.of(2026, 3, 15, 10, 0);
-
-        Submission sub1 = Submission.builder()
-                .id(1L)
-                .user(testUser)
-                .problem(p1)
-                .verdict("Accepted")
-                .submittedAt(sameMonth)
-                .build();
-
-        Submission sub2 = Submission.builder()
-                .id(2L)
-                .user(testUser)
-                .problem(p2)
-                .verdict("Accepted")
-                .submittedAt(sameMonth.plusDays(2))
-                .build();
-
-        when(submissionRepository.findByUserIdAndTag(1L, "DP")).thenReturn(List.of(sub1, sub2));
-        TopicRating tr = TopicRating.builder().user(testUser).tag("DP").eloRating(1500).peakRating(1500).problemsPlayed(0).build();
-        when(topicRatingRepository.findByUserIdAndTag(1L, "DP")).thenReturn(Optional.of(tr));
-        when(topicRatingRepository.save(any(TopicRating.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        topicRatingService.recomputeEloForTag(testUser, "DP");
-
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<Glicko2MasteryEngine.MatchResult>> matchCaptor = ArgumentCaptor.forClass(List.class);
-        verify(glickoEngine, times(1)).updateRating(any(), matchCaptor.capture());
-
-        List<Glicko2MasteryEngine.MatchResult> capturedMatches = matchCaptor.getValue();
-        assertEquals(2, capturedMatches.size(), "Two problems solved in the same month must be batched together in 1 rating period");
+        verify(masteryService, atLeastOnce()).computeTagRating(eq(testUser), anyList(), any());
     }
 }

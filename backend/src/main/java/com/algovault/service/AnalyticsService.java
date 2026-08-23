@@ -77,7 +77,16 @@ public class AnalyticsService {
         masteryService.updateIncremental(userId, submission);
         topicRatingService.updateIncremental(userId, submission);
         heatmapService.updateIncremental(userId, submission);
-        recomputeVirtualRating(userId);
+        recomputeVirtualRatingAsync(userId);
+    }
+
+    @org.springframework.scheduling.annotation.Async
+    public void recomputeVirtualRatingAsync(Long userId) {
+        try {
+            recomputeVirtualRating(userId);
+        } catch (Exception e) {
+            log.error("Async virtual rating recomputation failed for user {}: {}", userId, e.getMessage());
+        }
     }
 
     @Caching(evict = {
