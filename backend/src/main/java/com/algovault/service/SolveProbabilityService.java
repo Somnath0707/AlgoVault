@@ -38,7 +38,7 @@ public class SolveProbabilityService {
     private final ProblemService problemService;
     private final AnalyticsMetricRepository analyticsMetricRepository;
 
-    @Transactional(readOnly = true)
+    @Transactional
     @Cacheable(value = "predictions", key = "#userId + '-' + #titleSlug")
     public PredictionResponse predict(Long userId, String titleSlug) {
         User user = userRepository.findById(userId).orElseThrow();
@@ -55,7 +55,7 @@ public class SolveProbabilityService {
             boolean alreadyPending = analyticsMetricRepository.existsByUserIdAndProblemIdAndActualResultIsNull(userId, problem.getId());
             if (!alreadyPending) {
                 try {
-                    analyticsMetricRepository.save(AnalyticsMetric.builder()
+                    analyticsMetricRepository.saveAndFlush(AnalyticsMetric.builder()
                         .user(user)
                         .problem(problem)
                         .predictedProbability((double) response.getSolveChance())
