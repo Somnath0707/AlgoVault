@@ -49,9 +49,7 @@ class WeaknessServiceTest {
         TagMastery nullAttemptedTag = TagMastery.builder().tag("Tree").masteryScore(1400.0).totalAttempted(null).build();
 
         when(tagMasteryRepository.findByUserIdOrderByMasteryScoreDesc(1L)).thenReturn(List.of(validTag, nullScoreTag, nullAttemptedTag));
-        when(problemRepository.findRecommendedUnsolved(anyLong(), anyString(), anyDouble(), anyDouble(), anyDouble(), anyInt()))
-            .thenReturn(Collections.emptyList());
-        when(problemRepository.findRecommendedUnsolvedByTags(anyLong(), any(), anyDouble(), anyDouble(), anyDouble(), anyInt()))
+        when(problemRepository.findRecommendedUnsolvedByTags(anyLong(), anyString(), anyDouble(), anyDouble(), anyDouble(), anyInt()))
             .thenReturn(Collections.emptyList());
         when(problemRepository.findUnsolvedByRatingBand(anyLong(), anyDouble(), anyDouble(), anyDouble(), anyInt()))
             .thenReturn(Collections.emptyList());
@@ -69,15 +67,15 @@ class WeaknessServiceTest {
         TagMastery tm = TagMastery.builder().tag("Array").masteryScore(1100.0).totalAttempted(10).build();
         when(tagMasteryRepository.findByUserIdOrderByMasteryScoreDesc(1L)).thenReturn(List.of(tm));
 
-        Problem validProblem = Problem.builder().id(1L).title("Two Sum").titleSlug("two-sum").build();
-        Problem nullSlugProblem = Problem.builder().id(2L).title("Invalid Problem").titleSlug(null).build();
+        Problem validProblem = Problem.builder().id(1L).title("Two Sum").titleSlug("two-sum").tags(List.of("Array")).build();
+        Problem nullSlugProblem = Problem.builder().id(2L).title("Invalid Problem").titleSlug(null).tags(List.of("Array")).build();
 
         List<Problem> mockProblems = new ArrayList<>();
         mockProblems.add(validProblem);
         mockProblems.add(nullSlugProblem);
         mockProblems.add(null);
 
-        when(problemRepository.findRecommendedUnsolved(eq(1L), eq("Array"), anyDouble(), anyDouble(), anyDouble(), anyInt()))
+        when(problemRepository.findRecommendedUnsolvedByTags(eq(1L), anyString(), anyDouble(), anyDouble(), anyDouble(), anyInt()))
             .thenReturn(mockProblems);
 
         WeaknessResponse response = weaknessService.getWeakness(1L);
@@ -92,13 +90,14 @@ class WeaknessServiceTest {
         TagMastery nicheTag = TagMastery.builder().tag("ternary-search").masteryScore(1000.0).totalAttempted(2).build();
         when(tagMasteryRepository.findByUserIdOrderByMasteryScoreDesc(1L)).thenReturn(List.of(nicheTag));
 
-        // Exact tag returns empty
-        when(problemRepository.findRecommendedUnsolved(eq(1L), eq("ternary-search"), anyDouble(), anyDouble(), anyDouble(), anyInt()))
+        // Exact batched tag returns empty
+        when(problemRepository.findRecommendedUnsolvedByTags(eq(1L), eq("ternary-search"), anyDouble(), anyDouble(), anyDouble(), anyInt()))
             .thenReturn(Collections.emptyList());
 
-        // Fallback tags return problems
-        Problem fallbackProblem = Problem.builder().id(10L).title("Binary Search").titleSlug("binary-search").actualRating(1650.0).build();
-        when(problemRepository.findRecommendedUnsolvedByTags(eq(1L), any(String[].class), anyDouble(), anyDouble(), anyDouble(), anyInt()))
+        // Fallback tags return problems with matching tag
+        Problem fallbackProblem = Problem.builder().id(10L).title("Binary Search").titleSlug("binary-search")
+            .tags(List.of("binary-search")).actualRating(1650.0).build();
+        when(problemRepository.findRecommendedUnsolvedByTags(eq(1L), eq("binary-search,divide-and-conquer"), anyDouble(), anyDouble(), anyDouble(), anyInt()))
             .thenReturn(List.of(fallbackProblem));
 
         WeaknessResponse response = weaknessService.getWeakness(1L);
@@ -115,11 +114,12 @@ class WeaknessServiceTest {
         when(tagMasteryRepository.findByUserIdOrderByMasteryScoreDesc(1L)).thenReturn(List.of(unknownNicheTag));
 
         // Exact tag returns empty
-        when(problemRepository.findRecommendedUnsolved(eq(1L), eq("unknown-niche"), anyDouble(), anyDouble(), anyDouble(), anyInt()))
+        when(problemRepository.findRecommendedUnsolvedByTags(eq(1L), eq("unknown-niche"), anyDouble(), anyDouble(), anyDouble(), anyInt()))
             .thenReturn(Collections.emptyList());
 
         // Rating band returns problem
-        Problem bandProblem = Problem.builder().id(20L).title("General Problem").titleSlug("general-problem").actualRating(1620.0).build();
+        Problem bandProblem = Problem.builder().id(20L).title("General Problem").titleSlug("general-problem")
+            .tags(List.of("math")).actualRating(1620.0).build();
         when(problemRepository.findUnsolvedByRatingBand(eq(1L), anyDouble(), anyDouble(), anyDouble(), anyInt()))
             .thenReturn(List.of(bandProblem));
 
@@ -136,12 +136,10 @@ class WeaknessServiceTest {
         TagMastery tag2 = TagMastery.builder().tag("Recursion").masteryScore(1050.0).totalAttempted(5).build();
         when(tagMasteryRepository.findByUserIdOrderByMasteryScoreDesc(1L)).thenReturn(List.of(tag1, tag2));
 
-        Problem sharedProblem = Problem.builder().id(30L).title("Climbing Stairs").titleSlug("climbing-stairs").build();
-        Problem uniqueProblem = Problem.builder().id(31L).title("House Robber").titleSlug("house-robber").build();
+        Problem sharedProblem = Problem.builder().id(30L).title("Climbing Stairs").titleSlug("climbing-stairs").tags(List.of("DP", "Recursion")).build();
+        Problem uniqueProblem = Problem.builder().id(31L).title("House Robber").titleSlug("house-robber").tags(List.of("Recursion")).build();
 
-        when(problemRepository.findRecommendedUnsolved(eq(1L), eq("DP"), anyDouble(), anyDouble(), anyDouble(), anyInt()))
-            .thenReturn(List.of(sharedProblem));
-        when(problemRepository.findRecommendedUnsolved(eq(1L), eq("Recursion"), anyDouble(), anyDouble(), anyDouble(), anyInt()))
+        when(problemRepository.findRecommendedUnsolvedByTags(eq(1L), eq("DP,Recursion"), anyDouble(), anyDouble(), anyDouble(), anyInt()))
             .thenReturn(List.of(sharedProblem, uniqueProblem));
 
         WeaknessResponse response = weaknessService.getWeakness(1L);
