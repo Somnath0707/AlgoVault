@@ -106,7 +106,7 @@ public class WeaknessService {
                 .build();
         }
 
-        // Step 1: Batch query for exact weak tags
+        // Step 1: Batch query for exact weak tags (expanding query variants for robust casing/spacing match)
         List<String> exactTagList = weakTags.stream()
             .map(WeaknessResponse.WeakTag::getTag)
             .filter(Objects::nonNull)
@@ -114,7 +114,8 @@ public class WeaknessService {
 
         Map<String, List<Problem>> tagProblemPool = new HashMap<>();
         if (!exactTagList.isEmpty()) {
-            String exactTagsJoined = String.join(",", exactTagList);
+            Set<String> queryVariants = generateTagQueryVariants(exactTagList);
+            String exactTagsJoined = String.join(",", queryVariants);
             List<Problem> batchedExact = problemRepository.findRecommendedUnsolvedByTags(
                 userId, exactTagsJoined, minRating, maxRating, targetRating, 80);
             if (batchedExact.size() < 10) {
@@ -126,11 +127,20 @@ public class WeaknessService {
             for (Problem p : batchedExact) {
                 if (p == null || p.getTags() == null) continue;
                 for (String t : exactTagList) {
-                    if (p.getTags().stream().anyMatch(pt -> pt.equalsIgnoreCase(t))) {
+                    String normT = normalizeTag(t);
+                    if (p.getTags().stream().anyMatch(pt -> normalizeTag(pt).equals(normT))) {
                         tagProblemPool.computeIfAbsent(t, k -> new ArrayList<>()).add(p);
                     }
                 }
             }
+        }
+
+        // Sort each tag's pool by rating proximity to targetRating
+        for (List<Problem> pool : tagProblemPool.values()) {
+            pool.sort(Comparator.comparingDouble(p -> {
+                double r = p.getActualRating() != null ? p.getActualRating() : MasteryService.inferRatingFromDifficulty(p.getDifficulty());
+                return Math.abs(r - targetRating);
+            }));
         }
 
         // Collect problems per tag and identify underserved tags
@@ -158,7 +168,8 @@ public class WeaknessService {
         }
 
         if (!neededFallbackTags.isEmpty()) {
-            String fallbackTagsJoined = String.join(",", neededFallbackTags);
+            Set<String> fallbackQueryVariants = generateTagQueryVariants(neededFallbackTags);
+            String fallbackTagsJoined = String.join(",", fallbackQueryVariants);
             List<Problem> fallbackPool = problemRepository.findRecommendedUnsolvedByTags(
                 userId, fallbackTagsJoined, minRating, maxRating, targetRating, 80);
             if (fallbackPool.size() < 10) {
@@ -172,10 +183,17 @@ public class WeaknessService {
                 int currentAdded = addedCountPerTag.getOrDefault(tag, 0);
                 if (currentAdded < MAX_PROBLEMS_PER_TAG && tagToFallbacksMap.containsKey(tag)) {
                     List<String> tagFallbacks = tagToFallbacksMap.get(tag);
-                    List<Problem> matchingFallbackProblems = fallbackPool.stream()
+                    List<String> normalizedTagFallbacks = tagFallbacks.stream().map(this::normalizeTag).toList();
+                    List<Problem> matchingFallbackProblems = new ArrayList<>(fallbackPool.stream()
                         .filter(p -> p != null && p.getTags() != null && p.getTags().stream().anyMatch(pt ->
-                            tagFallbacks.stream().anyMatch(fb -> fb.equalsIgnoreCase(pt))))
-                        .toList();
+                            normalizedTagFallbacks.contains(normalizeTag(pt))))
+                        .toList());
+                    
+                    matchingFallbackProblems.sort(Comparator.comparingDouble(p -> {
+                        double r = p.getActualRating() != null ? p.getActualRating() : MasteryService.inferRatingFromDifficulty(p.getDifficulty());
+                        return Math.abs(r - targetRating);
+                    }));
+
                     int added = collectProblems(matchingFallbackProblems, tag, recommendedSlugs, recommendations, currentAdded);
                     addedCountPerTag.put(tag, currentAdded + added);
                 }
@@ -208,6 +226,28 @@ public class WeaknessService {
             .weakTags(weakTags)
             .recommendations(recommendations.stream().limit(MAX_TOTAL_RECOMMENDATIONS).collect(Collectors.toList()))
             .build();
+    }
+
+    private String normalizeTag(String tag) {
+        if (tag == null) return "";
+        return tag.trim().toLowerCase().replace("_", "-").replace(" ", "-");
+    }
+
+    private Set<String> generateTagQueryVariants(Collection<String> tags) {
+        Set<String> variants = new LinkedHashSet<>();
+        for (String t : tags) {
+            if (t == null || t.isBlank()) continue;
+            variants.add(t.trim());
+            String norm = normalizeTag(t);
+            variants.add(norm);
+            variants.add(norm.replace("-", " "));
+            String titleCased = Arrays.stream(norm.split("-"))
+                .filter(s -> !s.isEmpty())
+                .map(s -> Character.toUpperCase(s.charAt(0)) + (s.length() > 1 ? s.substring(1) : ""))
+                .collect(Collectors.joining(" "));
+            variants.add(titleCased);
+        }
+        return variants;
     }
 
     private List<Problem> mergeProblemLists(List<Problem> first, List<Problem> second) {
@@ -253,7 +293,7 @@ public class WeaknessService {
 
     private List<String> getFallbackTags(String rawTag) {
         if (rawTag == null) return Collections.emptyList();
-        String normalized = rawTag.trim().toLowerCase().replace("_", "-").replace(" ", "-");
+        String normalized = normalizeTag(rawTag);
         List<String> found = FALLBACK_TAGS.get(normalized);
         if (found != null) return found;
         return FALLBACK_TAGS.getOrDefault(rawTag.trim().toLowerCase(), Collections.emptyList());

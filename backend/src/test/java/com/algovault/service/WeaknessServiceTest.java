@@ -91,13 +91,13 @@ class WeaknessServiceTest {
         when(tagMasteryRepository.findByUserIdOrderByMasteryScoreDesc(1L)).thenReturn(List.of(nicheTag));
 
         // Exact batched tag returns empty
-        when(problemRepository.findRecommendedUnsolvedByTags(eq(1L), eq("ternary-search"), anyDouble(), anyDouble(), anyDouble(), anyInt()))
+        when(problemRepository.findRecommendedUnsolvedByTags(eq(1L), contains("ternary-search"), anyDouble(), anyDouble(), anyDouble(), anyInt()))
             .thenReturn(Collections.emptyList());
 
         // Fallback tags return problems with matching tag
         Problem fallbackProblem = Problem.builder().id(10L).title("Binary Search").titleSlug("binary-search")
             .tags(List.of("binary-search")).actualRating(1650.0).build();
-        when(problemRepository.findRecommendedUnsolvedByTags(eq(1L), eq("binary-search,divide-and-conquer"), anyDouble(), anyDouble(), anyDouble(), anyInt()))
+        when(problemRepository.findRecommendedUnsolvedByTags(eq(1L), contains("binary-search"), anyDouble(), anyDouble(), anyDouble(), anyInt()))
             .thenReturn(List.of(fallbackProblem));
 
         WeaknessResponse response = weaknessService.getWeakness(1L);
@@ -114,7 +114,7 @@ class WeaknessServiceTest {
         when(tagMasteryRepository.findByUserIdOrderByMasteryScoreDesc(1L)).thenReturn(List.of(unknownNicheTag));
 
         // Exact tag returns empty
-        when(problemRepository.findRecommendedUnsolvedByTags(eq(1L), eq("unknown-niche"), anyDouble(), anyDouble(), anyDouble(), anyInt()))
+        when(problemRepository.findRecommendedUnsolvedByTags(eq(1L), anyString(), anyDouble(), anyDouble(), anyDouble(), anyInt()))
             .thenReturn(Collections.emptyList());
 
         // Rating band returns problem
@@ -139,7 +139,7 @@ class WeaknessServiceTest {
         Problem sharedProblem = Problem.builder().id(30L).title("Climbing Stairs").titleSlug("climbing-stairs").tags(List.of("DP", "Recursion")).build();
         Problem uniqueProblem = Problem.builder().id(31L).title("House Robber").titleSlug("house-robber").tags(List.of("Recursion")).build();
 
-        when(problemRepository.findRecommendedUnsolvedByTags(eq(1L), eq("DP,Recursion"), anyDouble(), anyDouble(), anyDouble(), anyInt()))
+        when(problemRepository.findRecommendedUnsolvedByTags(eq(1L), anyString(), anyDouble(), anyDouble(), anyDouble(), anyInt()))
             .thenReturn(List.of(sharedProblem, uniqueProblem));
 
         WeaknessResponse response = weaknessService.getWeakness(1L);
