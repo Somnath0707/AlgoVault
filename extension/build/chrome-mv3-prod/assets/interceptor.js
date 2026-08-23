@@ -35,6 +35,23 @@
     return '';
   }
 
+  function extractCodeFromBody(body) {
+    if (!body) return null;
+    try {
+      var parsed = typeof body === 'string' ? JSON.parse(body) : body;
+      if (!parsed) return null;
+      if (parsed.typed_code) return { code: parsed.typed_code, lang: parsed.lang };
+      if (parsed.typedCode) return { code: parsed.typedCode, lang: parsed.lang || parsed.language };
+      if (parsed.variables && (parsed.variables.typed_code || parsed.variables.typedCode)) {
+        return { 
+          code: parsed.variables.typed_code || parsed.variables.typedCode, 
+          lang: parsed.variables.lang || parsed.variables.language 
+        };
+      }
+    } catch(e) {}
+    return null;
+  }
+
   function emitSubmissionResult(url, data) {
     var body = data && data.data ? data.data : data;
     if (!body || body.state !== 'SUCCESS') return;
@@ -78,18 +95,16 @@
   // Monkey-patch window.fetch
   window.fetch = function(input, init) {
     var url = normalizeUrl(input);
-    var isSubmit = /\/submit(\/|\?|$)/.test(url);
+    var isSubmit = /\/submit(\/|\?|$)/.test(url) || (url.indexOf('graphql') !== -1 && init && init.body && String(init.body).indexOf('submit') !== -1);
 
     if (isSubmit) {
       window.__ALGOVAULT_IS_SUBMITTING__ = true;
-      try {
-        if (init && init.body) {
-          var body = typeof init.body === 'string' ? JSON.parse(init.body) : init.body;
-          if (body && body.typed_code) {
-            window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = { code: body.typed_code, lang: body.lang };
-          }
+      if (init && init.body) {
+        var extracted = extractCodeFromBody(init.body);
+        if (extracted) {
+          window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = extracted;
         }
-      } catch(e) {}
+      }
     }
 
     return originalFetch.apply(this, arguments).then(function(response) {
@@ -117,16 +132,14 @@
 
   XMLHttpRequest.prototype.send = function(body) {
     var url = this._avUrl || '';
-    var isSubmit = /\/submit(\/|\?|$)/.test(url);
+    var isSubmit = /\/submit(\/|\?|$)/.test(url) || (url.indexOf('graphql') !== -1 && body && String(body).indexOf('submit') !== -1);
     if (isSubmit) {
       window.__ALGOVAULT_IS_SUBMITTING__ = true;
       if (body) {
-        try {
-          var payload = typeof body === 'string' ? JSON.parse(body) : body;
-          if (payload && payload.typed_code) {
-            window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = { code: payload.typed_code, lang: payload.lang };
-          }
-        } catch(e) {}
+        var extracted = extractCodeFromBody(body);
+        if (extracted) {
+          window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = extracted;
+        }
       }
     }
     if (/\/submissions\/detail\/\d+\/check/.test(url) || url.indexOf('/check') !== -1) {
