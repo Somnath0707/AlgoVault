@@ -173,7 +173,7 @@ window.addEventListener("message", ((event: MessageEvent) => {
   if (event.data?.type !== "AV_SUBMISSION_RESULT") return
 
   const expectedNonce = (window as any).__ALGOVAULT_ISOLATED_NONCE__
-  if (!expectedNonce || event.data.nonce !== expectedNonce) {
+  if (expectedNonce && event.data.nonce && event.data.nonce !== expectedNonce) {
     return
   }
 
@@ -227,11 +227,15 @@ window.addEventListener("message", ((event: MessageEvent) => {
   // Fire the background telemetry immediately without blocking main thread
   chrome.runtime.sendMessage({ action: "submission_result", payload })
 
+  const triggerCelebration = () => {
+    window.dispatchEvent(new CustomEvent("AV_SUBMISSION_RESULT_CONFIRMED", { detail: payload }))
+    window.postMessage({ type: "AV_SUBMISSION_RESULT_CONFIRMED", detail: payload }, window.location.origin || "*")
+  }
+
   if (payload.statusDisplay === "Accepted") {
-    // Generously yield 400ms to let LeetCode's own UI/testcase animation complete smoothly
     setTimeout(() => {
       chrome.runtime.sendMessage({ action: "session_finish_v2", language: payload.language })
-      window.postMessage({ type: "AV_SUBMISSION_RESULT_CONFIRMED", nonce: expectedNonce, detail: payload }, window.location.origin || "*")
+      triggerCelebration()
       
       // Async storage update in background
       chrome.storage.local.get("algovault.solvedSlugs", (result) => {
@@ -242,6 +246,11 @@ window.addEventListener("message", ((event: MessageEvent) => {
       })
 
       showPostSolveDialog(slug)
-    }, 400)
+    }, 300)
+  } else if (payload.statusDisplay) {
+    // Non-accepted (Wrong Answer, TLE, Runtime Error, etc.) trigger defeat celebration promptly
+    setTimeout(() => {
+      triggerCelebration()
+    }, 200)
   }
 }))
