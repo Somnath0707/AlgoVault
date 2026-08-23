@@ -2,7 +2,6 @@ package com.algovault.service;
 
 import com.algovault.dto.PredictionResponse;
 import com.algovault.engine.SolveProbabilityEngine;
-import com.algovault.model.AnalyticsMetric;
 import com.algovault.model.Problem;
 import com.algovault.model.Submission;
 import com.algovault.model.TagMastery;
@@ -17,7 +16,6 @@ import com.algovault.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,22 +50,15 @@ public class SolveProbabilityService {
         PredictionResponse response = engine.predict(user, problem, submissions, masteries, contestResults, openEvents);
 
         if (response != null && !Boolean.TRUE.equals(response.getInsufficientData()) && problem.getId() != null) {
-            boolean alreadyPending = analyticsMetricRepository.existsByUserIdAndProblemIdAndActualResultIsNull(userId, problem.getId());
-            if (!alreadyPending) {
-                try {
-                    analyticsMetricRepository.saveAndFlush(AnalyticsMetric.builder()
-                        .user(user)
-                        .problem(problem)
-                        .predictedProbability((double) response.getSolveChance())
-                        .actualResult(null)
-                        .problemRating(problem.getActualRating())
-                        .tags(problem.getTags() != null ? String.join(",", problem.getTags()) : "")
-                        .confidence(response.getConfidence())
-                        .build());
-                } catch (DataIntegrityViolationException e) {
-                    log.debug("Concurrent prediction metric already saved for user {} and problem {}", userId, problem.getId());
-                }
-            }
+            String tags = problem.getTags() != null ? String.join(",", problem.getTags()) : "";
+            analyticsMetricRepository.insertPendingMetricIfAbsent(
+                userId,
+                problem.getId(),
+                (double) response.getSolveChance(),
+                problem.getActualRating(),
+                tags,
+                response.getConfidence()
+            );
         }
 
         return response;
