@@ -3,9 +3,11 @@ package com.algovault.service;
 import com.algovault.engine.Glicko2MasteryEngine;
 import com.algovault.engine.Glicko2MasteryEngine.GlickoRating;
 import com.algovault.engine.Glicko2MasteryEngine.MatchResult;
+import com.algovault.model.ProblemOpenEvent;
 import com.algovault.model.Submission;
 import com.algovault.model.TopicRating;
 import com.algovault.model.User;
+import com.algovault.repository.ProblemOpenEventRepository;
 import com.algovault.repository.SubmissionRepository;
 import com.algovault.repository.TopicRatingRepository;
 import com.algovault.repository.UserRepository;
@@ -15,11 +17,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.YearMonth;
 import java.util.*;
 
 @Service
-@org.springframework.transaction.annotation.Transactional
+@Transactional
 @RequiredArgsConstructor
 @Slf4j
 public class TopicRatingService {
@@ -27,6 +29,7 @@ public class TopicRatingService {
     private final SubmissionRepository submissionRepository;
     private final TopicRatingRepository topicRatingRepository;
     private final UserRepository userRepository;
+    private final ProblemOpenEventRepository problemOpenEventRepository;
     private final Glicko2MasteryEngine glickoEngine;
 
     @Transactional
@@ -45,8 +48,9 @@ public class TopicRatingService {
             }
         }
 
+        Map<Long, ProblemOpenEvent> latestEventMap = buildLatestEventMap(userId);
         for (String tag : allTags) {
-            recomputeEloForTag(user, tag);
+            recomputeEloForTag(user, tag, latestEventMap);
         }
     }
 
@@ -57,16 +61,24 @@ public class TopicRatingService {
         if (tags.isEmpty()) return;
 
         User user = userRepository.findById(userId).orElseThrow();
+        Map<Long, ProblemOpenEvent> latestEventMap = buildLatestEventMap(userId);
         for (String tag : tags) {
-            recomputeEloForTag(user, tag);
+            recomputeEloForTag(user, tag, latestEventMap);
         }
     }
 
     @Transactional
     public void recomputeEloForTag(User user, String tag) {
-        List<Submission> tagSubs = submissionRepository.findByUserIdAndTag(user.getId(), tag);
-        if (tagSubs.isEmpty()) return;
+        Map<Long, ProblemOpenEvent> latestEventMap = buildLatestEventMap(user.getId());
+        recomputeEloForTag(user, tag, latestEventMap);
+    }
 
+    @Transactional
+    public void recomputeEloForTag(User user, String tag, Map<Long, ProblemOpenEvent> latestEventMap) {
+        List<Submission> rawTagSubs = submissionRepository.findByUserIdAndTag(user.getId(), tag);
+        if (rawTagSubs == null || rawTagSubs.isEmpty()) return;
+
+        List<Submission> tagSubs = new ArrayList<>(rawTagSubs);
         tagSubs.sort(Comparator.comparing(Submission::getSubmittedAt));
 
         Map<Long, List<Submission>> problemAttemptsMap = new LinkedHashMap<>();
@@ -76,45 +88,72 @@ public class TopicRatingService {
             }
         }
 
+        List<List<Submission>> attempts = new ArrayList<>(problemAttemptsMap.values());
+        attempts.forEach(list -> list.sort(Comparator.comparing(Submission::getSubmittedAt)));
+        attempts.sort(Comparator.comparing(list -> list.get(0).getSubmittedAt()));
+
         GlickoRating gRating = new GlickoRating(1500.0, 350.0, 0.06);
         int problemsPlayed = 0;
         int maxRating = 1500;
         LocalDateTime lastPracticedAt = null;
 
-        for (List<Submission> subs : problemAttemptsMap.values()) {
+        // Group matches by month of first submission
+        TreeMap<YearMonth, List<MatchResult>> monthBatches = new TreeMap<>();
+
+        for (List<Submission> subs : attempts) {
             if (subs.isEmpty()) continue;
             Submission firstSub = subs.get(0);
-            Double rawProblemRating = firstSub.getProblem().getActualRating();
-            double problemRating = (rawProblemRating != null && rawProblemRating > 0) ? rawProblemRating : 1200.0;
+            Submission acceptedSub = subs.stream()
+                .filter(s -> "Accepted".equals(s.getVerdict()))
+                .findFirst()
+                .orElse(null);
 
-            boolean isFirstTryAc = "Accepted".equals(firstSub.getVerdict());
-            boolean isEventualAc = subs.stream().anyMatch(s -> "Accepted".equals(s.getVerdict()));
-            double score = isFirstTryAc ? 1.0 : (isEventualAc ? 0.7 : 0.0);
+            double opponentRating = firstSub.getProblem().getActualRating() != null
+                ? firstSub.getProblem().getActualRating()
+                : MasteryService.inferRatingFromDifficulty(firstSub.getProblem().getDifficulty());
 
-            // Match opponent RD is assumed 50.0 for stable ZeroTrac problem ratings
-            MatchResult match = new MatchResult(problemRating, 50.0, score);
-            gRating = glickoEngine.updateRating(gRating, List.of(match));
+            double opponentRD = MasteryService.computeOpponentRD(firstSub.getProblem());
+
+            ProblemOpenEvent event = latestEventMap != null ? latestEventMap.get(firstSub.getProblem().getId()) : null;
+            double score = MasteryService.computeScore(firstSub, acceptedSub, event);
+
+            YearMonth month = YearMonth.from(firstSub.getSubmittedAt());
+            monthBatches.computeIfAbsent(month, k -> new ArrayList<>())
+                .add(new MatchResult(opponentRating, opponentRD, score));
 
             problemsPlayed++;
-            int currentRoundRating = (int) Math.round(gRating.rating);
-            if (currentRoundRating > maxRating) {
-                maxRating = currentRoundRating;
-            }
-            if (firstSub.getSubmittedAt() != null) {
+            if (firstSub.getSubmittedAt() != null && (lastPracticedAt == null || firstSub.getSubmittedAt().isAfter(lastPracticedAt))) {
                 lastPracticedAt = firstSub.getSubmittedAt();
             }
         }
 
         if (problemsPlayed == 0) return;
 
-        // Apply inactivity time decay if unpracticed for over 7 days
+        // Process batches month-by-month with gap decay
+        YearMonth prevMonth = null;
+        for (Map.Entry<YearMonth, List<MatchResult>> batch : monthBatches.entrySet()) {
+            YearMonth currentMonth = batch.getKey();
+
+            if (prevMonth != null) {
+                long gapMonths = prevMonth.until(currentMonth, java.time.temporal.ChronoUnit.MONTHS) - 1;
+                if (gapMonths > 0) {
+                    gRating = glickoEngine.applyTimeDecay(gRating, (int) Math.min(gapMonths, 6));
+                }
+            }
+
+            gRating = glickoEngine.updateRating(gRating, batch.getValue());
+            int currentRoundRating = (int) Math.round(gRating.rating);
+            if (currentRoundRating > maxRating) {
+                maxRating = currentRoundRating;
+            }
+            prevMonth = currentMonth;
+        }
+
+        // Apply trailing inactivity time decay
         if (lastPracticedAt != null) {
-            long daysInactive = java.time.Duration.between(lastPracticedAt, LocalDateTime.now()).toDays();
-            if (daysInactive >= 7) {
-                double weeksInactive = daysInactive / 7.0;
-                double phi = gRating.rd / 173.7178;
-                double phiPrime = Math.sqrt(phi * phi + weeksInactive * gRating.volatility * gRating.volatility);
-                gRating.rd = Math.min(phiPrime * 173.7178, 350.0);
+            long monthsSince = java.time.Duration.between(lastPracticedAt, LocalDateTime.now()).toDays() / 30;
+            if (monthsSince > 0) {
+                gRating = glickoEngine.applyTimeDecay(gRating, (int) Math.min(monthsSince, 6));
             }
         }
 
@@ -134,5 +173,18 @@ public class TopicRatingService {
         tr.setLastPracticedAt(lastPracticedAt);
 
         topicRatingRepository.save(tr);
+    }
+
+    private Map<Long, ProblemOpenEvent> buildLatestEventMap(Long userId) {
+        Map<Long, ProblemOpenEvent> latestEventMap = new HashMap<>();
+        for (ProblemOpenEvent e : problemOpenEventRepository.findByUserId(userId)) {
+            if (e.getProblem() == null || e.getProblem().getId() == null) continue;
+            Long pid = e.getProblem().getId();
+            if (!latestEventMap.containsKey(pid)
+                    || latestEventMap.get(pid).getOpenedAt().isBefore(e.getOpenedAt())) {
+                latestEventMap.put(pid, e);
+            }
+        }
+        return latestEventMap;
     }
 }
