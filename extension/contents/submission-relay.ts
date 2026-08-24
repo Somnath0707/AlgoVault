@@ -7,7 +7,7 @@ export const config: PlasmoCSConfig = {
 }
 
 type SubmissionPayload = {
-  submissionId: string
+  submissionId?: string
   titleSlug: string
   title?: string
   statusDisplay?: string
@@ -33,10 +33,13 @@ function currentTitle() {
   return heading?.replace(/^\d+\.\s*/, "").trim() || currentSlug() || "Problem"
 }
 
-// Zero-Reflow Editor Fallback: Only reads value property if already present in textarea, never iterates DOM lines
-function editorCodeFastFallback() {
+function editorCodeFallback() {
   const textarea = document.querySelector<HTMLTextAreaElement>("textarea.inputarea")
-  return textarea?.value?.trim() || undefined
+  if (textarea?.value?.trim()) return textarea.value
+  const lines = Array.from(document.querySelectorAll<HTMLElement>(".view-lines .view-line"))
+    .map((line) => line.innerText)
+    .filter(Boolean)
+  return lines.length ? lines.join("\n") : undefined
 }
 
 function languageFallback() {
@@ -100,11 +103,10 @@ function showPostSolveDialog(titleSlug: string) {
     "padding:16px",
     "font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif",
     "width:270px",
-    "transition:opacity 0.2s ease, transform 0.2s ease",
+    "transition:all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
     "opacity:0",
-    "transform:translate3d(0, 8px, 0)",
-    "will-change:opacity, transform",
-    "contain:content"
+    "transform:scale(0.95) translateZ(0)",
+    "will-change:opacity, transform"
   ].join(";")
 
   wrapper.innerHTML = `
@@ -112,10 +114,10 @@ function showPostSolveDialog(titleSlug: string) {
       <span style="font-size:16px;">🏆</span> Problem Solved! How clean was it?
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-      <button data-help="NONE" style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;background:rgba(31, 41, 55, 0.75);color:#e5e7eb;padding:10px 8px;font-weight:600;font-size:12px;cursor:pointer;transition:all 0.15s;outline:none;">Solo</button>
-      <button data-help="HINT" style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;background:rgba(31, 41, 55, 0.75);color:#e5e7eb;padding:10px 8px;font-weight:600;font-size:12px;cursor:pointer;transition:all 0.15s;outline:none;">Hint</button>
-      <button data-help="EDITORIAL" style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;background:rgba(31, 41, 55, 0.75);color:#e5e7eb;padding:10px 8px;font-weight:600;font-size:12px;cursor:pointer;transition:all 0.15s;outline:none;">Editorial</button>
-      <button data-help="EXTERNAL" style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;background:rgba(31, 41, 55, 0.75);color:#e5e7eb;padding:10px 8px;font-weight:600;font-size:12px;cursor:pointer;transition:all 0.15s;outline:none;">External</button>
+      <button data-help="NONE" style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;background:rgba(31, 41, 55, 0.75);color:#e5e7eb;padding:10px 8px;font-weight:600;font-size:12px;cursor:pointer;transition:all 0.2s;outline:none;">Solo</button>
+      <button data-help="HINT" style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;background:rgba(31, 41, 55, 0.75);color:#e5e7eb;padding:10px 8px;font-weight:600;font-size:12px;cursor:pointer;transition:all 0.2s;outline:none;">Hint</button>
+      <button data-help="EDITORIAL" style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;background:rgba(31, 41, 55, 0.75);color:#e5e7eb;padding:10px 8px;font-weight:600;font-size:12px;cursor:pointer;transition:all 0.2s;outline:none;">Editorial</button>
+      <button data-help="EXTERNAL" style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;background:rgba(31, 41, 55, 0.75);color:#e5e7eb;padding:10px 8px;font-weight:600;font-size:12px;cursor:pointer;transition:all 0.2s;outline:none;">External</button>
     </div>
   `
 
@@ -154,16 +156,17 @@ function showPostSolveDialog(titleSlug: string) {
       })
       chrome.runtime.sendMessage({ action: "session_finish_v2" })
       wrapper.style.opacity = "0"
-      wrapper.style.transform = "translate3d(0, 8px, 0)"
-      setTimeout(() => wrapper.remove(), 250)
+      wrapper.style.transform = "scale(0.95)"
+      setTimeout(() => wrapper.remove(), 300)
     })
   })
 
   document.body.appendChild(wrapper)
 
+  // Trigger entry animation
   requestAnimationFrame(() => {
     wrapper.style.opacity = "1"
-    wrapper.style.transform = "translate3d(0, 0, 0)"
+    wrapper.style.transform = "scale(1)"
   })
 }
 
@@ -171,43 +174,55 @@ function showPostSolveDialog(titleSlug: string) {
 window.addEventListener("message", ((event: MessageEvent) => {
   if (event.origin !== window.location.origin || event.source !== window) return
   if (event.data?.type !== "AV_SUBMISSION_RESULT") return
+  
+  console.log("AlgoVault: submission-relay received AV_SUBMISSION_RESULT", {
+    nonce: event.data?.nonce,
+    windowNonce: (window as any).__ALGOVAULT_ISOLATED_NONCE__
+  })
 
   const expectedNonce = (window as any).__ALGOVAULT_ISOLATED_NONCE__
-  if (expectedNonce && event.data.nonce && event.data.nonce !== expectedNonce) {
+  if (!expectedNonce || event.data.nonce !== expectedNonce) {
+    console.warn("AlgoVault: submission-relay nonce mismatch!", {
+      received: event.data?.nonce,
+      expected: expectedNonce
+    })
     return
   }
 
   const detail = event.data.detail || {}
 
-  // 1. MUST HAVE A VALID NUMERIC SUBMISSION ID (Run Code never has a persistent numeric submissionId)
-  if (!detail.submissionId || !/^\d+$/.test(String(detail.submissionId))) {
+  // 1. submission id is numeric string when present
+  if (detail.submissionId && !/^\d+$/.test(String(detail.submissionId))) {
     return
   }
 
-  // 2. Validate status code
+  // 2. status code is known/expected
   const statusCode = detail.statusCode != null ? Number(detail.statusCode) : null
   const validStatusCodes = [10, 11, 14, 15, 20]
   if (statusCode !== null && !validStatusCodes.includes(statusCode)) {
     return
   }
 
-  // 3. Problem slug from URL
+  // 3. title slug comes from current URL, not trusted page payload
   const slug = currentSlug()
   if (!slug) return
 
-  const submissionId = String(detail.submissionId)
-  if (relayedSubmissionIds.has(submissionId)) return
-  relayedSubmissionIds.add(submissionId)
-  if (relayedSubmissionIds.size > 100) relayedSubmissionIds.delete(relayedSubmissionIds.values().next().value!)
+  if (detail.submissionId) {
+    const submissionId = String(detail.submissionId)
+    if (relayedSubmissionIds.has(submissionId)) return
+    relayedSubmissionIds.add(submissionId)
+    if (relayedSubmissionIds.size > 100) relayedSubmissionIds.delete(relayedSubmissionIds.values().next().value!)
+  }
 
   const runtimeMs = parseRuntimeMs(detail.runtime)
   const memoryKb = parseMemoryKb(detail.memory)
 
-  // Use captured code from network payload; never scan .view-lines DOM
-  const code = detail.code || editorCodeFastFallback()
+  // Use code from the interceptor's captured payload; skip expensive DOM fallback
+  // editorCodeFallback() scans every .view-line with innerText which forces reflow
+  const code = detail.code || undefined
 
   const payload: SubmissionPayload = {
-    submissionId: submissionId,
+    submissionId: detail.submissionId ? String(detail.submissionId) : undefined,
     titleSlug: slug,
     title: currentTitle(),
     statusCode: detail.statusCode,
@@ -218,37 +233,27 @@ window.addEventListener("message", ((event: MessageEvent) => {
     totalCorrect: detail.totalCorrect,
     totalTestcases: detail.totalTestcases,
     submittedAt: new Date().toISOString(),
-    code: code,
+    code: code || editorCodeFallback(),
     codeLang: detail.codeLang || detail.lang || languageFallback()
   }
 
-  // Fire the background telemetry immediately without blocking main thread
+  // Fire the background message immediately (non-blocking)
   chrome.runtime.sendMessage({ action: "submission_result", payload })
 
-  const triggerCelebration = () => {
-    window.dispatchEvent(new CustomEvent("AV_SUBMISSION_RESULT_CONFIRMED", { detail: payload }))
-    window.postMessage({ type: "AV_SUBMISSION_RESULT_CONFIRMED", detail: payload }, window.location.origin || "*")
-  }
-
   if (payload.statusDisplay === "Accepted") {
+    // Yield to the browser before doing any more work.
+    // This prevents "Page Unresponsive" by letting LeetCode's own AC
+    // rendering complete first before we layer on our UI.
     setTimeout(() => {
       chrome.runtime.sendMessage({ action: "session_finish_v2", language: payload.language })
-      triggerCelebration()
-      
-      // Async storage update in background
+      window.postMessage({ type: "AV_SUBMISSION_RESULT_CONFIRMED", nonce: expectedNonce, detail: payload }, window.location.origin || "*")
       chrome.storage.local.get("algovault.solvedSlugs", (result) => {
         const cached = result["algovault.solvedSlugs"] || {}
         const slugs = new Set<string>(Array.isArray(cached?.slugs) ? cached.slugs : [])
         slugs.add(slug)
         chrome.storage.local.set({ "algovault.solvedSlugs": { ...cached, fetchedAt: Date.now(), slugs: Array.from(slugs) } })
       })
-
       showPostSolveDialog(slug)
-    }, 300)
-  } else if (payload.statusDisplay) {
-    // Non-accepted official submissions (Wrong Answer, TLE, Runtime Error) trigger defeat celebration promptly
-    setTimeout(() => {
-      triggerCelebration()
-    }, 200)
+    }, 150)
   }
 }))

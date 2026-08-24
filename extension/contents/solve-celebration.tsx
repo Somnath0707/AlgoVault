@@ -124,6 +124,7 @@ function preloadAudio(url: string) {
     audio.preload = "auto"
     audio.src = url
     audio.volume = 0.5
+    // Force browser to start fetching & decoding immediately
     audio.load()
     audioCache.set(url, audio)
   } catch {}
@@ -139,14 +140,12 @@ const playSound = (soundUrl: string) => {
   try {
     const cached = audioCache.get(soundUrl)
     if (cached) {
-      cached.currentTime = 0
-      cached.volume = 0.5
-      cached.play().catch(() => {
-        const fresh = new Audio(soundUrl)
-        fresh.volume = 0.5
-        fresh.play().catch(() => {})
-      })
+      // Clone the cached audio node for overlapping playback safety
+      const clone = cached.cloneNode(true) as HTMLAudioElement
+      clone.volume = 0.5
+      clone.play().catch(() => {})
     } else {
+      // Fallback: create fresh Audio if cache miss
       const audio = new Audio(soundUrl)
       audio.volume = 0.5
       audio.play().catch(() => {})
@@ -175,7 +174,7 @@ export default function SolveCelebration() {
   const currentTheme = THEMES[themeName] || THEMES.gta
 
   useEffect(() => {
-    // 1. Preload settings on mount
+    // 1. Preload settings on mount so submission path has ZERO storage latency
     chrome.storage.sync.get(["celebrationOverlay", "celebrationSound", "celebrationTheme"], (res) => {
       if (res.celebrationOverlay !== undefined) prefsRef.current.overlay = res.celebrationOverlay
       if (res.celebrationSound !== undefined) prefsRef.current.sound = res.celebrationSound
@@ -198,22 +197,26 @@ export default function SolveCelebration() {
     }
     chrome.storage.onChanged.addListener(handleStorageChange)
 
-    let lastCelebrationTimestamp = 0
+let lastCelebrationTimestamp = 0
 
-    const processSubmissionDetail = (detail: any) => {
-      if (!detail) return
+    const handleSubmission = (event: MessageEvent) => {
+      // Listen strictly to the confirmed and validated submission event once
+      if (event.data?.type !== "AV_SUBMISSION_RESULT_CONFIRMED") return
+      
+      const expectedNonce = (window as any).__ALGOVAULT_ISOLATED_NONCE__
+      if (!event.data?.nonce || !expectedNonce || event.data.nonce !== expectedNonce) {
+        return
+      }
 
-      // Debounce guard: 1.2 seconds between triggers
+      // Hard debounce guard: allow at most 1 celebration audio/overlay per 3.5 seconds
       const now = Date.now()
-      if (now - lastCelebrationTimestamp < 1200) {
+      if (now - lastCelebrationTimestamp < 3500) {
         return
       }
       lastCelebrationTimestamp = now
 
-      const submissionKey = detail.submissionId 
-        ? String(detail.submissionId) 
-        : `${detail.titleSlug || 'unknown'}-${detail.statusCode}-${detail.statusDisplay || ''}`
-        
+      const detail = event.data.detail || {}
+      const submissionKey = detail.submissionId ? String(detail.submissionId) : `${detail.titleSlug || 'unknown'}-${detail.statusCode}-${detail.runtime || ''}`
       if (handledSubmissionsRef.current.has(submissionKey)) {
         return
       }
@@ -233,13 +236,13 @@ export default function SolveCelebration() {
       if (!newType) return
 
       const heading = document.querySelector("a[href*='/problems/']")?.textContent
-      const title = heading?.replace(/^\d+\.\s*/, "").trim() || detail.title || "Problem"
+      const title = heading?.replace(/^\d+\.\s*/, "").trim() || "Problem"
       setProblemTitle(title)
       setType(newType)
 
       const activeTheme = THEMES[prefsRef.current.theme] || THEMES.gta
 
-      // Fast-path synchronous audio trigger
+      // Fast-path synchronous audio trigger (plays exactly once)
       if (prefsRef.current.sound) {
         playSound(newType === "VICTORY" ? activeTheme.audio.victory : activeTheme.audio.defeat)
       }
@@ -274,21 +277,7 @@ export default function SolveCelebration() {
       })
     }
 
-    const handleMessageEvent = (event: MessageEvent) => {
-      if (event.data?.type === "AV_SUBMISSION_RESULT_CONFIRMED") {
-        processSubmissionDetail(event.data.detail)
-      }
-    }
-
-    const handleCustomEvent = (event: Event) => {
-      const custom = event as CustomEvent
-      if (custom.detail) {
-        processSubmissionDetail(custom.detail)
-      }
-    }
-
-    window.addEventListener("message", handleMessageEvent)
-    window.addEventListener("AV_SUBMISSION_RESULT_CONFIRMED", handleCustomEvent)
+    window.addEventListener("message", handleSubmission)
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -304,8 +293,7 @@ export default function SolveCelebration() {
 
     return () => {
       chrome.storage.onChanged.removeListener(handleStorageChange)
-      window.removeEventListener("message", handleMessageEvent)
-      window.removeEventListener("AV_SUBMISSION_RESULT_CONFIRMED", handleCustomEvent)
+      window.removeEventListener("message", handleSubmission)
       window.removeEventListener("keydown", handleKeyDown)
       if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current)
     }
@@ -411,3 +399,4 @@ export default function SolveCelebration() {
     </div>
   )
 }
+

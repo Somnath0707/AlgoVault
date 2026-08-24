@@ -35,78 +35,16 @@
     return '';
   }
 
-  function isRealSubmitRequest(url, body) {
-    var urlStr = String(url || '');
-    // If it's an interpret / run code endpoint, definitely NOT a submit
-    if (urlStr.indexOf('interpret') !== -1 || urlStr.indexOf('run_code') !== -1) {
-      return false;
-    }
-    // REST submission endpoint: /problems/<slug>/submit/
-    if (/\/problems\/[^\/]+\/submit(\/|\?|$)/.test(urlStr)) {
-      return true;
-    }
-    // Contest submission endpoint: /contest/<contest>/problems/<slug>/submit/
-    if (/\/contest\/[^\/]+\/problems\/[^\/]+\/submit(\/|\?|$)/.test(urlStr)) {
-      return true;
-    }
-    // GraphQL submission
-    if (urlStr.indexOf('graphql') !== -1 && body) {
-      var bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
-      if (bodyStr.indexOf('submitCode') !== -1 || bodyStr.indexOf('SubmitCode') !== -1) {
-        if (bodyStr.indexOf('interpretSolution') === -1 && bodyStr.indexOf('runCode') === -1) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  function extractCodeFromBody(body) {
-    if (!body) return null;
-    try {
-      var parsed = typeof body === 'string' ? JSON.parse(body) : body;
-      if (!parsed) return null;
-      if (parsed.typed_code) return { code: parsed.typed_code, lang: parsed.lang };
-      if (parsed.typedCode) return { code: parsed.typedCode, lang: parsed.lang || parsed.language };
-      if (parsed.variables && (parsed.variables.typed_code || parsed.variables.typedCode)) {
-        return { 
-          code: parsed.variables.typed_code || parsed.variables.typedCode, 
-          lang: parsed.variables.lang || parsed.variables.language 
-        };
-      }
-    } catch(e) {}
-    return null;
-  }
-
   function emitSubmissionResult(url, data) {
     var body = data && data.data ? data.data : data;
     if (!body || body.state !== 'SUCCESS') return;
-
-    var urlStr = String(url || '');
-
-    // CRITICAL GUARD: Exclude Run Code (interpret_solution / testcases) responses
-    if (body.run_success !== undefined || body.code_answer !== undefined || body.interpret_id !== undefined || body.expected_code_answer !== undefined) {
-      window.__ALGOVAULT_IS_SUBMITTING__ = false;
-      return;
-    }
-
-    // URL must not be an interpret endpoint
-    if (urlStr.indexOf('interpret') !== -1) {
-      window.__ALGOVAULT_IS_SUBMITTING__ = false;
-      return;
-    }
     
-    // Only fire if the submit action was active (strictly ignores run code)
+    // Only fire if the submit action was active (ignores run code)
     if (!window.__ALGOVAULT_IS_SUBMITTING__) return;
     
-    var match = urlStr.match(/\/submissions\/detail\/(\d+)\/check/);
-    var submissionId = match ? match[1] : (body.submission_id ? String(body.submission_id) : undefined);
-    if (!submissionId || !/^\d+$/.test(submissionId)) {
-      window.__ALGOVAULT_IS_SUBMITTING__ = false;
-      return;
-    }
-
-    if (submissionId === lastSeenSubmissionId) return;
+    var match = String(url).match(/\/submissions\/detail\/(\d+)\/check/);
+    var submissionId = match ? match[1] : undefined;
+    if (submissionId && submissionId === lastSeenSubmissionId) return;
     lastSeenSubmissionId = submissionId;
 
     // Reset submit state once the terminal SUCCESS state is captured
@@ -140,21 +78,23 @@
   // Monkey-patch window.fetch
   window.fetch = function(input, init) {
     var url = normalizeUrl(input);
-    var body = init && init.body;
+    var isSubmit = /\/submit(\/|\?|$)/.test(url);
 
-    if (url.indexOf('interpret') !== -1 || url.indexOf('run_code') !== -1) {
-      window.__ALGOVAULT_IS_SUBMITTING__ = false;
-    } else if (isRealSubmitRequest(url, body)) {
+    if (isSubmit) {
       window.__ALGOVAULT_IS_SUBMITTING__ = true;
-      var extracted = extractCodeFromBody(body);
-      if (extracted) {
-        window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = extracted;
-      }
+      try {
+        if (init && init.body) {
+          var body = typeof init.body === 'string' ? JSON.parse(init.body) : init.body;
+          if (body && body.typed_code) {
+            window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = { code: body.typed_code, lang: body.lang };
+          }
+        }
+      } catch(e) {}
     }
 
     return originalFetch.apply(this, arguments).then(function(response) {
-      // Real submission polling: only /submissions/detail/<id>/check/
-      if (/\/submissions\/detail\/\d+\/check/.test(url)) {
+      // Match both specific check URL pattern and generic /check/ path
+      if (/\/submissions\/detail\/\d+\/check/.test(url) || (typeof url === 'string' && url.indexOf('/check') !== -1)) {
         try {
           response.clone().json().then(function(data) {
             emitSubmissionResult(url, data);
@@ -177,18 +117,19 @@
 
   XMLHttpRequest.prototype.send = function(body) {
     var url = this._avUrl || '';
-
-    if (url.indexOf('interpret') !== -1 || url.indexOf('run_code') !== -1) {
-      window.__ALGOVAULT_IS_SUBMITTING__ = false;
-    } else if (isRealSubmitRequest(url, body)) {
+    var isSubmit = /\/submit(\/|\?|$)/.test(url);
+    if (isSubmit) {
       window.__ALGOVAULT_IS_SUBMITTING__ = true;
-      var extracted = extractCodeFromBody(body);
-      if (extracted) {
-        window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = extracted;
+      if (body) {
+        try {
+          var payload = typeof body === 'string' ? JSON.parse(body) : body;
+          if (payload && payload.typed_code) {
+            window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = { code: payload.typed_code, lang: payload.lang };
+          }
+        } catch(e) {}
       }
     }
-
-    if (/\/submissions\/detail\/\d+\/check/.test(url)) {
+    if (/\/submissions\/detail\/\d+\/check/.test(url) || url.indexOf('/check') !== -1) {
       this.addEventListener('loadend', function() {
         try {
           if (this.status < 200 || this.status >= 300 || !this.responseText) return;
