@@ -7,7 +7,7 @@ export const config: PlasmoCSConfig = {
 }
 
 type SubmissionPayload = {
-  submissionId?: string
+  submissionId: string
   titleSlug: string
   title?: string
   statusDisplay?: string
@@ -179,8 +179,8 @@ window.addEventListener("message", ((event: MessageEvent) => {
 
   const detail = event.data.detail || {}
 
-  // 1. Validate submission ID format
-  if (detail.submissionId && !/^\d+$/.test(String(detail.submissionId))) {
+  // 1. MUST HAVE A VALID NUMERIC SUBMISSION ID (Run Code never has a persistent numeric submissionId)
+  if (!detail.submissionId || !/^\d+$/.test(String(detail.submissionId))) {
     return
   }
 
@@ -195,12 +195,10 @@ window.addEventListener("message", ((event: MessageEvent) => {
   const slug = currentSlug()
   if (!slug) return
 
-  if (detail.submissionId) {
-    const submissionId = String(detail.submissionId)
-    if (relayedSubmissionIds.has(submissionId)) return
-    relayedSubmissionIds.add(submissionId)
-    if (relayedSubmissionIds.size > 100) relayedSubmissionIds.delete(relayedSubmissionIds.values().next().value!)
-  }
+  const submissionId = String(detail.submissionId)
+  if (relayedSubmissionIds.has(submissionId)) return
+  relayedSubmissionIds.add(submissionId)
+  if (relayedSubmissionIds.size > 100) relayedSubmissionIds.delete(relayedSubmissionIds.values().next().value!)
 
   const runtimeMs = parseRuntimeMs(detail.runtime)
   const memoryKb = parseMemoryKb(detail.memory)
@@ -209,7 +207,7 @@ window.addEventListener("message", ((event: MessageEvent) => {
   const code = detail.code || editorCodeFastFallback()
 
   const payload: SubmissionPayload = {
-    submissionId: detail.submissionId ? String(detail.submissionId) : undefined,
+    submissionId: submissionId,
     titleSlug: slug,
     title: currentTitle(),
     statusCode: detail.statusCode,
@@ -248,7 +246,7 @@ window.addEventListener("message", ((event: MessageEvent) => {
       showPostSolveDialog(slug)
     }, 300)
   } else if (payload.statusDisplay) {
-    // Non-accepted (Wrong Answer, TLE, Runtime Error, etc.) trigger defeat celebration promptly
+    // Non-accepted official submissions (Wrong Answer, TLE, Runtime Error) trigger defeat celebration promptly
     setTimeout(() => {
       triggerCelebration()
     }, 200)

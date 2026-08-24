@@ -35,16 +35,6 @@
   "content_scripts": [
     {
       "matches": [
-        "https://leetcode.com/problems/*"
-      ],
-      "js": [
-        "ZenithSystemOverlay.507c4402.js"
-      ],
-      "run_at": "document_idle",
-      "css": []
-    },
-    {
-      "matches": [
         "https://leetcode.com/problems/*",
         "https://leetcode.com/contest/*/problems/*"
       ],
@@ -54,6 +44,16 @@
       "run_at": "document_start",
       "css": [],
       "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://leetcode.com/problems/*"
+      ],
+      "js": [
+        "ZenithSystemOverlay.507c4402.js"
+      ],
+      "run_at": "document_idle",
+      "css": []
     },
     {
       "matches": [
@@ -121,20 +121,20 @@
     },
     {
       "matches": [
-        "https://leetcode.com/u/*"
-      ],
-      "js": [
-        "profile-overlay.2f269a27.js"
-      ],
-      "css": []
-    },
-    {
-      "matches": [
         "https://leetcode.com/problems/*",
         "https://leetcode.com/contest/*/problems/*"
       ],
       "js": [
         "solve-celebration.e2d6314d.js"
+      ],
+      "css": []
+    },
+    {
+      "matches": [
+        "https://leetcode.com/u/*"
+      ],
+      "js": [
+        "profile-overlay.2f269a27.js"
       ],
       "css": []
     }
@@ -168,6 +168,7 @@
     },
     {
       "matches": [
+        "https://leetcode.com/*",
         "https://leetcode.com/*"
       ],
       "resources": [
@@ -176,7 +177,6 @@
     },
     {
       "matches": [
-        "https://leetcode.com/*",
         "https://leetcode.com/*"
       ],
       "resources": [
