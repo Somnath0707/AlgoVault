@@ -1240,15 +1240,17 @@ async function fetchSubmissionDetailsWithRetry(submissionId: string | number): P
  *   leetcode/<any-difficulty>/<any-prefix><slug>/solution.*
  */
 function isSlugOnGithub(slug: string, repoPaths: Set<string>): boolean {
-  const slugLower = slug.toLowerCase()
+  const slugLower = slug.trim().toLowerCase()
+  if (!slugLower) return false
+
   for (const path of repoPaths) {
-    // Match paths like: leetcode/medium/42-trapping-rain-water/solution.py
-    if (
-      path.startsWith("leetcode/") &&
-      path.includes(`/${slugLower}/solution.`) ||
-      path.includes(`-${slugLower}/solution.`)
-    ) {
-      return true
+    const pathLower = path.toLowerCase()
+    const segments = pathLower.split("/")
+    for (const segment of segments) {
+      const cleanSegment = segment.replace(/^\d+-/, "").replace(/\.[^.]+$/, "")
+      if (cleanSegment === slugLower) {
+        return true
+      }
     }
   }
   return false
@@ -1473,40 +1475,61 @@ async function runBackfill(signal: AbortSignal): Promise<void> {
 
       broadcastProgress(pushed, missingSlugs.length, slug, "committing")
 
-      const submissionId = slugToSubmissionId.get(slug)
-      if (!submissionId) {
-        // No accepted submission found in the scanned history — skip
-        skipped++
-        continue
+      let submissionId = slugToSubmissionId.get(slug)
+      let detail: any = null
+
+      if (submissionId) {
+        detail = await fetchSubmissionDetailsWithRetry(submissionId)
+        await new Promise((resolve) => setTimeout(resolve, 150))
       }
 
-      // Fetch the actual code via submissionDetails GraphQL
-      const detail = await fetchSubmissionDetailsWithRetry(submissionId)
-      await new Promise((resolve) => setTimeout(resolve, 200))
+      // If submissionId was not in the map, try on-demand fetchQuestionSubmissions
+      if (!detail) {
+        try {
+          const qSubs = await fetchQuestionSubmissions(slug)
+          const ac = qSubs.find((s: any) => s.statusDisplay === "Accepted" || s.status_display === "Accepted")
+          if (ac && ac.id) {
+            submissionId = String(ac.id)
+            slugToSubmissionId.set(slug, submissionId)
+            detail = await fetchSubmissionDetailsWithRetry(submissionId)
+            await new Promise((resolve) => setTimeout(resolve, 150))
+          }
+        } catch {}
+      }
+
+      // If we don't have problem metadata (e.g. content), fetch it
+      let meta = slugToMeta.get(slug)
+      if (!meta?.content) {
+        const metaList = await fetchProblemMetadata([slug]).catch(() => [])
+        if (metaList && metaList.length > 0) {
+          meta = metaList[0]
+        }
+      }
 
       const code = detail?.code || null
       const langName: string = detail?.lang?.name || "unknown"
-      const qId: string = detail?.question?.questionId || ""
-      const title: string = detail?.question?.title || slug
-      const difficulty: string = detail?.question?.difficulty || slugToMeta.get(slug)?.difficulty || "Unknown"
-      const topics: string[] = (detail?.question?.topicTags || slugToMeta.get(slug)?.topicTags || [])
-        .map((t: any) => t.name).filter(Boolean)
+      const qId: string = detail?.question?.questionId || meta?.frontendQuestionId || ""
+      const title: string = detail?.question?.title || meta?.title || slug
+      const difficulty: string = detail?.question?.difficulty || meta?.difficulty || "Unknown"
+      const topics: string[] = (detail?.question?.topicTags || meta?.topicTags || [])
+        .map((t: any) => (typeof t === "string" ? t : t.name)).filter(Boolean)
 
       const difficultyFolder = slugPathSegment(difficulty)
       const idPrefix = qId ? `${qId}-` : ""
       const folder = `leetcode/${difficultyFolder}/${idPrefix}${slug}`
-      const ext = code ? getExtensionForLanguage(langName) : "missing.txt"
+      const ext = code ? getExtensionForLanguage(langName) : "txt"
       const codePath = `${folder}/solution.${ext}`
       const readmePath = `${folder}/README.md`
       const metadataPath = `${folder}/metadata.json`
 
       const codeContent = code || [
-        `// AlgoVault: Source code could not be retrieved for this submission.`,
-        `// Problem: https://leetcode.com/problems/${slug}/`,
-        `// Submission ID: ${submissionId}`,
+        `// AlgoVault: Problem marked as Solved on LeetCode.`,
+        `// LeetCode Problem: https://leetcode.com/problems/${slug}/`,
+        submissionId ? `// Submission ID: ${submissionId}` : `// Historical submission code was not returned by LeetCode API.`,
+        `// Full problem description and metadata are recorded in README.md and metadata.json.`
       ].join("\n")
 
-      const readme = `<h2><a href="https://leetcode.com/problems/${slug}/">${qId ? `${qId}. ` : ""}${title}</a></h2><h3>${difficulty}</h3><hr><p>Backfilled by AlgoVault GitHub Sync.</p>`
+      const readme = `<h2><a href="https://leetcode.com/problems/${slug}/">${qId ? `${qId}. ` : ""}${title}</a></h2><h3>${difficulty}</h3><hr>${meta?.content || "<p>Problem description not found.</p>"}`
 
       const metadata = {
         title,
@@ -1517,7 +1540,7 @@ async function runBackfill(signal: AbortSignal): Promise<void> {
         topics,
         language: langName,
         verdict: "Accepted",
-        submissionId,
+        submissionId: submissionId || null,
         helpType: "NONE",
         helpLabel: "Solved solo",
         syncedAt: new Date().toISOString(),
@@ -1559,3 +1582,4 @@ async function runBackfill(signal: AbortSignal): Promise<void> {
 
   broadcastDone(pushed, skipped, errors)
 }
+

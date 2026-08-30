@@ -389,7 +389,31 @@ export const fetchSubmissionDetails = async (submissionId: string | number) => {
  * Used as a resilient fallback if global REST pagination encounters 403 / rate limits.
  */
 export const fetchQuestionSubmissions = async (questionSlug: string, offset = 0, limit = 10) => {
-  const query = `
+  const query1 = `
+    query submissionList($offset: Int!, $limit: Int!, $questionSlug: String!) {
+      submissionList(offset: $offset, limit: $limit, questionSlug: $questionSlug) {
+        hasNext
+        submissions {
+          id
+          statusDisplay
+          lang
+          runtime
+          timestamp
+          title
+          memory
+          titleSlug
+        }
+      }
+    }
+  `;
+  try {
+    const res = await fetchGraphQL(query1, { offset, limit, questionSlug });
+    if (Array.isArray(res.data?.submissionList?.submissions)) {
+      return res.data.submissionList.submissions;
+    }
+  } catch {}
+
+  const query2 = `
     query submissionList($offset: Int!, $limit: Int!, $lastKey: String, $questionSlug: String!) {
       submissionList(offset: $offset, limit: $limit, lastKey: $lastKey, questionSlug: $questionSlug) {
         lastKey
@@ -408,9 +432,9 @@ export const fetchQuestionSubmissions = async (questionSlug: string, offset = 0,
     }
   `;
   try {
-    const res = await fetchGraphQL(query, { offset, limit, lastKey: null, questionSlug });
+    const res = await fetchGraphQL(query2, { offset, limit, lastKey: null, questionSlug });
     return res.data?.submissionList?.submissions || [];
-  } catch (e) {
+  } catch {
     return [];
   }
 };
