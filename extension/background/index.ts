@@ -1453,7 +1453,7 @@ async function runBackfill(signal: AbortSignal): Promise<void> {
   if (signal.aborted) return
 
   // ── Step 6: Batch-commit missing solutions to GitHub ─────────────────────
-  const BATCH_SIZE = 5
+  const BATCH_SIZE = 3
   let pushed = 0
   let skipped = 0
   let errors = 0
@@ -1576,10 +1576,11 @@ async function runBackfill(signal: AbortSignal): Promise<void> {
 
     broadcastProgress(pushed, missingSlugs.length, batchSlugs[batchSlugs.length - 1] || "", "committing")
 
-    // Respectful delay between batch commits (GitHub API rate limit safety)
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    // Respectful delay between batch commits (GitHub API rate limit & ref stability)
+    await new Promise((resolve) => setTimeout(resolve, 1000))
   }
 
   broadcastDone(pushed, skipped, errors)
 }
+
 
