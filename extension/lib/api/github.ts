@@ -427,6 +427,86 @@ async function sequentialFallback(
 }
 
 /**
+ * Scans the entire file tree of a GitHub repository using the Git Trees API
+ * with recursive=1. Returns a flat Set<string> of all file paths in the repo.
+ *
+ * This is exactly 2 API calls regardless of repo size:
+ *   1. GET /repos/{owner}/{repo}/git/ref/heads/{branch}  → resolve branch SHA
+ *   2. GET /repos/{owner}/{repo}/git/trees/{sha}?recursive=1 → flat tree
+ *
+ * Used by the GitHub backfill feature to diff what's already on GitHub vs
+ * what LeetCode shows as solved, so we only commit missing files.
+ */
+export async function fetchRepoFileTree(
+  pat: string,
+  repoPath: string,
+  branch: string
+): Promise<{ ok: boolean; paths: Set<string>; revoked?: boolean; error?: string }> {
+  const cleanRepo = repoPath.trim()
+    .replace(/^https:\/\/github\.com\//, "")
+    .replace(/\.git$/, "");
+  const [owner, repo] = cleanRepo.split("/");
+  if (!owner || !repo) {
+    return { ok: false, paths: new Set(), error: "Invalid repository path. Format must be 'owner/repo'." };
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: `token ${pat}`,
+    Accept: "application/vnd.github.v3+json",
+  };
+
+  try {
+    // Step 1: Resolve the branch to a commit SHA
+    const refRes = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(branch)}`,
+      { headers }
+    );
+    if (refRes.status === 401 || refRes.status === 403) {
+      return { ok: false, paths: new Set(), revoked: true, error: "GitHub token was revoked or expired." };
+    }
+    if (refRes.status === 404) {
+      // Empty or new repo with no commits yet — treat as empty tree
+      return { ok: true, paths: new Set() };
+    }
+    if (!refRes.ok) {
+      return { ok: false, paths: new Set(), error: `GitHub API error ${refRes.status} resolving branch ref` };
+    }
+    const refData = await refRes.json();
+    const commitSha: string = refData.object?.sha;
+    if (!commitSha) {
+      return { ok: true, paths: new Set() };
+    }
+
+    // Step 2: Fetch the full recursive tree
+    const treeRes = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/git/trees/${commitSha}?recursive=1`,
+      { headers }
+    );
+    if (treeRes.status === 401 || treeRes.status === 403) {
+      return { ok: false, paths: new Set(), revoked: true, error: "GitHub token was revoked or expired." };
+    }
+    if (!treeRes.ok) {
+      return { ok: false, paths: new Set(), error: `GitHub API error ${treeRes.status} fetching repo tree` };
+    }
+    const treeData = await treeRes.json();
+
+    // Build a Set of all file paths (blobs only — skip trees/directories)
+    const paths = new Set<string>();
+    if (Array.isArray(treeData.tree)) {
+      for (const item of treeData.tree) {
+        if (item.type === "blob" && typeof item.path === "string") {
+          paths.add(item.path);
+        }
+      }
+    }
+
+    return { ok: true, paths };
+  } catch (e: any) {
+    return { ok: false, paths: new Set(), error: e.message || "Network error scanning GitHub repo" };
+  }
+}
+
+/**
  * Maps LeetCode language string to standard file extension.
  */
 export function getExtensionForLanguage(lang?: string): string {
