@@ -1,6 +1,6 @@
-import { fetchUserProfile, fetchSolvedProblems, fetchAllSubmissions, fetchContestHistory, fetchProblemMetadata, fetchUserStatus, fetchContestQuestions, fetchReplayEvents, fetchUpcomingContests, fetchPastContests } from "../lib/api/leetcode"
+import { fetchUserProfile, fetchSolvedProblems, fetchAllSubmissions, fetchContestHistory, fetchProblemMetadata, fetchUserStatus, fetchContestQuestions, fetchReplayEvents, fetchUpcomingContests, fetchPastContests, fetchSubmissionDetails, fetchQuestionSubmissions } from "../lib/api/leetcode"
 import { getUserSettings, getUsername, setLastSync, setUsername, storage, getGithubPat, getGithubRepo, getGithubBranch, getGithubAutoSync, setGithubAutoSync, getZerotracData, getZerotracLastFetched, setZerotracData, clearGithubAuth, clearJwtToken } from "../lib/storage"
-import { commitToGithub, batchCommitToGithub, getExtensionForLanguage } from "../lib/api/github"
+import { commitToGithub, batchCommitToGithub, getExtensionForLanguage, fetchRepoFileTree } from "../lib/api/github"
 import { type LeetCodeRegion } from "../lib/api/entranthub"
 import {
   fetchPrediction,
@@ -20,6 +20,9 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((error
 
 let isSyncing = false;
 let syncAbortController: AbortController | null = null;
+
+let isBackfilling = false;
+let backfillAbortController: AbortController | null = null;
 
 const ACTIVE_SESSION_KEY = "algovault.session.active"
 const LOGS_INDEX_KEY = "algovault.logs.index"
@@ -629,6 +632,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })
     return true
   }
+
+  if (message.action === "backfill_github") {
+    if (isBackfilling) {
+      sendResponse({ ok: false, error: "A backfill operation is already in progress." })
+      return true
+    }
+    isBackfilling = true
+    backfillAbortController = new AbortController()
+    runBackfill(backfillAbortController.signal)
+      .then(() => {
+        isBackfilling = false
+        sendResponse({ ok: true })
+      })
+      .catch((err) => {
+        isBackfilling = false
+        sendResponse({ ok: false, error: err.message })
+      })
+    return true
+  }
+
+  if (message.action === "stop_backfill_github") {
+    if (backfillAbortController) {
+      backfillAbortController.abort()
+      backfillAbortController = null
+    }
+    isBackfilling = false
+    chrome.runtime.sendMessage({
+      action: "backfill_github_progress",
+      done: 0, total: 0, current: "", aborted: true
+    }).catch(() => {})
+    sendResponse({ ok: true })
+    return true
+  }
 })
 
 function stripWrappingQuotes(value: string) {
@@ -1172,3 +1208,379 @@ async function getSingleProblemRating(slug: string) {
   }
   return zerotracInMemoryMap ? zerotracInMemoryMap.get(slug.toLowerCase()) || null : null
 }
+
+// ─── GITHUB BACKFILL ENGINE ──────────────────────────────────────────────────
+
+/**
+ * Fetches submission details with up to 3 retries and exponential backoff.
+ * The submissionDetails GraphQL query can occasionally rate-limit or fail transiently.
+ */
+async function fetchSubmissionDetailsWithRetry(submissionId: string | number): Promise<any> {
+  let lastError: unknown
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetchSubmissionDetails(submissionId)
+      return res?.data?.submissionDetails || null
+    } catch (err) {
+      lastError = err
+      if (attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)))
+      }
+    }
+  }
+  console.warn(`[AlgoVault Backfill] Failed to fetch details for submission ${submissionId}:`, lastError)
+  return null
+}
+
+/**
+ * Determines whether a given problem slug already has at least one solution file
+ * committed to GitHub, by checking against the flat file path set from fetchRepoFileTree.
+ *
+ * Checks for any file matching the pattern:
+ *   leetcode/<any-difficulty>/<any-prefix><slug>/solution.*
+ */
+function isSlugOnGithub(slug: string, repoPaths: Set<string>): boolean {
+  const slugLower = slug.trim().toLowerCase()
+  if (!slugLower) return false
+
+  for (const path of repoPaths) {
+    const pathLower = path.toLowerCase()
+    const segments = pathLower.split("/")
+    for (const segment of segments) {
+      const cleanSegment = segment.replace(/^\d+-/, "").replace(/\.[^.]+$/, "")
+      if (cleanSegment === slugLower) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+/**
+ * Core backfill pipeline:
+ *
+ * 1. Fetch all AC'd problem slugs from LeetCode (GraphQL problemsetQuestionList)
+ * 2. Fetch the full GitHub repo file tree (Trees API, 2 calls total)
+ * 3. Diff: find slugs with no solution.* file on GitHub
+ * 4. Paginate LeetCode's submission list to find the most recent Accepted
+ *    submission ID for each missing slug
+ * 5. Call submissionDetails GraphQL per missing slug to get code + language
+ * 6. Build artifact and batch-commit 5 problems per atomic GitHub commit
+ *
+ * Emits "backfill_github_progress" messages for the UI to display live state.
+ */
+async function runBackfill(signal: AbortSignal): Promise<void> {
+  const broadcastProgress = (done: number, total: number, current: string, phase?: string) => {
+    chrome.runtime.sendMessage({
+      action: "backfill_github_progress",
+      done,
+      total,
+      current,
+      phase: phase || "committing"
+    }).catch(() => {})
+  }
+
+  const broadcastError = (error: string) => {
+    chrome.runtime.sendMessage({
+      action: "backfill_github_done",
+      ok: false,
+      error
+    }).catch(() => {})
+  }
+
+  const broadcastDone = (pushed: number, skipped: number, errors: number) => {
+    chrome.runtime.sendMessage({
+      action: "backfill_github_done",
+      ok: true,
+      pushed,
+      skipped,
+      errors
+    }).catch(() => {})
+  }
+
+  // ── Step 1: Validate GitHub credentials ─────────────────────────────────
+  let pat = await getGithubPat()
+  let repo = await getGithubRepo()
+  const branch = (await getGithubBranch()) || "main"
+
+  if (!pat || !repo) {
+    broadcastError("GitHub credentials are not configured. Connect GitHub in Settings first.")
+    return
+  }
+  pat = stripWrappingQuotes(pat)
+  repo = stripWrappingQuotes(repo)
+
+  if (signal.aborted) return
+
+  // ── Step 2: Fetch all AC'd solved problems from LeetCode ─────────────────
+  broadcastProgress(0, 0, "", "scanning")
+
+  const solvedProblems: any[] = []
+  try {
+    let problemOffset = 0
+    const pageSize = 100
+    let totalSolved = Number.POSITIVE_INFINITY
+    while (solvedProblems.length < totalSolved) {
+      if (signal.aborted) return
+      const res = await fetchSolvedProblems(problemOffset, pageSize)
+      const page = res.data?.problemsetQuestionList
+      if (!page) throw new Error("LeetCode did not return solved-problem data. Make sure you are logged in.")
+      totalSolved = page.totalNum || 0
+      const questions = page.questions || []
+      if (questions.length === 0) break
+      solvedProblems.push(...questions)
+      problemOffset += questions.length
+      broadcastProgress(0, 0, `Fetched ${solvedProblems.length} / ${totalSolved} solved problems from LeetCode…`, "scanning")
+      await new Promise((resolve) => setTimeout(resolve, 300))
+    }
+  } catch (err: any) {
+    broadcastError(`Failed to fetch solved problems from LeetCode: ${err.message}`)
+    return
+  }
+
+  if (solvedProblems.length === 0) {
+    broadcastDone(0, 0, 0)
+    return
+  }
+
+  if (signal.aborted) return
+
+  // ── Step 3: Fetch GitHub repo file tree ──────────────────────────────────
+  broadcastProgress(0, 0, "Scanning GitHub repository for existing files…", "scanning")
+
+  const treeResult = await fetchRepoFileTree(pat, repo, branch)
+  if (!treeResult.ok) {
+    if (treeResult.revoked) {
+      await clearGithubAuth()
+      await clearJwtToken()
+    }
+    broadcastError(treeResult.error || "Failed to scan GitHub repository.")
+    return
+  }
+
+  const repoPaths = treeResult.paths
+
+  if (signal.aborted) return
+
+  // ── Step 4: Diff — find slugs not yet on GitHub ──────────────────────────
+  const missingSlugs: string[] = []
+  for (const problem of solvedProblems) {
+    const slug = problem.titleSlug
+    if (slug && !isSlugOnGithub(slug, repoPaths)) {
+      missingSlugs.push(slug)
+    }
+  }
+
+  if (missingSlugs.length === 0) {
+    broadcastDone(0, solvedProblems.length, 0)
+    return
+  }
+
+  broadcastProgress(0, missingSlugs.length, `Found ${missingSlugs.length} problems not yet on GitHub. Fetching submissions…`, "fetching")
+
+  // ── Step 5: Build a Map<slug → submissionId> by paginating LeetCode subs ─
+  // We paginate until we have found an AC submission ID for every missing slug,
+  // or until history ends / rate limit is encountered.
+  const slugToSubmissionId = new Map<string, string>()
+  const missingSlugSet = new Set(missingSlugs)
+
+  let offset = 0
+  const limit = 20
+  let hasNext = true
+  const maxPages = 500 // safety cap: 500 * 20 = 10,000 submissions scanned
+
+  while (hasNext && slugToSubmissionId.size < missingSlugSet.size && offset < maxPages * limit) {
+    if (signal.aborted) return
+    try {
+      const subsRes = await fetchSubmissionPage(offset, limit)
+      const pageSubs: any[] = subsRes.submissions_dump || []
+      if (pageSubs.length === 0) break
+
+      for (const sub of pageSubs) {
+        const slug = sub.title_slug
+        if (
+          slug &&
+          missingSlugSet.has(slug) &&
+          !slugToSubmissionId.has(slug) &&
+          sub.status_display === "Accepted"
+        ) {
+          slugToSubmissionId.set(slug, String(sub.id))
+        }
+      }
+
+      hasNext = Boolean(subsRes.has_next)
+      offset += pageSubs.length
+      broadcastProgress(
+        0,
+        missingSlugs.length,
+        `Scanning submissions: found ${slugToSubmissionId.size} / ${missingSlugs.length} so far…`,
+        "fetching"
+      )
+      await new Promise((resolve) => setTimeout(resolve, 350))
+    } catch (err: any) {
+      console.warn(`[AlgoVault Backfill] Global submissions scan stopped at offset ${offset}:`, err)
+      break
+    }
+  }
+
+  // Fallback for any missing slugs not found via global pagination:
+  // Query individual question submission histories via GraphQL
+  const stillMissing = missingSlugs.filter(s => !slugToSubmissionId.has(s))
+  if (stillMissing.length > 0 && !signal.aborted) {
+    broadcastProgress(0, missingSlugs.length, `Checking individual question histories (${stillMissing.length} remaining)…`, "fetching")
+    for (let i = 0; i < stillMissing.length; i++) {
+      if (signal.aborted) return
+      const s = stillMissing[i]
+      try {
+        const questionSubs = await fetchQuestionSubmissions(s)
+        const acSub = questionSubs.find((sub: any) => sub.statusDisplay === "Accepted" || sub.status_display === "Accepted")
+        if (acSub && acSub.id) {
+          slugToSubmissionId.set(s, String(acSub.id))
+        }
+      } catch (err) {
+        console.warn(`[AlgoVault Backfill] Could not fetch question submissions for ${s}:`, err)
+      }
+      broadcastProgress(
+        0,
+        missingSlugs.length,
+        `Matched ${slugToSubmissionId.size} / ${missingSlugs.length} problem submissions…`,
+        "fetching"
+      )
+      await new Promise((resolve) => setTimeout(resolve, 250))
+    }
+  }
+
+  if (signal.aborted) return
+
+  // ── Step 6: Batch-commit missing solutions to GitHub ─────────────────────
+  const BATCH_SIZE = 3
+  let pushed = 0
+  let skipped = 0
+  let errors = 0
+
+  // Build a lookup map from slug → problem metadata (title, difficulty, tags)
+  const slugToMeta = new Map<string, any>()
+  for (const p of solvedProblems) {
+    if (p.titleSlug) slugToMeta.set(p.titleSlug, p)
+  }
+
+  for (let batchStart = 0; batchStart < missingSlugs.length; batchStart += BATCH_SIZE) {
+    if (signal.aborted) return
+
+    const batchSlugs = missingSlugs.slice(batchStart, batchStart + BATCH_SIZE)
+    const writes: Array<{ path: string; message: string; content: string }> = []
+
+    for (const slug of batchSlugs) {
+      if (signal.aborted) return
+
+      broadcastProgress(pushed, missingSlugs.length, slug, "committing")
+
+      let submissionId = slugToSubmissionId.get(slug)
+      let detail: any = null
+
+      if (submissionId) {
+        detail = await fetchSubmissionDetailsWithRetry(submissionId)
+        await new Promise((resolve) => setTimeout(resolve, 150))
+      }
+
+      // If submissionId was not in the map, try on-demand fetchQuestionSubmissions
+      if (!detail) {
+        try {
+          const qSubs = await fetchQuestionSubmissions(slug)
+          const ac = qSubs.find((s: any) => s.statusDisplay === "Accepted" || s.status_display === "Accepted")
+          if (ac && ac.id) {
+            submissionId = String(ac.id)
+            slugToSubmissionId.set(slug, submissionId)
+            detail = await fetchSubmissionDetailsWithRetry(submissionId)
+            await new Promise((resolve) => setTimeout(resolve, 150))
+          }
+        } catch {}
+      }
+
+      // If we don't have problem metadata (e.g. content), fetch it
+      let meta = slugToMeta.get(slug)
+      if (!meta?.content) {
+        const metaList = await fetchProblemMetadata([slug]).catch(() => [])
+        if (metaList && metaList.length > 0) {
+          meta = metaList[0]
+        }
+      }
+
+      const code = detail?.code || null
+      const langName: string = detail?.lang?.name || "unknown"
+      const qId: string = detail?.question?.questionId || meta?.frontendQuestionId || ""
+      const title: string = detail?.question?.title || meta?.title || slug
+      const difficulty: string = detail?.question?.difficulty || meta?.difficulty || "Unknown"
+      const topics: string[] = (detail?.question?.topicTags || meta?.topicTags || [])
+        .map((t: any) => (typeof t === "string" ? t : t.name)).filter(Boolean)
+
+      const difficultyFolder = slugPathSegment(difficulty)
+      const idPrefix = qId ? `${qId}-` : ""
+      const folder = `leetcode/${difficultyFolder}/${idPrefix}${slug}`
+      const ext = code ? getExtensionForLanguage(langName) : "txt"
+      const codePath = `${folder}/solution.${ext}`
+      const readmePath = `${folder}/README.md`
+      const metadataPath = `${folder}/metadata.json`
+
+      const codeContent = code || [
+        `// AlgoVault: Problem marked as Solved on LeetCode.`,
+        `// LeetCode Problem: https://leetcode.com/problems/${slug}/`,
+        submissionId ? `// Submission ID: ${submissionId}` : `// Historical submission code was not returned by LeetCode API.`,
+        `// Full problem description and metadata are recorded in README.md and metadata.json.`
+      ].join("\n")
+
+      const readme = `<h2><a href="https://leetcode.com/problems/${slug}/">${qId ? `${qId}. ` : ""}${title}</a></h2><h3>${difficulty}</h3><hr>${meta?.content || "<p>Problem description not found.</p>"}`
+
+      const metadata = {
+        title,
+        titleSlug: slug,
+        frontendQuestionId: qId || null,
+        leetcodeUrl: `https://leetcode.com/problems/${slug}/`,
+        difficulty,
+        topics,
+        language: langName,
+        verdict: "Accepted",
+        submissionId: submissionId || null,
+        helpType: "NONE",
+        helpLabel: "Solved solo",
+        syncedAt: new Date().toISOString(),
+        backfilledAt: new Date().toISOString()
+      }
+
+      const commitMsg = `${qId ? `${qId}. ` : ""}${title} - AlgoVault Backfill`
+
+      writes.push({ path: codePath, message: commitMsg, content: codeContent })
+      writes.push({ path: readmePath, message: commitMsg, content: readme })
+      writes.push({ path: metadataPath, message: commitMsg, content: JSON.stringify(metadata, null, 2) + "\n" })
+    }
+
+    if (writes.length === 0) continue
+
+    if (signal.aborted) return
+
+    // Atomic batch commit for all files in this batch
+    const result = await batchCommitToGithub(pat, repo, writes, branch)
+    if (!result.ok) {
+      if (result.revoked) {
+        await clearGithubAuth()
+        await clearJwtToken()
+        broadcastError("GitHub token was revoked or expired. Please reconnect in Settings.")
+        return
+      }
+      // Non-fatal: count errors but continue with next batch
+      errors += batchSlugs.length
+      console.error("[AlgoVault Backfill] Batch commit failed:", result.message)
+    } else {
+      pushed += Math.floor(writes.length / 3) // 3 files per problem
+    }
+
+    broadcastProgress(pushed, missingSlugs.length, batchSlugs[batchSlugs.length - 1] || "", "committing")
+
+    // Respectful delay between batch commits (GitHub API rate limit & ref stability)
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+  }
+
+  broadcastDone(pushed, skipped, errors)
+}
+
+

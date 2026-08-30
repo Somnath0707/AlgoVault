@@ -344,3 +344,98 @@ export const fetchPastContests = async (pageNo = 1, numPerPage = 20) => {
     url: `https://leetcode.com/contest/${c.titleSlug}`
   }));
 };
+
+/**
+ * Fetches the full detail of a specific submission by its numeric ID, including
+ * the source code (code field). LeetCode's submission list REST API does NOT
+ * return code — this GraphQL query is the only way to retrieve historical code.
+ * Requires an active LeetCode login session (cookie-based auth via credentials: 'include').
+ */
+export const fetchSubmissionDetails = async (submissionId: string | number) => {
+  const query = `
+    query submissionDetails($submissionId: Int!) {
+      submissionDetails(submissionId: $submissionId) {
+        runtime
+        runtimeDisplay
+        runtimePercentile
+        memory
+        memoryDisplay
+        memoryPercentile
+        code
+        timestamp
+        statusCode
+        lang {
+          name
+          verboseName
+        }
+        question {
+          questionId
+          title
+          titleSlug
+          difficulty
+          topicTags {
+            name
+            slug
+          }
+        }
+      }
+    }
+  `;
+  return fetchGraphQL(query, { submissionId: Number(submissionId) });
+};
+
+/**
+ * Fetches submission history for a specific question slug via GraphQL.
+ * Used as a resilient fallback if global REST pagination encounters 403 / rate limits.
+ */
+export const fetchQuestionSubmissions = async (questionSlug: string, offset = 0, limit = 10) => {
+  const query1 = `
+    query submissionList($offset: Int!, $limit: Int!, $questionSlug: String!) {
+      submissionList(offset: $offset, limit: $limit, questionSlug: $questionSlug) {
+        hasNext
+        submissions {
+          id
+          statusDisplay
+          lang
+          runtime
+          timestamp
+          title
+          memory
+          titleSlug
+        }
+      }
+    }
+  `;
+  try {
+    const res = await fetchGraphQL(query1, { offset, limit, questionSlug });
+    if (Array.isArray(res.data?.submissionList?.submissions)) {
+      return res.data.submissionList.submissions;
+    }
+  } catch {}
+
+  const query2 = `
+    query submissionList($offset: Int!, $limit: Int!, $lastKey: String, $questionSlug: String!) {
+      submissionList(offset: $offset, limit: $limit, lastKey: $lastKey, questionSlug: $questionSlug) {
+        lastKey
+        hasNext
+        submissions {
+          id
+          statusDisplay
+          lang
+          runtime
+          timestamp
+          title
+          memory
+          titleSlug
+        }
+      }
+    }
+  `;
+  try {
+    const res = await fetchGraphQL(query2, { offset, limit, lastKey: null, questionSlug });
+    return res.data?.submissionList?.submissions || [];
+  } catch {
+    return [];
+  }
+};
+

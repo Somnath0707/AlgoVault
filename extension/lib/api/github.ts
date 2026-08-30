@@ -120,13 +120,16 @@ export async function commitToGithub(
   filePath: string,
   commitMessage: string,
   fileContent: string,
-  branch?: string
+  branch?: string,
+  bypassAutoSync: boolean = false
 ): Promise<{ ok: boolean; message?: string; alreadySynced?: boolean; revoked?: boolean }> {
   try {
-    const isAutoSync = await getGithubAutoSync();
-    if (!isAutoSync) {
-      console.log("[AlgoVault] commitToGithub aborted: Auto-sync is disabled.");
-      return { ok: true, alreadySynced: true, message: "Auto-sync disabled by user" };
+    if (!bypassAutoSync) {
+      const isAutoSync = await getGithubAutoSync();
+      if (!isAutoSync) {
+        console.log("[AlgoVault] commitToGithub aborted: Auto-sync is disabled.");
+        return { ok: true, alreadySynced: true, message: "Auto-sync disabled by user" };
+      }
     }
 
     const cleanRepo = repoPath.trim()
@@ -170,7 +173,7 @@ export async function commitToGithub(
       console.warn("Failed to check if file exists on GitHub", e);
     }
 
-    // 2. Base64 encode file contents
+    // 2. Base64 encode file contents safely
     const utf8Bytes = new TextEncoder().encode(fileContent);
     let binary = "";
     for (let i = 0; i < utf8Bytes.length; i++) {
@@ -253,11 +256,8 @@ export interface BatchFileWrite {
 
 /**
  * Commits multiple files in a single atomic Git commit using the Git Trees API.
- * This reduces N sequential API roundtrips down to ~4 total requests regardless
- * of file count: (1) get branch ref, (2) create tree, (3) create commit, (4) update ref.
- *
- * Falls back to sequential single-file commits if the Trees API fails (e.g.
- * fine-grained token without "Contents: read & write" permission).
+ * Includes automatic retry on 409 reference conflicts and falls back to sequential
+ * contents API if Trees API is unavailable.
  */
 export async function batchCommitToGithub(
   pat: string,
@@ -265,7 +265,7 @@ export async function batchCommitToGithub(
   writes: BatchFileWrite[],
   branch?: string
 ): Promise<{ ok: boolean; message?: string; revoked?: boolean }> {
-  if (!writes.length) return { ok: true }
+  if (!writes.length) return { ok: true };
 
   const cleanRepo = repoPath.trim()
     .replace(/^https:\/\/github\.com\//, "")
@@ -283,111 +283,130 @@ export async function batchCommitToGithub(
 
   const targetBranch = branch || "main";
 
-  try {
-    // Step 1: Get the latest commit SHA for the branch
-    const refRes = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(targetBranch)}`,
-      { headers }
-    );
-
-    if (refRes.status === 401 || refRes.status === 403) {
-      return { ok: false, revoked: true, message: "GitHub token was revoked or expired. Please reconnect in Settings." };
-    }
-
-    if (!refRes.ok) {
-      // Trees API not available or branch missing -- fall back to sequential
-      return sequentialFallback(pat, repoPath, writes, branch);
-    }
-
-    const refData = await refRes.json();
-    const latestCommitSha: string = refData.object?.sha;
-    if (!latestCommitSha) {
-      return sequentialFallback(pat, repoPath, writes, branch);
-    }
-
-    // Step 2: Fetch the latest commit object to obtain its true tree SHA
-    const commitObjRes = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/git/commits/${latestCommitSha}`,
-      { headers }
-    );
-    if (!commitObjRes.ok) {
-      return sequentialFallback(pat, repoPath, writes, branch);
-    }
-    const commitObjData = await commitObjRes.json();
-    const baseTreeSha: string = commitObjData.tree?.sha;
-    if (!baseTreeSha) {
-      return sequentialFallback(pat, repoPath, writes, branch);
-    }
-
-    // Step 3: Create blobs for each file and build the tree entries
-    const treeEntries: Array<{ path: string; mode: string; type: string; content: string }> = [];
-    for (const write of writes) {
-      treeEntries.push({
-        path: write.path,
-        mode: "100644",
-        type: "blob",
-        content: write.content
-      });
-    }
-
-    // Step 4: Create a new tree based on the latest commit's tree SHA
-    const treeRes = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/git/trees`,
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          base_tree: baseTreeSha,
-          tree: treeEntries
-        })
+  // Retry up to 3 times to handle transient GitHub fast-forward/ref update conflicts
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      if (attempt > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
       }
-    );
 
-    if (!treeRes.ok) {
-      // If tree creation fails, fall back to sequential contents API
-      return sequentialFallback(pat, repoPath, writes, branch);
-    }
+      // Step 1: Get the fresh latest commit SHA for the branch
+      const refRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(targetBranch)}`,
+        {
+          headers: {
+            ...headers,
+            "Cache-Control": "no-cache"
+          }
+        }
+      );
 
-    const treeData = await treeRes.json();
-    const newTreeSha: string = treeData.sha;
-
-    // Step 5: Create a new commit pointing to the new tree
-    const commitMessage = writes.length === 1
-      ? writes[0].message
-      : `${writes[0].message} (+${writes.length - 1} files) - AlgoVault`;
-
-    const commitRes = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/git/commits`,
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          message: commitMessage,
-          tree: newTreeSha,
-          parents: [latestCommitSha]
-        })
+      if (refRes.status === 401 || refRes.status === 403) {
+        return { ok: false, revoked: true, message: "GitHub token was revoked or expired. Please reconnect in Settings." };
       }
-    );
 
-    if (!commitRes.ok) {
-      return sequentialFallback(pat, repoPath, writes, branch);
-    }
-
-    const commitData = await commitRes.json();
-    const newCommitSha: string = commitData.sha;
-
-    // Step 6: Update the branch ref to point to the new commit
-    const updateRes = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(targetBranch)}`,
-      {
-        method: "PATCH",
-        headers,
-        body: JSON.stringify({ sha: newCommitSha, force: true })
+      if (!refRes.ok) {
+        return sequentialFallback(pat, repoPath, writes, branch);
       }
-    );
 
-    if (!updateRes.ok) {
-      // If ref update fails, try sequential fallback before failing
+      const refData = await refRes.json();
+      const latestCommitSha: string = refData.object?.sha;
+      if (!latestCommitSha) {
+        return sequentialFallback(pat, repoPath, writes, branch);
+      }
+
+      // Step 2: Fetch the latest commit object to obtain its true base tree SHA
+      const commitObjRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/commits/${latestCommitSha}`,
+        { headers }
+      );
+      if (!commitObjRes.ok) {
+        return sequentialFallback(pat, repoPath, writes, branch);
+      }
+      const commitObjData = await commitObjRes.json();
+      const baseTreeSha: string = commitObjData.tree?.sha;
+      if (!baseTreeSha) {
+        return sequentialFallback(pat, repoPath, writes, branch);
+      }
+
+      // Step 3: Build the tree entries
+      const treeEntries: Array<{ path: string; mode: string; type: string; content: string }> = [];
+      for (const write of writes) {
+        treeEntries.push({
+          path: write.path,
+          mode: "100644",
+          type: "blob",
+          content: write.content
+        });
+      }
+
+      // Step 4: Create a new tree based on the latest commit's tree SHA
+      const treeRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/trees`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            base_tree: baseTreeSha,
+            tree: treeEntries
+          })
+        }
+      );
+
+      if (!treeRes.ok) {
+        if (attempt < 2) continue;
+        return sequentialFallback(pat, repoPath, writes, branch);
+      }
+
+      const treeData = await treeRes.json();
+      const newTreeSha: string = treeData.sha;
+
+      // Step 5: Create a new commit pointing to the new tree
+      const commitMessage = writes.length === 1
+        ? writes[0].message
+        : `${writes[0].message} (+${writes.length - 1} files) - AlgoVault`;
+
+      const commitRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/commits`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            message: commitMessage,
+            tree: newTreeSha,
+            parents: [latestCommitSha]
+          })
+        }
+      );
+
+      if (!commitRes.ok) {
+        if (attempt < 2) continue;
+        return sequentialFallback(pat, repoPath, writes, branch);
+      }
+
+      const commitData = await commitRes.json();
+      const newCommitSha: string = commitData.sha;
+
+      // Step 6: Update the branch ref to point to the new commit
+      const updateRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(targetBranch)}`,
+        {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({ sha: newCommitSha, force: true })
+        }
+      );
+
+      if (updateRes.ok) {
+        return { ok: true };
+      }
+
+      // If 409 or 422 conflict, retry on next loop iteration with fresh SHA
+      if (updateRes.status === 409 || updateRes.status === 422) {
+        if (attempt < 2) continue;
+      }
+
+      // If ref update fails after attempts, try sequential fallback
       const fallback = await sequentialFallback(pat, repoPath, writes, branch);
       if (fallback.ok) return fallback;
 
@@ -400,17 +419,17 @@ export async function batchCommitToGithub(
           ? "GitHub token was revoked or expired. Please reconnect in Settings."
           : `Failed to update branch ref (${updateRes.status}): ${errText}`
       };
-    }
-
-    return { ok: true };
-  } catch (error: any) {
-    // Network error on Trees API -- fall back to sequential
-    try {
-      return await sequentialFallback(pat, repoPath, writes, branch);
-    } catch (fallbackErr: any) {
-      return { ok: false, message: fallbackErr.message || "Failed to commit to GitHub" };
+    } catch (error: any) {
+      if (attempt < 2) continue;
+      try {
+        return await sequentialFallback(pat, repoPath, writes, branch);
+      } catch (fallbackErr: any) {
+        return { ok: false, message: fallbackErr.message || "Failed to commit to GitHub" };
+      }
     }
   }
+
+  return { ok: false, message: "Exceeded commit retries" };
 }
 
 async function sequentialFallback(
@@ -420,10 +439,91 @@ async function sequentialFallback(
   branch?: string
 ): Promise<{ ok: boolean; message?: string; revoked?: boolean }> {
   for (const write of writes) {
-    const result = await commitToGithub(pat, repoPath, write.path, write.message, write.content, branch);
+    const result = await commitToGithub(pat, repoPath, write.path, write.message, write.content, branch, true);
     if (!result.ok) return result;
+    await new Promise((resolve) => setTimeout(resolve, 300));
   }
   return { ok: true };
+}
+
+/**
+ * Scans the entire file tree of a GitHub repository using the Git Trees API
+ * with recursive=1. Returns a flat Set<string> of all file paths in the repo.
+ *
+ * This is exactly 2 API calls regardless of repo size:
+ *   1. GET /repos/{owner}/{repo}/git/ref/heads/{branch}  → resolve branch SHA
+ *   2. GET /repos/{owner}/{repo}/git/trees/{sha}?recursive=1 → flat tree
+ *
+ * Used by the GitHub backfill feature to diff what's already on GitHub vs
+ * what LeetCode shows as solved, so we only commit missing files.
+ */
+export async function fetchRepoFileTree(
+  pat: string,
+  repoPath: string,
+  branch: string
+): Promise<{ ok: boolean; paths: Set<string>; revoked?: boolean; error?: string }> {
+  const cleanRepo = repoPath.trim()
+    .replace(/^https:\/\/github\.com\//, "")
+    .replace(/\.git$/, "");
+  const [owner, repo] = cleanRepo.split("/");
+  if (!owner || !repo) {
+    return { ok: false, paths: new Set(), error: "Invalid repository path. Format must be 'owner/repo'." };
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: `token ${pat}`,
+    Accept: "application/vnd.github.v3+json",
+  };
+
+  try {
+    // Step 1: Resolve the branch to a commit SHA
+    const refRes = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(branch)}`,
+      { headers }
+    );
+    if (refRes.status === 401 || refRes.status === 403) {
+      return { ok: false, paths: new Set(), revoked: true, error: "GitHub token was revoked or expired." };
+    }
+    if (refRes.status === 404) {
+      // Empty or new repo with no commits yet — treat as empty tree
+      return { ok: true, paths: new Set() };
+    }
+    if (!refRes.ok) {
+      return { ok: false, paths: new Set(), error: `GitHub API error ${refRes.status} resolving branch ref` };
+    }
+    const refData = await refRes.json();
+    const commitSha: string = refData.object?.sha;
+    if (!commitSha) {
+      return { ok: true, paths: new Set() };
+    }
+
+    // Step 2: Fetch the full recursive tree
+    const treeRes = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/git/trees/${commitSha}?recursive=1`,
+      { headers }
+    );
+    if (treeRes.status === 401 || treeRes.status === 403) {
+      return { ok: false, paths: new Set(), revoked: true, error: "GitHub token was revoked or expired." };
+    }
+    if (!treeRes.ok) {
+      return { ok: false, paths: new Set(), error: `GitHub API error ${treeRes.status} fetching repo tree` };
+    }
+    const treeData = await treeRes.json();
+
+    // Build a Set of all file paths (blobs only — skip trees/directories)
+    const paths = new Set<string>();
+    if (Array.isArray(treeData.tree)) {
+      for (const item of treeData.tree) {
+        if (item.type === "blob" && typeof item.path === "string") {
+          paths.add(item.path);
+        }
+      }
+    }
+
+    return { ok: true, paths };
+  } catch (e: any) {
+    return { ok: false, paths: new Set(), error: e.message || "Network error scanning GitHub repo" };
+  }
 }
 
 /**

@@ -72,6 +72,13 @@ export const Settings = () => {
   const [settingsSynced, setSettingsSynced] = useState<boolean>(false);
   const [exporting, setExporting] = useState<boolean>(false);
 
+  // Backfill state
+  const [backfillPhase, setBackfillPhase] = useState<'idle' | 'scanning' | 'fetching' | 'committing' | 'done' | 'error'>('idle');
+  const [backfillProgress, setBackfillProgress] = useState<{ done: number; total: number; current: string }>({ done: 0, total: 0, current: '' });
+  const [backfillResult, setBackfillResult] = useState<{ pushed: number; skipped: number; errors: number } | null>(null);
+  const [backfillError, setBackfillError] = useState<string | null>(null);
+
+
   useEffect(() => {
     chrome.storage.sync.get(['hideAcceptanceRate', 'celebrationOverlay', 'celebrationSound', 'celebrationTheme'], (res) => {
       if (res.hideAcceptanceRate !== undefined) setHideAccRate(res.hideAcceptanceRate);
@@ -204,6 +211,29 @@ export const Settings = () => {
     };
     chrome.storage.onChanged.addListener(gitListener);
 
+    // ── Backfill progress listener ──────────────────────────────────────────
+    const backfillListener = (msg: any) => {
+      if (msg.action === "backfill_github_progress") {
+        if (msg.aborted) {
+          setBackfillPhase('idle');
+          return;
+        }
+        const phase = msg.phase || 'committing';
+        setBackfillPhase(phase as any);
+        setBackfillProgress({ done: msg.done || 0, total: msg.total || 0, current: msg.current || '' });
+      }
+      if (msg.action === "backfill_github_done") {
+        if (msg.ok) {
+          setBackfillPhase('done');
+          setBackfillResult({ pushed: msg.pushed || 0, skipped: msg.skipped || 0, errors: msg.errors || 0 });
+        } else {
+          setBackfillPhase('error');
+          setBackfillError(msg.error || 'An unknown error occurred during backfill.');
+        }
+      }
+    };
+    chrome.runtime.onMessage.addListener(backfillListener);
+
     fetchUserStatus()
       .then((res) => {
         const activeUser = res.data?.userStatus?.username;
@@ -241,6 +271,7 @@ export const Settings = () => {
     return () => {
       clearInterval(interval);
       chrome.storage.onChanged.removeListener(gitListener);
+      chrome.runtime.onMessage.removeListener(backfillListener);
     };
   }, []);
 
@@ -447,6 +478,19 @@ export const Settings = () => {
     try {
       chrome.runtime.sendMessage({ action: "set_github_auto_sync", enabled: next });
     } catch {}
+  };
+
+  const handleBackfillGithub = () => {
+    setBackfillPhase('scanning');
+    setBackfillError(null);
+    setBackfillResult(null);
+    setBackfillProgress({ done: 0, total: 0, current: '' });
+    chrome.runtime.sendMessage({ action: 'backfill_github' });
+  };
+
+  const handleAbortBackfill = () => {
+    chrome.runtime.sendMessage({ action: 'stop_backfill_github' });
+    setBackfillPhase('idle');
   };
 
   const isConnected = Boolean(githubPat);
@@ -772,7 +816,93 @@ export const Settings = () => {
                 <div className={`w-3.5 h-3.5 rounded-full bg-zinc-950 absolute top-0.5 transition-all ${githubAutoSync ? 'right-0.5' : 'left-0.5'}`} />
               </button>
             </div>
+
+          {/* ── Backfill Section ─────────────────────────────────────────── */}
+          <div className="mt-1 pt-3 border-t border-zinc-800/50">
+            <div className="text-[10px] text-zinc-400 font-mono font-semibold uppercase tracking-widest mb-1.5">
+              Backfill Historical Solutions
+            </div>
+            <div className="text-[10px] text-zinc-500 font-mono leading-relaxed mb-2.5">
+              Push solved problems from your LeetCode profile that are not yet on GitHub — including problems solved before AlgoVault was installed.
+            </div>
+
+            {/* Idle state: show trigger button */}
+            {backfillPhase === 'idle' && (
+              <button
+                onClick={handleBackfillGithub}
+                className="w-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-400/50 font-mono text-[10px] font-semibold py-2 px-3 rounded-lg transition-all uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                ⬆ Backfill Missing Solutions to GitHub
+              </button>
+            )}
+
+            {/* Done (already up to date) */}
+            {backfillPhase === 'done' && backfillResult && backfillResult.pushed === 0 && (
+              <div className="text-[10px] font-mono text-emerald-400 bg-emerald-950/20 border border-emerald-900/30 rounded-lg px-3 py-2">
+                ✓ All {backfillResult.skipped} solved problems are already on GitHub — nothing to push.
+                <button onClick={() => setBackfillPhase('idle')} className="block mt-1.5 text-zinc-400 hover:text-zinc-200 underline underline-offset-2 text-[9px]">Run again</button>
+              </div>
+            )}
+
+            {/* Done with pushes */}
+            {backfillPhase === 'done' && backfillResult && backfillResult.pushed > 0 && (
+              <div className="text-[10px] font-mono text-emerald-400 bg-emerald-950/20 border border-emerald-900/30 rounded-lg px-3 py-2 space-y-0.5">
+                <div className="font-bold">✓ Backfill Complete</div>
+                <div>Pushed: <span className="text-zinc-200">{backfillResult.pushed}</span> solutions</div>
+                {backfillResult.skipped > 0 && <div>Skipped (already synced): <span className="text-zinc-400">{backfillResult.skipped}</span></div>}
+                {backfillResult.errors > 0 && <div className="text-amber-400">Commit errors: {backfillResult.errors} (check console)</div>}
+                <button onClick={() => setBackfillPhase('idle')} className="block mt-1.5 text-zinc-400 hover:text-zinc-200 underline underline-offset-2 text-[9px]">Run again</button>
+              </div>
+            )}
+
+            {/* Scanning / fetching phase */}
+            {(backfillPhase === 'scanning' || backfillPhase === 'fetching') && (
+              <div className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 font-mono text-[10px]">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-amber-400 animate-pulse uppercase tracking-widest text-[9px]">
+                    {backfillPhase === 'scanning' ? 'Scanning…' : 'Fetching Submissions…'}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button onClick={handleAbortBackfill} className="text-red-400 hover:text-red-300 uppercase tracking-widest text-[9px] border border-red-900/50 bg-red-950/30 px-2 py-0.5 rounded transition-colors cursor-pointer">Abort</button>
+                    <div className="w-3 h-3 rounded-full border border-amber-400 border-t-transparent animate-spin" />
+                  </div>
+                </div>
+                <div className="text-zinc-400 truncate">{backfillProgress.current || 'Initializing…'}</div>
+              </div>
+            )}
+
+            {/* Committing phase with progress bar */}
+            {backfillPhase === 'committing' && (
+              <div className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 font-mono text-[10px]">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-amber-400 uppercase tracking-widest text-[9px]">Pushing to GitHub…</span>
+                  <div className="flex items-center gap-2">
+                    <button onClick={handleAbortBackfill} className="text-red-400 hover:text-red-300 uppercase tracking-widest text-[9px] border border-red-900/50 bg-red-950/30 px-2 py-0.5 rounded transition-colors cursor-pointer">Abort</button>
+                  </div>
+                </div>
+                <div className="w-full bg-zinc-800 rounded-full h-1.5 mb-1.5">
+                  <div
+                    className="bg-amber-400 h-1.5 rounded-full transition-all duration-300"
+                    style={{ width: backfillProgress.total > 0 ? `${Math.min(100, Math.round((backfillProgress.done / backfillProgress.total) * 100))}%` : '2%' }}
+                  />
+                </div>
+                <div className="flex justify-between text-zinc-400 text-[9px]">
+                  <span className="truncate max-w-[160px]">{backfillProgress.current}</span>
+                  <span className="shrink-0 ml-2">{backfillProgress.done} / {backfillProgress.total}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Error state */}
+            {backfillPhase === 'error' && (
+              <div className="bg-red-950/20 border border-red-900/30 rounded-lg px-3 py-2.5 font-mono text-[10px] text-red-400 space-y-1.5">
+                <div className="font-bold">✗ Backfill Failed</div>
+                <div className="text-zinc-400 leading-relaxed">{backfillError}</div>
+                <button onClick={() => setBackfillPhase('idle')} className="text-zinc-400 hover:text-zinc-200 underline underline-offset-2 text-[9px]">Try again</button>
+              </div>
+            )}
           </div>
+        </div>
         )}
 
         {/* Not Connected View */}
