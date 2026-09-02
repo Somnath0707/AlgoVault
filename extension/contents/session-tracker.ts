@@ -73,15 +73,10 @@ document.addEventListener("paste", (event) => {
     const hash = fnv1aHash(normalized)
     const isInternal = internalCopyHashes.includes(hash)
     if (!isInternal) {
-      // Increment external paste count in current session
-      chrome.storage.local.get(ACTIVE_SESSION_KEY, (res) => {
-        const session = res[ACTIVE_SESSION_KEY]
-        if (session && session.st === "RUNNING") {
-          chrome.storage.local.set({
-            [ACTIVE_SESSION_KEY]: { ...session, pastes: (session.pastes || 0) + 1 }
-          })
-        }
-      })
+      // Send paste event to background — never write storage directly
+      // from a content script, as it bypasses Plasmo's serialization
+      // and corrupts the session for the background service worker.
+      safeSend({ action: "session_paste_v2" })
     }
   }
 }, true)
@@ -95,9 +90,12 @@ function updateActivity() {
   lastActivityAt = Date.now()
   // If we were auto-paused due to idle, resume on active interaction
   chrome.storage.local.get(ACTIVE_SESSION_KEY, (res) => {
-    const session = res[ACTIVE_SESSION_KEY]
+    let session = res[ACTIVE_SESSION_KEY]
+    if (typeof session === "string") {
+      try { session = JSON.parse(session) } catch { session = null }
+    }
     if (session && session.st === "PAUSED" && session.pr === "IDLE" && currentSlug === session.slug) {
-      chrome.runtime.sendMessage({ action: "session_resume_v2" })
+      safeSend({ action: "session_resume_v2" })
     }
   })
 }
@@ -120,28 +118,53 @@ idleCheckInterval = setInterval(() => {
   const now = Date.now()
   if (now - lastActivityAt >= IDLE_TIMEOUT_MS) {
     chrome.storage.local.get(ACTIVE_SESSION_KEY, (res) => {
-      const session = res[ACTIVE_SESSION_KEY]
+      let session = res[ACTIVE_SESSION_KEY]
+      if (typeof session === "string") {
+        try { session = JSON.parse(session) } catch { session = null }
+      }
       if (session && session.st === "RUNNING" && currentSlug === session.slug) {
-        chrome.runtime.sendMessage({ action: "session_pause_v2", reason: "IDLE" })
+        safeSend({ action: "session_pause_v2", reason: "IDLE" })
       }
     })
   }
 }, 10_000)
 
 // Tab Ownership & Focus Handler
+function safeSend(msg: Record<string, unknown>) {
+  try {
+    chrome.runtime.sendMessage(msg, () => {
+      // If the service worker was asleep and couldn't respond, retry once.
+      if (chrome.runtime.lastError) {
+        setTimeout(() => {
+          try { chrome.runtime.sendMessage(msg) } catch {}
+        }, 500)
+      }
+    })
+  } catch {
+    // Extension context invalidated (navigation away from LC) — ignore.
+  }
+}
+
 function handleFocus() {
   if (!currentSlug) return
   chrome.storage.local.get(ACTIVE_SESSION_KEY, (res) => {
-    const session = res[ACTIVE_SESSION_KEY]
+    let session = res[ACTIVE_SESSION_KEY]
+    // Plasmo Storage may JSON-stringify the value; handle both forms.
+    if (typeof session === "string") {
+      try { session = JSON.parse(session) } catch { session = null }
+    }
     if (!session || session.slug !== currentSlug) {
       // Start fresh or load per-slug session for new problem
-      chrome.runtime.sendMessage({ action: "session_start_v2", slug: currentSlug })
+      safeSend({ action: "session_start_v2", slug: currentSlug })
+    } else if (session.st === "SOLVED") {
+      // Problem already solved — do NOT restart a new timer.
+      safeSend({ action: "claim_tab_ownership" })
     } else if (session.st === "PAUSED" && session.pr === "TAB") {
       // Resume session auto-paused by tab switch (DO NOT resume MANUAL pause!)
-      chrome.runtime.sendMessage({ action: "claim_tab_ownership" })
+      safeSend({ action: "claim_tab_ownership" })
     } else if (session.st === "RUNNING") {
       // Transfer tab ownership if returning from another tab
-      chrome.runtime.sendMessage({ action: "claim_tab_ownership" })
+      safeSend({ action: "claim_tab_ownership" })
     }
   })
 }
@@ -150,9 +173,12 @@ function handleBlur() {
   if (!document.hidden) return
 
   chrome.storage.local.get(ACTIVE_SESSION_KEY, (res) => {
-    const session = res[ACTIVE_SESSION_KEY]
+    let session = res[ACTIVE_SESSION_KEY]
+    if (typeof session === "string") {
+      try { session = JSON.parse(session) } catch { session = null }
+    }
     if (session && session.st === "RUNNING" && session.slug === currentSlug) {
-      chrome.runtime.sendMessage({ action: "session_pause_v2", reason: "TAB" })
+      safeSend({ action: "session_pause_v2", reason: "TAB" })
     }
   })
 }

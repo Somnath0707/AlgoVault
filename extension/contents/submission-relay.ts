@@ -24,6 +24,14 @@ type SubmissionPayload = {
 
 const relayedSubmissionIds = new Set<string>()
 
+function runWhenIdle(work: () => void) {
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(work, { timeout: 2_500 })
+    return
+  }
+  window.setTimeout(work, 1_000)
+}
+
 function currentSlug() {
   return getLeetCodeProblemSlug()
 }
@@ -36,15 +44,12 @@ function currentTitle() {
 function editorCodeFallback() {
   const textarea = document.querySelector<HTMLTextAreaElement>("textarea.inputarea")
   if (textarea?.value?.trim()) return textarea.value
-  const lines = Array.from(document.querySelectorAll<HTMLElement>(".view-lines .view-line"))
-    .map((line) => line.innerText)
-    .filter(Boolean)
-  return lines.length ? lines.join("\n") : undefined
+  return undefined
 }
 
 function languageFallback() {
   const selected = document.querySelector<HTMLElement>("[data-cy='lang-select'], button[id*='headlessui-listbox-button']")
-  return selected?.innerText?.trim() || undefined
+  return selected?.textContent?.trim() || undefined
 }
 
 function parseRuntimeMs(runtime?: string) {
@@ -175,13 +180,8 @@ window.addEventListener("message", ((event: MessageEvent) => {
   if (event.origin !== window.location.origin || event.source !== window) return
   if (event.data?.type !== "AV_SUBMISSION_RESULT") return
   
-  console.log("AlgoVault: submission-relay received AV_SUBMISSION_RESULT", {
-    nonce: event.data?.nonce,
-    windowNonce: (window as any).__ALGOVAULT_ISOLATED_NONCE__
-  })
-
-  const expectedNonce = (window as any).__ALGOVAULT_ISOLATED_NONCE__
-  if (!expectedNonce || event.data.nonce !== expectedNonce) {
+  const expectedNonce = (window as any).__ALGOVAULT_ISOLATED_NONCE__ || document.documentElement.getAttribute("data-algovault-nonce")
+  if (expectedNonce && event.data?.nonce && event.data.nonce !== expectedNonce) {
     console.warn("AlgoVault: submission-relay nonce mismatch!", {
       received: event.data?.nonce,
       expected: expectedNonce
@@ -217,8 +217,6 @@ window.addEventListener("message", ((event: MessageEvent) => {
   const runtimeMs = parseRuntimeMs(detail.runtime)
   const memoryKb = parseMemoryKb(detail.memory)
 
-  // Use code from the interceptor's captured payload; skip expensive DOM fallback
-  // editorCodeFallback() scans every .view-line with innerText which forces reflow
   const code = detail.code || undefined
 
   const payload: SubmissionPayload = {
@@ -240,13 +238,19 @@ window.addEventListener("message", ((event: MessageEvent) => {
   // Fire the background message immediately (non-blocking)
   chrome.runtime.sendMessage({ action: "submission_result", payload })
 
+  const notifyCelebration = () => {
+    const activeNonce = expectedNonce || event.data?.nonce || ""
+    window.postMessage({ type: "AV_SUBMISSION_RESULT_CONFIRMED", nonce: activeNonce, detail: payload }, window.location.origin || "*")
+    window.dispatchEvent(new CustomEvent("AV_SUBMISSION_RESULT_CONFIRMED", { detail: payload }))
+  }
+
   if (payload.statusDisplay === "Accepted") {
-    // Yield to the browser before doing any more work.
-    // This prevents "Page Unresponsive" by letting LeetCode's own AC
-    // rendering complete first before we layer on our UI.
+    // Leave LeetCode's result rendering alone first. The visual celebration is
+    // non-blocking and the optional dialog/cache update wait for idle time.
     setTimeout(() => {
-      chrome.runtime.sendMessage({ action: "session_finish_v2", language: payload.language })
-      window.postMessage({ type: "AV_SUBMISSION_RESULT_CONFIRMED", nonce: expectedNonce, detail: payload }, window.location.origin || "*")
+      notifyCelebration()
+    }, 600)
+    runWhenIdle(() => {
       chrome.storage.local.get("algovault.solvedSlugs", (result) => {
         const cached = result["algovault.solvedSlugs"] || {}
         const slugs = new Set<string>(Array.isArray(cached?.slugs) ? cached.slugs : [])
@@ -254,6 +258,8 @@ window.addEventListener("message", ((event: MessageEvent) => {
         chrome.storage.local.set({ "algovault.solvedSlugs": { ...cached, fetchedAt: Date.now(), slugs: Array.from(slugs) } })
       })
       showPostSolveDialog(slug)
-    }, 150)
+    })
+  } else {
+    notifyCelebration()
   }
 }))

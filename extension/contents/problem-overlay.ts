@@ -150,8 +150,14 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 // Global state to prevent infinite loops from MutationObserver
 let ratingInjected = false;
 let acceptanceHidden = false;
+let acceptancePreferenceLoaded = false;
 let predictionInjected = false;
 let predictionData: any = null;
+let overlayInitializedForSlug: string | null = null;
+
+function isSubmissionDetailPage() {
+  return location.pathname.includes("/submissions/")
+}
 
 type CompanyEvidence = {
   companyName: string
@@ -202,33 +208,43 @@ const fetchPrediction = async () => {
 }
 
 const injectAlgoVaultOverlay = () => {
+  if (isSubmissionDetailPage()) return
+  const currentSlug = getLeetCodeProblemSlug()
+  if (currentSlug) overlayInitializedForSlug = currentSlug
+
   // 1. Acceptance Rate & Global Accepted/Submissions
-  if (!acceptanceHidden) {
+  if (!acceptanceHidden && !acceptancePreferenceLoaded) {
     chrome.storage.sync.get(['hideAcceptanceRate'], (result) => {
+      acceptancePreferenceLoaded = true
       if (result.hideAcceptanceRate === false) return;
 
-      // Hide global "Accepted" and "Submissions" numbers
-      const iterAccepted = document.evaluate(
-        "//*[text()='Accepted' or text()='Submissions']",
-        document, null, XPathResult.ANY_TYPE, null
-      );
-      let nextAcc = iterAccepted.iterateNext() as HTMLElement;
-      while (nextAcc) {
-        let valNode = nextAcc.nextElementSibling as HTMLElement;
-        if (!valNode || !valNode.textContent?.match(/\d/)) {
-            valNode = nextAcc.parentElement?.nextElementSibling as HTMLElement;
+      // Hide global "Accepted" and "Submissions" numbers strictly inside problem description
+      const descPane = document.querySelector('[data-track-load="description_content"], #qd-content') || document.querySelector('div[class*="content__"]');
+      if (descPane) {
+        const iterAccepted = document.evaluate(
+          ".//*[text()='Accepted' or text()='Submissions']",
+          descPane, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null
+        );
+        for (let i = 0; i < iterAccepted.snapshotLength; i++) {
+          const nextAcc = iterAccepted.snapshotItem(i) as HTMLElement;
+          if (nextAcc && !nextAcc.closest('.monaco-editor, [class*="submission"], [class*="result"]')) {
+            let valNode = nextAcc.nextElementSibling as HTMLElement;
+            if (!valNode || !valNode.textContent?.match(/\d/)) {
+              valNode = nextAcc.parentElement?.nextElementSibling as HTMLElement;
+            }
+            if (valNode) {
+              valNode.style.display = 'none';
+            }
+            nextAcc.style.display = 'none';
+          }
         }
-        if (valNode) {
-            valNode.style.display = 'none';
-        }
-        nextAcc.style.display = 'none';
-        nextAcc = iterAccepted.iterateNext() as HTMLElement;
       }
 
       // Find the acceptance rate label more robustly using XPath
+      const accContext = descPane || document;
       const iter = document.evaluate(
-        "//*[text()='Acceptance' or text()='Acceptance Rate']",
-        document, null, XPathResult.ANY_TYPE, null
+        ".//*[text()='Acceptance' or text()='Acceptance Rate']",
+        accContext, null, XPathResult.ANY_TYPE, null
       );
       const accLabel = iter.iterateNext() as HTMLElement;
 
@@ -361,7 +377,6 @@ const injectAlgoVaultOverlay = () => {
   }
 
   const { diffTag, metadataRow } = findProblemHeaderElements()
-  const currentSlug = getLeetCodeProblemSlug()
   const injectedSlug = diffTag?.getAttribute("data-algovault-rating")
 
   if (diffTag && currentSlug && injectedSlug !== currentSlug) {
@@ -888,18 +903,31 @@ const injectAlgoVaultOverlay = () => {
 }
 
 let observerTimeout: number | null = null;
-const observer = new MutationObserver(() => {
-  // Ultra-fast early exit if a batch re-injection is already scheduled
+const observer = new MutationObserver((mutations) => {
+  if (isSubmissionDetailPage()) return
   if (observerTimeout) return;
+
+  const hasRelevantMutation = mutations.some((mutation) => {
+    const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement
+    return !target?.closest(".monaco-editor, .view-lines, .CodeMirror, #algovault-post-solve, [id^='av-'], [class*='submission'], [data-track-load*='submission']")
+  })
+  if (!hasRelevantMutation) return;
 
   observerTimeout = window.setTimeout(() => {
     observerTimeout = null;
-    // Skip re-injection if all overlays are still intact (common during AC verdict render)
+    const currentSlug = getLeetCodeProblemSlug()
+    const slugChanged = Boolean(currentSlug && currentSlug !== overlayInitializedForSlug)
     const ratingGone = ratingInjected && !document.querySelector('.av-rating');
     const predictionGone = predictionInjected && !document.getElementById('av-solve-chance-bubble');
-    if (!ratingGone && !predictionGone && ratingInjected) return;
+    if (!slugChanged && !ratingGone && !predictionGone && overlayInitializedForSlug) return;
     if (ratingGone) ratingInjected = false;
     if (predictionGone) predictionInjected = false;
+    if (slugChanged) {
+      ratingInjected = false;
+      predictionInjected = false;
+      predictionData = null;
+      void fetchPrediction();
+    }
     injectAlgoVaultOverlay();
     hideForbiddenTabs();
     injectIntentionalRevealButton();
@@ -915,6 +943,7 @@ window.addEventListener("beforeunload", () => {
 
 // Start process
 setTimeout(() => {
+    if (isSubmissionDetailPage()) return
     fetchPrediction();
     injectAlgoVaultOverlay();
 }, 1000);

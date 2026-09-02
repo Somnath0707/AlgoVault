@@ -129,7 +129,10 @@ export const fetchMastery = async () => backendFetch("/api/mastery")
 export const recomputeMastery = async () => backendFetch("/api/mastery/recompute", { method: "POST" })
 export const fetchWeakness = async (refresh = false): Promise<WeaknessSnapshot> => backendFetch<WeaknessSnapshot>(refresh ? "/api/weakness?refresh=true" : "/api/weakness")
 export const fetchPotd = async () => backendFetch("/api/potd")
-export const fetchRevisionQueue = async (): Promise<RevisionQueueItem[]> => backendFetch<RevisionQueueItem[]>("/api/revision")
+export const fetchRevisionQueue = async (solvedWithinDays?: number | null): Promise<RevisionQueueItem[]> => {
+  const query = solvedWithinDays && solvedWithinDays > 0 ? `?solvedWithinDays=${solvedWithinDays}` : ""
+  return backendFetch<RevisionQueueItem[]>(`/api/revision${query}`)
+}
 export const reviewRevisionCard = async (cardId: number, quality: number) => {
   return backendFetch(`/api/revision/${cardId}`, {
     method: "POST",

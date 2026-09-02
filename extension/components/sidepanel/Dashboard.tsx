@@ -66,6 +66,7 @@ import { usePracticeSession } from "../../hooks/usePracticeSession"
 const TODAY_SNAPSHOT_VERSION = 2
 const STALE_AFTER_MS = 15 * 60 * 1000
 const MIN_SOLVES_FOR_STRETCH = 25
+const RECALL_WINDOW_KEY = "algovault.recallWindowDays"
 
 type BackgroundResponse<T> = {
   ok?: boolean
@@ -286,7 +287,7 @@ export const Dashboard = () => {
   const [solved, setSolved] = useState<Set<string>>(new Set())
   const [zerotrac, setZerotrac] = useState<ZerotracProblem[]>([])
   const [ranking, setRanking] = useState<UserContestRanking | null>(null)
-  const { session: apseSession, clocks, pauseSession, resumeSession, resetSession, finishSession, logTimeSession } = usePracticeSession()
+  const { session: apseSession, clocks, pauseSession, resumeSession, resetSession, stopAllRunningSessions, finishSession, logTimeSession } = usePracticeSession()
   const [localLogs, setLocalLogs] = useState<any[]>([])
   const [lastSync, setLastSync] = useState<number | null>(null)
   const [snapshotSavedAt, setSnapshotSavedAt] = useState<number | null>(null)
@@ -297,6 +298,9 @@ export const Dashboard = () => {
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
   const [reviewedToday, setReviewedToday] = useState(false)
   const [sessionActionPending, setSessionActionPending] = useState(false)
+  const [sessionNotice, setSessionNotice] = useState<string | null>(null)
+  const [recallWindowDays, setRecallWindowDays] = useState<number | null>(null)
+  const [recallDaysInput, setRecallDaysInput] = useState("30")
   const [recommendationSelection, setRecommendationSelection] = useState<{ practiceSlug?: string; stretchSlug?: string }>({})
   const [hoveredActivityKey, setHoveredActivityKey] = useState<string | null>(null)
   const [isWeeklyReportOpen, setIsWeeklyReportOpen] = useState(false)
@@ -389,13 +393,13 @@ export const Dashboard = () => {
     })
   }, [])
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (recallWindowOverride = recallWindowDays) => {
     setRefreshing(true)
     try {
       const username = await getUsername()
       const [dashboard, reviews, weak, allSessions, solvedResponse, zerotracResponse, rankingResponse] = await Promise.all([
         fetchDashboard(),
-        fetchRevisionQueue().catch((): RevisionQueueItem[] => []),
+        fetchRevisionQueue(recallWindowOverride).catch((): RevisionQueueItem[] => []),
         fetchWeakness().catch((): WeaknessSnapshot | null => null),
         fetchAllSessions().catch((): SessionData[] => []),
         message<BackgroundResponse<string[]>>({ action: "get_solved_problem_slugs" }).catch((): BackgroundResponse<string[]> => ({})),
@@ -428,7 +432,7 @@ export const Dashboard = () => {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [applySnapshot])
+  }, [applySnapshot, recallWindowDays])
 
   useEffect(() => {
     let mounted = true
@@ -466,6 +470,16 @@ export const Dashboard = () => {
       if (mounted) setRecommendationSelection(selection)
     })
     return () => { mounted = false }
+  }, [])
+
+  useEffect(() => {
+    chrome.storage.local.get(RECALL_WINDOW_KEY, (result) => {
+      const storedDays = Number(result[RECALL_WINDOW_KEY])
+      if (Number.isInteger(storedDays) && storedDays >= 1 && storedDays <= 3650) {
+        setRecallWindowDays(storedDays)
+        setRecallDaysInput(String(storedDays))
+      }
+    })
   }, [])
 
   const activeSeconds = clocks.activeSeconds
@@ -755,6 +769,35 @@ export const Dashboard = () => {
     }
   }
 
+  const updateRecallWindow = (days: number | null) => {
+    setRecallWindowDays(days)
+    setReviewedToday(false)
+    if (days) setRecallDaysInput(String(days))
+    chrome.storage.local.set({ [RECALL_WINDOW_KEY]: days })
+    void refresh(days)
+  }
+
+  const applyCustomRecallWindow = () => {
+    const days = Number(recallDaysInput)
+    if (!Number.isInteger(days) || days < 1 || days > 3650) {
+      setError("Enter a recall window from 1 to 3,650 days.")
+      return
+    }
+    updateRecallWindow(days)
+  }
+
+  const stopAllTimers = async () => {
+    setSessionActionPending(true)
+    try {
+      const stopped = await stopAllRunningSessions()
+      setSessionNotice(stopped ? `Cleared ${stopped} timer${stopped === 1 ? "" : "s"} across all tabs. Saved practice logs were kept.` : "No live, tab-paused, or completed timers were found.")
+    } catch (sessionError: unknown) {
+      setError(sessionError instanceof Error ? sessionError.message : "Could not stop active timers.")
+    } finally {
+      setSessionActionPending(false)
+    }
+  }
+
   if (loading && !data) {
     return <div className="space-y-3 px-1 pt-1"><Skeleton className="h-52 rounded-2xl" /><Skeleton className="h-72 rounded-2xl" /><Skeleton className="h-48 rounded-2xl" /></div>
   }
@@ -838,7 +881,32 @@ export const Dashboard = () => {
               
               <button type="button" onClick={() => resetSession()} className="inline-flex h-8 items-center gap-1 rounded-md border border-rose-900/60 px-2 text-[9px] font-bold font-mono uppercase tracking-wide text-rose-300 transition hover:border-rose-700 hover:text-rose-200" aria-label="End focus session"><Square size={9} fill="currentColor" /> {clocks.isSolved ? "Clear" : "Reset"}</button>
             </div>
-          ) : null}
+          ) : (
+            <span className="text-[9px] font-mono text-zinc-600">No live timer</span>
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-3 border-t border-zinc-800/60 px-4 py-2.5 sm:px-5">
+          <p className="text-[9px] leading-relaxed text-zinc-600">Clears live, tab-paused, and completed timers across every tab. Saved practice logs stay intact.</p>
+          <button type="button" disabled={sessionActionPending} onClick={() => void stopAllTimers()} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-rose-900/60 bg-rose-950/20 px-2 text-[9px] font-bold font-mono uppercase tracking-wide text-rose-300 transition hover:border-rose-700 hover:bg-rose-950/40 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-50" title="Clear timers from every tab"><Square size={9} fill="currentColor" /> {sessionActionPending ? "Clearing" : "Clear all timers"}</button>
+        </div>
+        {sessionNotice && <p className="border-t border-emerald-900/30 bg-emerald-950/10 px-4 py-2 text-[9px] font-mono text-emerald-300 sm:px-5">{sessionNotice}</p>}
+      </section>
+
+      <section className="rounded-2xl border border-amber-400/20 bg-[#111008] p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[9px] font-bold font-mono uppercase tracking-[0.16em] text-amber-300">Recall window</p>
+            <p className="mt-1 text-[10px] leading-relaxed text-zinc-500">Show due recalls from all time, or only problems accepted within your chosen number of days.</p>
+          </div>
+          <span className="rounded-full border border-amber-400/20 bg-amber-400/[0.08] px-2 py-1 text-[8px] font-mono font-semibold text-amber-200">{recallWindowDays ? `Last ${recallWindowDays} days` : "All time"} · {queue.length} due</span>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {[10, 30, 50].map((days) => <button key={days} type="button" onClick={() => updateRecallWindow(days)} className={`rounded-md border px-2 py-1.5 text-[9px] font-mono font-semibold transition ${recallWindowDays === days ? "border-amber-300/60 bg-amber-400 text-zinc-950" : "border-zinc-700 bg-zinc-900/70 text-zinc-300 hover:border-amber-400/40 hover:text-amber-200"}`}>Last {days}d</button>)}
+          <button type="button" onClick={() => updateRecallWindow(null)} className={`rounded-md border px-2 py-1.5 text-[9px] font-mono font-semibold transition ${recallWindowDays === null ? "border-amber-300/60 bg-amber-400 text-zinc-950" : "border-zinc-700 bg-zinc-900/70 text-zinc-300 hover:border-amber-400/40 hover:text-amber-200"}`}>All time</button>
+          <div className="ml-1 flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-950/50 p-0.5">
+            <input type="number" min="1" max="3650" value={recallDaysInput} onChange={(event) => setRecallDaysInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") applyCustomRecallWindow() }} className="w-16 bg-transparent px-1.5 py-1 text-[9px] font-mono text-zinc-200 outline-none" aria-label="Custom recall window in days" />
+            <button type="button" onClick={applyCustomRecallWindow} className="rounded bg-zinc-800 px-2 py-1 text-[9px] font-mono font-semibold text-zinc-200 transition hover:bg-zinc-700">Apply days</button>
+          </div>
         </div>
       </section>
 

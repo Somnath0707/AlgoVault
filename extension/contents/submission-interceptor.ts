@@ -17,11 +17,7 @@ const nonce = (typeof crypto !== "undefined" && crypto.randomUUID)
 
 (window as any).__ALGOVAULT_ISOLATED_NONCE__ = nonce;
 
-// Set the nonce as a DOM attribute so the MAIN world script can read it
-document.documentElement.setAttribute("data-algovault-nonce", nonce);
-
-// Inject the interceptor script from web_accessible_resources
-const script = document.createElement("script");
-script.src = chrome.runtime.getURL("assets/interceptor.js");
-script.onload = () => script.remove();
-(document.documentElement || document).prepend(script);
+// Set the nonce as a DOM attribute for cross-world validation (without script tag injection)
+if (!document.documentElement.getAttribute("data-algovault-nonce")) {
+  document.documentElement.setAttribute("data-algovault-nonce", nonce);
+}

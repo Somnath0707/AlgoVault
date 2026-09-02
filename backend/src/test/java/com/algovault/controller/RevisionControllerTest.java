@@ -59,6 +59,29 @@ class RevisionControllerTest {
     }
 
     @Test
+    void getQueue_filtersByCustomRecallWindow() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        List<RevisionResponse> queue = List.of(RevisionResponse.builder().id(11L).title("Add Two Numbers").build());
+        when(revisionService.getQueue(1L, 50)).thenReturn(queue);
+
+        ResponseEntity<List<RevisionResponse>> response = revisionController.getQueue(request, 50);
+
+        assertEquals(200, response.getStatusCodeValue());
+        assertEquals("Add Two Numbers", response.getBody().get(0).getTitle());
+        verify(revisionService).getQueue(1L, 50);
+    }
+
+    @Test
+    void getQueue_rejectsInvalidRecallWindow() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+
+        ResponseEntity<List<RevisionResponse>> response = revisionController.getQueue(request, 0);
+
+        assertEquals(400, response.getStatusCodeValue());
+        verifyNoInteractions(userContextService, revisionService);
+    }
+
+    @Test
     void reviewCard_callsService() {
         HttpServletRequest request = mock(HttpServletRequest.class);
         ResponseEntity<Map<String, String>> response = revisionController.reviewCard(

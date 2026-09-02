@@ -25,7 +25,14 @@ public class RevisionService {
     private final ContestResultRepository contestResultRepository;
 
     public List<RevisionResponse> getQueue(Long userId) {
-        List<RevisionCard> cards = repository.findByUserIdAndNextReviewBeforeOrderByNextReviewAsc(userId, LocalDateTime.now());
+        return getQueue(userId, null);
+    }
+
+    public List<RevisionResponse> getQueue(Long userId, Integer solvedWithinDays) {
+        LocalDateTime now = LocalDateTime.now();
+        List<RevisionCard> cards = solvedWithinDays == null
+            ? repository.findByUserIdAndNextReviewBeforeOrderByNextReviewAsc(userId, now)
+            : repository.findDueByUserIdAndAcceptedSince(userId, now, now.minusDays(solvedWithinDays));
         return cards.stream().map(c -> RevisionResponse.builder()
             .id(c.getId())
             .title(c.getProblem().getTitle())

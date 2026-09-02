@@ -4,22 +4,18 @@
   if (window.__ALGOVAULT_FETCH_PATCHED__) return;
   window.__ALGOVAULT_FETCH_PATCHED__ = true;
 
-  // The nonce will be read from the DOM attribute set by submission-interceptor.ts
-  var nonce = document.documentElement.getAttribute("data-algovault-nonce");
-  if (nonce) {
-    document.documentElement.removeAttribute("data-algovault-nonce");
-  } else {
-    // Observe for the attribute in case isolated world script runs slightly after
-    var observer = new MutationObserver(function() {
-      var val = document.documentElement.getAttribute("data-algovault-nonce");
-      if (val) {
-        nonce = val;
-        document.documentElement.removeAttribute("data-algovault-nonce");
-        observer.disconnect();
-      }
-    });
-    observer.observe(document.documentElement, { attributes: true });
+  // Read or establish nonce without removing it from DOM
+  function getOrSetNonce() {
+    var val = document.documentElement.getAttribute("data-algovault-nonce");
+    if (!val) {
+      val = (typeof crypto !== "undefined" && crypto.randomUUID) 
+        ? crypto.randomUUID() 
+        : Math.random().toString(36).substring(2) + Date.now().toString(36);
+      document.documentElement.setAttribute("data-algovault-nonce", val);
+    }
+    return val;
   }
+  var nonce = getOrSetNonce();
 
   var lastSeenSubmissionId;
   var originalFetch = window.fetch;
@@ -50,11 +46,7 @@
     // Reset submit state once the terminal SUCCESS state is captured
     window.__ALGOVAULT_IS_SUBMITTING__ = false;
     
-    // If nonce wasn't available yet, try reading it now
-    if (!nonce) {
-      nonce = document.documentElement.getAttribute("data-algovault-nonce");
-      if (nonce) document.documentElement.removeAttribute("data-algovault-nonce");
-    }
+    nonce = getOrSetNonce();
     
     var captured = window.__ALGOVAULT_LAST_SUBMITTED_CODE__ || {};
     window.postMessage({

@@ -100,6 +100,24 @@ export function usePracticeSession() {
     })
   }, [])
 
+  const stopAllRunningSessions = useCallback(() => {
+    return new Promise<number>((resolve, reject) => {
+      chrome.runtime.sendMessage({ action: "session_stop_all_running_v2" }, (res) => {
+        const error = chrome.runtime.lastError
+        if (error) {
+          reject(new Error(error.message))
+          return
+        }
+        if (!res?.ok) {
+          reject(new Error(res?.error || "Could not stop active timers."))
+          return
+        }
+        if (res.stopped > 0) setSession(null)
+        resolve(Number(res.stopped) || 0)
+      })
+    })
+  }, [])
+
   const finishSession = useCallback((language?: string) => {
     chrome.runtime.sendMessage({ action: "session_finish_v2", language }, (res) => {
       if (res?.ok && res.session) {
@@ -118,8 +136,8 @@ export function usePracticeSession() {
     pauseSession,
     resumeSession,
     resetSession,
+    stopAllRunningSessions,
     finishSession,
     logTimeSession
   }
 }
-

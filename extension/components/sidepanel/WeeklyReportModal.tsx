@@ -19,7 +19,12 @@ import {
   ChevronUp,
   Tag,
   Zap,
-  Flame
+  Flame,
+  Search,
+  Filter,
+  TrendingUp,
+  Award,
+  Compass
 } from "lucide-react"
 import type { ZerotracProblem, WeaknessSnapshot } from "../../lib/types"
 import { STUDY_LISTS } from "../../lib/study-lists"
@@ -202,6 +207,7 @@ export function WeeklyReportModal({
   const [dynamicTagsMap, setDynamicTagsMap] = useState<Map<string, string[]>>(new Map())
   const [hoveredDay, setHoveredDay] = useState<DayActivity | null>(null)
   const [hoveredSpectrum, setHoveredSpectrum] = useState<{ topic: string; count: number; pct: number } | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
 
   // 1. Preload stored problem tags from local storage
   useEffect(() => {
@@ -313,6 +319,17 @@ export function WeeklyReportModal({
 
     return Array.from(map.values())
   }, [localLogs, recentSolves, zerotracMap, dynamicTagsMap])
+
+  const filteredProblems = useMemo(() => {
+    if (!searchQuery.trim()) return solvedProblems
+    const q = searchQuery.toLowerCase().trim()
+    return solvedProblems.filter(
+      (p) =>
+        p.title.toLowerCase().includes(q) ||
+        p.slug.toLowerCase().includes(q) ||
+        p.topics.some((t) => t.toLowerCase().includes(q))
+    )
+  }, [solvedProblems, searchQuery])
 
   // 4. Auto-fetch missing real LeetCode topic tags via GraphQL batch
   useEffect(() => {
@@ -504,29 +521,29 @@ export function WeeklyReportModal({
             exit={{ opacity: 0, scale: 0.96, y: 14 }}
             transition={{
               type: "spring",
-              damping: 28,
-              stiffness: 340
+              damping: 30,
+              stiffness: 350
             }}
-            className="relative flex flex-col w-full max-w-xl max-h-[92vh] rounded-2xl border border-zinc-800/80 bg-[#0d0d0f] shadow-2xl text-zinc-200 overflow-hidden"
+            className="relative flex flex-col w-full max-w-2xl max-h-[94vh] rounded-2xl border border-zinc-800/90 bg-[#090a0f] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95),0_0_0_1px_rgba(255,255,255,0.06)] text-zinc-200 overflow-hidden"
           >
             {/* Subtle AlgoVault Ambient Glow Backdrop */}
             <div
-              className="pointer-events-none absolute inset-0 opacity-70"
+              className="pointer-events-none absolute inset-0 opacity-60"
               style={{
                 background:
-                  "radial-gradient(ellipse 72% 60% at 95% 0%, rgba(251,191,36,0.08), transparent), radial-gradient(ellipse 50% 60% at 0% 100%, rgba(14,165,233,0.04), transparent)"
+                  "radial-gradient(ellipse 65% 50% at 90% 0%, rgba(245,158,11,0.07), transparent), radial-gradient(ellipse 50% 50% at 0% 100%, rgba(14,165,233,0.04), transparent)"
               }}
             />
 
             {/* Top Header Bar */}
-            <div className="relative z-10 flex items-center justify-between border-b border-zinc-800/80 bg-zinc-950/90 px-5 py-4 backdrop-blur shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#dfa054]/30 bg-[#dfa054]/10 text-[#dfa054] shadow-sm">
-                  <Activity size={16} />
+            <div className="relative z-10 flex items-center justify-between border-b border-zinc-800/80 bg-zinc-950/90 px-5 py-3.5 backdrop-blur shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-400 shadow-sm shrink-0">
+                  <Activity size={17} />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-mono font-bold uppercase tracking-[0.16em] text-[#dfa054]">
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-[0.18em] text-amber-400/90">
                       AlgoVault Telemetry
                     </span>
                     <span className="text-zinc-700">•</span>
@@ -534,31 +551,33 @@ export function WeeklyReportModal({
                       7-Day Debrief
                     </span>
                   </div>
-                  <h2 className="text-sm font-bold text-zinc-100 flex items-center gap-1.5 mt-0.5">
-                    Weekly Performance Report
-                    <span className="text-[10px] font-normal text-zinc-500 font-mono">
-                      ({dateRangeLabel})
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <h2 className="text-sm font-bold text-zinc-100 font-sans tracking-tight">
+                      Weekly Performance Report
+                    </h2>
+                    <span className="text-[10px] font-medium text-zinc-400 font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-md shrink-0">
+                      {dateRangeLabel}
                     </span>
-                  </h2>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0 ml-3">
                 <motion.button
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                   onClick={handleCopyMarkdown}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 text-[11px] font-mono transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs font-mono transition-all cursor-pointer shadow-sm"
                   title="Copy markdown debrief to clipboard"
                 >
-                  {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                  {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
                   <span>{copied ? "Copied" : "Copy"}</span>
                 </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.08 }}
                   whileTap={{ scale: 0.92 }}
                   onClick={onClose}
-                  className="p-1.5 rounded-lg border border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:text-zinc-100 hover:border-zinc-700 transition-colors cursor-pointer"
+                  className="p-1.5 rounded-lg border border-zinc-800 bg-zinc-900/90 text-zinc-400 hover:text-zinc-100 hover:border-zinc-700 transition-colors cursor-pointer"
                   title="Close"
                 >
                   <X size={16} />
@@ -566,33 +585,39 @@ export function WeeklyReportModal({
               </div>
             </div>
 
-            {/* Navigation Tabs */}
-            <div className="relative z-10 flex border-b border-zinc-800/80 bg-zinc-950/40 px-5 pt-2 shrink-0 gap-6 text-xs font-mono">
-              {[
-                { key: "overview", label: "Executive Summary" },
-                { key: "problems", label: `Problems Conquered (${solvedProblems.length})` },
-                { key: "plan", label: "Next Week Targets" }
-              ].map((tab) => {
-                const active = activeTab === tab.key
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key as any)}
-                    className={`pb-2.5 font-medium transition-colors relative cursor-pointer ${
-                      active ? "text-[#dfa054] font-bold" : "text-zinc-500 hover:text-zinc-300"
-                    }`}
-                  >
-                    {tab.label}
-                    {active && (
-                      <motion.div
-                        layoutId="activeReportTab"
-                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                        className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#dfa054]"
-                      />
-                    )}
-                  </button>
-                )
-              })}
+            {/* Navigation Switcher (Contained Segmented Control) */}
+            <div className="relative z-10 px-5 pt-3 pb-2.5 border-b border-zinc-800/80 bg-zinc-950/40 shrink-0">
+              <div className="flex items-center gap-1 p-1 rounded-xl bg-zinc-900/80 border border-zinc-800/80 w-full sm:w-auto sm:inline-flex overflow-x-auto scrollbar-none">
+                {[
+                  { key: "overview", label: "Executive Summary", icon: Activity },
+                  { key: "problems", label: `Problems Conquered (${solvedProblems.length})`, icon: Trophy },
+                  { key: "plan", label: "Next Week Targets", icon: Target }
+                ].map((tab) => {
+                  const active = activeTab === tab.key
+                  const Icon = tab.icon
+                  return (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveTab(tab.key as any)}
+                      className={`relative flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer select-none whitespace-nowrap ${
+                        active ? "text-zinc-100 font-semibold" : "text-zinc-400 hover:text-zinc-200"
+                      }`}
+                    >
+                      {active && (
+                        <motion.div
+                          layoutId="activeReportTab"
+                          transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                          className="absolute inset-0 rounded-lg bg-zinc-800 border border-zinc-700/60 shadow-sm"
+                        />
+                      )}
+                      <span className="relative z-10 flex items-center gap-1.5">
+                        <Icon size={13} className={active ? "text-amber-400" : "text-zinc-500"} />
+                        <span>{tab.label}</span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             {/* Modal Scrollable Body */}
@@ -604,87 +629,107 @@ export function WeeklyReportModal({
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    transition={{ duration: 0.18, ease: "easeOut" }}
                     className="space-y-4"
                   >
-                    {/* 4 Clean Metric Cards (Flat subtle border, NO bright outlines) */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 border border-zinc-800/80 rounded-2xl bg-[#0d0d0f] shadow-sm overflow-hidden">
-                      {/* Practice Time */}
-                      <div className="p-3.5 text-left border-r border-b sm:border-b-0 border-zinc-850/60">
-                        <span className="text-[8.5px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-500 block">
-                          active time
-                        </span>
-                        <span className="block text-[18px] font-bold font-mono tabular-nums text-zinc-100 mt-1">
-                          {formatDuration(weekFocusSeconds)}
-                        </span>
-                        <span className="text-[9.5px] text-zinc-400 font-mono mt-0.5 block truncate">
-                          {avgMinutesPerSolve ? `~${avgMinutesPerSolve}m / solve` : formatDetailedDuration(weekFocusSeconds)}
+                    {/* 4 Responsive KPI Metric Cards */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      {/* Active Time */}
+                      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-3.5 flex flex-col justify-between hover:bg-zinc-900/50 hover:border-zinc-700/60 transition-all shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-400">
+                            Active Time
+                          </span>
+                          <Clock size={12} className="text-zinc-500" />
+                        </div>
+                        <div className="my-1.5">
+                          <span className="block text-xl font-bold font-mono tabular-nums text-zinc-100">
+                            {formatDuration(weekFocusSeconds)}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-zinc-400 font-mono block truncate" title={avgMinutesPerSolve ? `~${avgMinutesPerSolve} mins per solve` : ""}>
+                          {avgMinutesPerSolve ? `~${avgMinutesPerSolve}m avg / solve` : formatDetailedDuration(weekFocusSeconds)}
                         </span>
                       </div>
 
                       {/* Solves */}
-                      <div className="p-3.5 text-left border-b sm:border-b-0 sm:border-r border-zinc-850/60">
-                        <span className="text-[8.5px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-500 block">
-                          problems solved
-                        </span>
-                        <span className="block text-[18px] font-bold font-mono tabular-nums text-emerald-400 mt-1">
-                          {weekSolves} Solved
-                        </span>
-                        <span className="text-[9.5px] text-zinc-400 font-mono mt-0.5 block">
+                      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-3.5 flex flex-col justify-between hover:bg-zinc-900/50 hover:border-zinc-700/60 transition-all shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-400">
+                            Problems Solved
+                          </span>
+                          <CheckCircle2 size={12} className="text-emerald-400/80" />
+                        </div>
+                        <div className="my-1.5">
+                          <span className="block text-xl font-bold font-mono tabular-nums text-emerald-400">
+                            {weekSolves} Solved
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-zinc-400 font-mono block">
                           in 7-day window
                         </span>
                       </div>
 
                       {/* Peak ZeroTrac Elo */}
-                      <div className="p-3.5 text-left border-r border-zinc-850/60">
-                        <span className="text-[8.5px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-500 block">
-                          peak conquered
-                        </span>
-                        <span className="block text-[18px] font-bold font-mono tabular-nums text-[#dfa054] mt-1 truncate">
-                          {peakProblem?.rating ? `★ ${Math.round(peakProblem.rating)}` : "—"}
-                        </span>
-                        <span className="text-[9.5px] text-zinc-400 font-mono mt-0.5 block truncate" title={peakProblem?.title || "No rated problems"}>
+                      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-3.5 flex flex-col justify-between hover:bg-zinc-900/50 hover:border-zinc-700/60 transition-all shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-400">
+                            Peak Conquered
+                          </span>
+                          <Trophy size={12} className="text-amber-400/80" />
+                        </div>
+                        <div className="my-1.5">
+                          <span className="block text-xl font-bold font-mono tabular-nums text-amber-400">
+                            {peakProblem?.rating ? `★ ${Math.round(peakProblem.rating)}` : "—"}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-zinc-400 font-mono block truncate" title={peakProblem?.title || "No rated problems"}>
                           {peakProblem ? peakProblem.title : "Unrated practice"}
                         </span>
                       </div>
 
                       {/* Practice Sessions */}
-                      <div className="p-3.5 text-left">
-                        <span className="text-[8.5px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-500 block">
-                          focus sessions
-                        </span>
-                        <span className="block text-[18px] font-bold font-mono tabular-nums text-sky-400 mt-1">
-                          {weekSessions} Sessions
-                        </span>
-                        <span className="text-[9.5px] text-zinc-400 font-mono mt-0.5 block">
-                          {sessionSuccessRate}% completed
+                      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-3.5 flex flex-col justify-between hover:bg-zinc-900/50 hover:border-zinc-700/60 transition-all shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-400">
+                            Focus Sessions
+                          </span>
+                          <Zap size={12} className="text-sky-400/80" />
+                        </div>
+                        <div className="my-1.5">
+                          <span className="block text-xl font-bold font-mono tabular-nums text-sky-400">
+                            {weekSessions} Sessions
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-zinc-400 font-mono block">
+                          {sessionSuccessRate}% completion rate
                         </span>
                       </div>
                     </div>
 
-                    {/* 7-Day Focus Rhythm with Interactive Hover Tooltip */}
-                    <div className="rounded-2xl border border-zinc-800/80 bg-[#0d0d0f] p-4 sm:p-5 space-y-3 shadow-sm">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-zinc-100 font-sans tracking-tight flex items-center gap-1.5">
-                          <BarChart3 size={14} className="text-[#dfa054]" />
-                          Weekly Focus Rhythm
+                    {/* 7-Day Velocity Rhythm (Audio-Waveform / GitHub Pulse Style) */}
+                    <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/25 p-4 sm:p-5 space-y-3.5 shadow-sm">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-zinc-100 font-sans tracking-tight flex items-center gap-1.5">
+                          <BarChart3 size={15} className="text-amber-400" />
+                          Weekly Velocity Rhythm
                         </span>
                         {hoveredDay ? (
-                          <span className="text-[10px] font-mono text-[#dfa054] bg-[#dfa054]/10 border border-[#dfa054]/25 px-2 py-0.5 rounded-md flex items-center gap-1 font-semibold animate-fadeIn">
+                          <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/25 px-2.5 py-0.5 rounded-full flex items-center gap-1 font-semibold animate-fadeIn">
                             {hoveredDay.dateLabel}: {formatDuration(hoveredDay.focusSeconds)} · {hoveredDay.solves} Solves
                           </span>
                         ) : strongestDay && strongestDay.focusSeconds > 0 ? (
-                          <span className="text-[9.5px] font-mono text-zinc-400 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-md flex items-center gap-1">
-                            <Sparkles size={10} className="text-[#dfa054]" />
-                            Peak: {strongestDay.dateLabel} ({formatDuration(strongestDay.focusSeconds)})
+                          <span className="text-[10px] font-mono text-amber-400/90 bg-amber-500/10 border border-amber-500/25 px-2.5 py-0.5 rounded-full flex items-center gap-1 font-medium">
+                            <Sparkles size={11} className="text-amber-400" />
+                            Peak: {strongestDay.dateLabel} · {formatDuration(strongestDay.focusSeconds)}
                           </span>
                         ) : null}
                       </div>
 
-                      <div className="grid grid-cols-7 gap-2 pt-2">
+                      <div className="grid grid-cols-7 gap-2 pt-1">
                         {days.map((day, idx) => {
                           const maxSecs = Math.max(...days.map((d) => d.focusSeconds), 3600)
-                          const heightPercent = day.focusSeconds > 0 ? Math.max(14, Math.round((day.focusSeconds / maxSecs) * 100)) : 6
+                          const heightPercent = day.focusSeconds > 0 ? Math.max(16, Math.round((day.focusSeconds / maxSecs) * 100)) : 8
                           const isStrongest = strongestDay && day.key === strongestDay.key && day.focusSeconds > 0
                           const isHovered = hoveredDay?.key === day.key
 
@@ -695,43 +740,47 @@ export function WeeklyReportModal({
                               onMouseLeave={() => setHoveredDay(null)}
                               className="flex flex-col items-center gap-2 cursor-pointer group"
                             >
-                              <div className={`h-24 w-full flex items-end justify-center bg-zinc-900/40 rounded-lg p-1 border transition-colors overflow-hidden ${
-                                isHovered ? "border-amber-500/40 bg-zinc-900/80" : "border-zinc-800/40"
+                              <div className={`h-28 w-full flex items-end justify-center bg-zinc-900/50 rounded-xl p-1 border transition-all overflow-hidden ${
+                                isHovered 
+                                  ? "border-amber-500/50 bg-zinc-850/80 shadow-[0_0_12px_rgba(245,158,11,0.15)]" 
+                                  : isStrongest
+                                  ? "border-amber-500/30 bg-zinc-900/70"
+                                  : "border-zinc-800/60 hover:border-zinc-700"
                               }`}>
                                 <motion.div
                                   initial={{ height: "0%" }}
                                   animate={{ height: `${heightPercent}%` }}
                                   transition={{
                                     duration: 0.55,
-                                    delay: 0.1 + idx * 0.04,
+                                    delay: 0.08 + idx * 0.035,
                                     ease: [0.16, 1, 0.3, 1]
                                   }}
-                                  className={`w-full rounded-t-md rounded-b-sm transition-all ${
+                                  className={`w-full rounded-lg transition-all ${
                                     isStrongest
-                                      ? "bg-gradient-to-t from-[#c88a3e] to-[#dfa054] shadow-[0_0_14px_rgba(223,160,84,0.35)]"
+                                      ? "bg-gradient-to-t from-amber-600 via-amber-500 to-amber-300 shadow-[0_0_14px_rgba(245,158,11,0.4)]"
                                       : isHovered
-                                      ? "bg-amber-400"
+                                      ? "bg-gradient-to-t from-amber-500 to-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.3)]"
                                       : day.focusSeconds > 0
-                                      ? "bg-gradient-to-t from-zinc-600 to-zinc-400 group-hover:from-zinc-500 group-hover:to-zinc-300"
-                                      : "bg-zinc-850/40"
+                                      ? "bg-gradient-to-t from-zinc-600 via-zinc-500 to-zinc-300 group-hover:from-zinc-500 group-hover:to-zinc-200"
+                                      : "bg-zinc-800/40"
                                   }`}
                                 />
                               </div>
                               <div className="flex flex-col items-center gap-0.5">
                                 <span className={`text-[10px] font-mono font-bold transition-colors ${
-                                  isHovered ? "text-[#dfa054]" : "text-zinc-300"
+                                  isHovered ? "text-amber-400" : isStrongest ? "text-amber-300/90" : "text-zinc-300"
                                 }`}>
                                   {day.label}
                                 </span>
-                                <span className="text-[8.5px] font-mono text-zinc-500 tabular-nums">
+                                <span className="text-[9px] font-mono text-zinc-500 tabular-nums">
                                   {day.focusSeconds > 0 ? formatDuration(day.focusSeconds) : "0m"}
                                 </span>
                                 {day.solves > 0 ? (
-                                  <span className="text-[8px] font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded-full">
+                                  <span className="text-[8.5px] font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded-md mt-0.5">
                                     {day.solves}✓
                                   </span>
                                 ) : (
-                                  <span className="text-[8px] font-mono text-zinc-600">—</span>
+                                  <span className="text-[9px] font-mono text-zinc-600 mt-0.5">—</span>
                                 )}
                               </div>
                             </div>
@@ -740,45 +789,43 @@ export function WeeklyReportModal({
                       </div>
                     </div>
 
-                    {/* Mathematically Accurate ZeroTrac Rating Distribution */}
-                    <div className="rounded-2xl border border-zinc-800/80 bg-[#0d0d0f] p-4 sm:p-5 space-y-3.5 shadow-sm">
-                      <div className="flex items-center justify-between">
+                    {/* ZeroTrac Rating Distribution */}
+                    <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/25 p-4 sm:p-5 space-y-3.5 shadow-sm">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div className="flex items-center gap-1.5">
                           <Trophy size={14} className="text-amber-400" />
-                          <span className="text-xs font-semibold text-zinc-100 font-sans tracking-tight">
+                          <span className="text-xs font-bold text-zinc-100 font-sans tracking-tight">
                             ZeroTrac Rating Distribution
                           </span>
                         </div>
                         <span className="text-[10px] font-mono text-zinc-500">
-                          {selectedRatingBand ? "Click tier to reset" : "Hover / click tier to filter"}
+                          {selectedRatingBand ? "Click tier to reset" : "Click tier to inspect problems"}
                         </span>
                       </div>
 
-                      {/* Clean Flat Rows (NO divide-y, NO curved white outline brackets!) */}
-                      <div className="space-y-1 pt-0.5">
+                      <div className="space-y-1.5 pt-0.5">
                         {ratingBandsData.map((band, idx) => {
                           const isSelected = selectedRatingBand === band.key
-                          // Calculate exact proportional width (% of weekly total solves)
                           const fillWidth = band.count > 0 ? Math.max(4, band.percentage) : 0
 
                           return (
                             <div
                               key={band.key}
                               onClick={() => setSelectedRatingBand(isSelected ? null : band.key)}
-                              className={`group flex items-center justify-between py-2 px-2.5 rounded-xl border transition-all cursor-pointer ${
+                              className={`group flex items-center justify-between py-2 px-3 rounded-xl border transition-all cursor-pointer ${
                                 isSelected
-                                  ? "bg-zinc-850/80 border-zinc-700 shadow-sm"
-                                  : "border-transparent hover:bg-zinc-900/60 hover:border-zinc-800/60"
+                                  ? "bg-zinc-800/80 border-zinc-600 shadow-sm"
+                                  : "border-transparent hover:bg-zinc-850/50 hover:border-zinc-800"
                               }`}
                               title={`${band.tierName} (${band.label}): ${band.count} problems (${band.percentage}% of weekly output)`}
                             >
                               {/* Left: Tier Badge & Range */}
-                              <div className="flex items-center gap-2.5 min-w-[130px] font-mono">
+                              <div className="flex items-center gap-2.5 min-w-[125px] font-mono shrink-0">
                                 <span
-                                  className="text-[9.5px] font-bold px-1.5 py-0.5 rounded border shrink-0"
+                                  className="text-[9.5px] font-bold px-2 py-0.5 rounded-md border shrink-0"
                                   style={{
                                     color: band.color,
-                                    backgroundColor: `${band.color}14`,
+                                    backgroundColor: `${band.color}15`,
                                     borderColor: `${band.color}35`
                                   }}
                                 >
@@ -789,8 +836,8 @@ export function WeeklyReportModal({
                                 </span>
                               </div>
 
-                              {/* Middle: Smooth Capsule Track with True Proportional Fill */}
-                              <div className="flex-1 mx-3 h-2 bg-zinc-850/60 rounded-full overflow-hidden flex items-center">
+                              {/* Middle: Smooth Capsule Track */}
+                              <div className="flex-1 mx-3 h-2.5 bg-zinc-850/70 rounded-full overflow-hidden flex items-center">
                                 {fillWidth > 0 && (
                                   <motion.div
                                     initial={{ width: 0 }}
@@ -803,16 +850,16 @@ export function WeeklyReportModal({
                                     className="h-full rounded-full"
                                     style={{
                                       backgroundColor: band.color,
-                                      boxShadow: `0 0 6px ${band.glow}`
+                                      boxShadow: `0 0 8px ${band.glow}`
                                     }}
                                   />
                                 )}
                               </div>
 
                               {/* Right: Solved Count & Percentage */}
-                              <div className="text-right min-w-[75px] shrink-0 font-mono">
-                                <span className={`text-xs font-bold tabular-nums ${band.count > 0 ? "text-zinc-200 group-hover:text-white" : "text-zinc-600"}`}>
-                                  {band.count} <span className="text-[10px] font-normal text-zinc-500">({band.percentage}%)</span>
+                              <div className="text-right min-w-[85px] shrink-0 font-mono">
+                                <span className={`text-xs font-bold tabular-nums ${band.count > 0 ? "text-zinc-100" : "text-zinc-500"}`}>
+                                  {band.count} <span className="text-[10px] font-normal text-zinc-400 font-mono">({band.percentage}%)</span>
                                 </span>
                               </div>
                             </div>
@@ -820,7 +867,7 @@ export function WeeklyReportModal({
                         })}
                       </div>
 
-                      {/* Ultra-Aesthetic Seamless Solved Problems Drawer */}
+                      {/* Expandable Solved Problems in Rating Band */}
                       <AnimatePresence>
                         {selectedRatingBand && (
                           <motion.div
@@ -828,7 +875,7 @@ export function WeeklyReportModal({
                             animate={{ opacity: 1, height: "auto" }}
                             exit={{ opacity: 0, height: 0 }}
                             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                            className="rounded-xl border border-zinc-800/80 bg-zinc-950/90 p-2 space-y-1 overflow-hidden shadow-inner mt-2"
+                            className="rounded-xl border border-zinc-800/80 bg-zinc-950/90 p-2.5 space-y-1 overflow-hidden shadow-inner mt-2"
                           >
                             {(() => {
                               const band = ratingBandsData.find((b) => b.key === selectedRatingBand)
@@ -836,22 +883,22 @@ export function WeeklyReportModal({
 
                               return (
                                 <>
-                                  <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-zinc-850/60">
+                                  <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-zinc-800">
                                     <div className="flex items-center gap-2">
                                       <span
-                                        className="h-1.5 w-1.5 rounded-full"
+                                        className="h-2 w-2 rounded-full"
                                         style={{ backgroundColor: band.color }}
                                       />
-                                      <span className="text-[11px] font-mono font-bold tracking-wide uppercase text-zinc-300">
+                                      <span className="text-[11px] font-mono font-bold tracking-wide uppercase text-zinc-200">
                                         {band.tierName} Solves
                                       </span>
-                                      <span className="text-[10px] font-mono text-zinc-500">
+                                      <span className="text-[10px] font-mono text-zinc-400">
                                         ({band.count} problems · {band.percentage}% of week)
                                       </span>
                                     </div>
                                     <button
                                       onClick={() => setSelectedRatingBand(null)}
-                                      className="text-[10px] font-mono text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+                                      className="text-[10px] font-mono text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
                                     >
                                       Close
                                     </button>
@@ -865,7 +912,7 @@ export function WeeklyReportModal({
                                           className="group flex items-center justify-between py-2 px-2.5 rounded-lg hover:bg-zinc-900/80 transition-colors"
                                         >
                                           <div className="flex items-center gap-2.5 min-w-0 pr-3">
-                                            <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-400/90 shadow-[0_0_6px_rgba(52,211,153,0.6)] shrink-0" />
+                                            <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
                                             <a
                                               href={`https://leetcode.com/problems/${p.slug}/`}
                                               target="_blank"
@@ -879,11 +926,11 @@ export function WeeklyReportModal({
 
                                           <div className="flex items-center gap-2 shrink-0 font-mono">
                                             {typeof p.rating === "number" && p.rating > 0 ? (
-                                              <span className="text-[11px] font-semibold text-zinc-400 group-hover:text-[#dfa054] tabular-nums transition-colors">
+                                              <span className="text-[11px] font-semibold text-amber-400 tabular-nums">
                                                 ★ {Math.round(p.rating)}
                                               </span>
                                             ) : p.difficulty ? (
-                                              <span className="text-[10px] text-zinc-500 font-mono">
+                                              <span className="text-[10px] text-zinc-400 font-mono">
                                                 {p.difficulty}
                                               </span>
                                             ) : null}
@@ -904,26 +951,26 @@ export function WeeklyReportModal({
                       </AnimatePresence>
                     </div>
 
-                    {/* Topics Solved This Week with Interactive Spectrum Hover Tooltips */}
-                    <div className="rounded-2xl border border-zinc-800/80 bg-[#0d0d0f] p-4 sm:p-5 space-y-3.5 shadow-sm">
-                      <div className="flex items-center justify-between">
+                    {/* Topics Solved Spectrum */}
+                    <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/25 p-4 sm:p-5 space-y-3.5 shadow-sm">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div>
-                          <span className="text-xs font-semibold text-zinc-100 font-sans tracking-tight flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-zinc-100 font-sans tracking-tight flex items-center gap-1.5">
                             <Tag size={14} className="text-sky-400" />
                             Topics Solved This Week
                           </span>
-                          <p className="text-[10px] font-mono text-zinc-500 mt-0.5">
-                            {topicDistribution.length} Categories · {solvedProblems.length} Problems
+                          <p className="text-[10px] font-mono text-zinc-400 mt-0.5">
+                            {topicDistribution.length} Categories · {solvedProblems.length} Problems Conquered
                           </p>
                         </div>
                         {hoveredSpectrum ? (
-                          <span className="text-[10px] font-mono text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 rounded-md font-semibold animate-fadeIn">
+                          <span className="text-[10px] font-mono text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2.5 py-0.5 rounded-full font-semibold animate-fadeIn">
                             {hoveredSpectrum.topic}: {hoveredSpectrum.count} Solves ({hoveredSpectrum.pct}%)
                           </span>
                         ) : selectedTopic ? (
                           <button
                             onClick={() => setSelectedTopic(null)}
-                            className="text-[10px] font-mono text-[#dfa054] hover:underline cursor-pointer"
+                            className="text-[10px] font-mono text-amber-400 hover:underline cursor-pointer"
                           >
                             Reset selection
                           </button>
@@ -932,8 +979,8 @@ export function WeeklyReportModal({
 
                       {topicDistribution.length > 0 ? (
                         <div className="space-y-3">
-                          {/* Segmented Distribution Spectrum Bar with Interactive Hover Tooltip */}
-                          <div className="h-2.5 w-full bg-zinc-850/60 rounded-full overflow-hidden flex gap-[2px] p-[1px]">
+                          {/* Segmented Distribution Spectrum Bar */}
+                          <div className="h-3 w-full bg-zinc-850/70 rounded-full overflow-hidden flex gap-[2px] p-[1.5px]">
                             {spectrumSegments.map(({ topic, count, pct }, idx) => {
                               const theme = getTopicTheme(topic)
                               const isHovered = hoveredSpectrum?.topic === topic
@@ -949,7 +996,7 @@ export function WeeklyReportModal({
                                   }}
                                   onMouseEnter={() => setHoveredSpectrum({ topic, count, pct })}
                                   onMouseLeave={() => setHoveredSpectrum(null)}
-                                  className={`h-full ${theme.bar} transition-all cursor-pointer ${
+                                  className={`h-full ${theme.bar} transition-all cursor-pointer rounded-sm ${
                                     isHovered ? "brightness-125 scale-y-110 shadow-sm" : "hover:brightness-110"
                                   }`}
                                 />
@@ -969,22 +1016,22 @@ export function WeeklyReportModal({
                                 <motion.button
                                   key={topic}
                                   type="button"
-                                  whileHover={{ scale: 1.03 }}
-                                  whileTap={{ scale: 0.97 }}
+                                  whileHover={{ scale: 1.02 }}
+                                  whileTap={{ scale: 0.98 }}
                                   onClick={() => setSelectedTopic(isSelected ? null : topic)}
                                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-mono transition-all cursor-pointer ${
                                     isSelected || isHovered
-                                      ? "bg-[#dfa054]/15 border-[#dfa054]/40 text-[#dfa054] shadow-sm ring-1 ring-[#dfa054]/30"
+                                      ? "bg-amber-500/15 border-amber-500/40 text-amber-300 shadow-sm ring-1 ring-amber-500/30"
                                       : isUntagged
-                                      ? "border-zinc-800/80 bg-zinc-900/30 text-zinc-500 hover:border-zinc-700"
-                                      : "border-zinc-800/80 bg-zinc-900/60 hover:bg-zinc-850 hover:border-zinc-700 text-zinc-300"
+                                      ? "border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700"
+                                      : "border-zinc-800/90 bg-zinc-900/60 hover:bg-zinc-850 hover:border-zinc-700 text-zinc-300"
                                   }`}
                                 >
-                                  <span className={`w-1.5 h-1.5 rounded-full ${isSelected || isHovered ? "bg-[#dfa054]" : theme.dot}`} />
+                                  <span className={`w-1.5 h-1.5 rounded-full ${isSelected || isHovered ? "bg-amber-400" : theme.dot}`} />
                                   <span className={`font-medium ${isSelected || isHovered ? "font-bold text-zinc-100" : isUntagged ? "italic" : "text-zinc-200"}`}>
                                     {topic}
                                   </span>
-                                  <span className="text-[10px] text-zinc-500 font-semibold">
+                                  <span className="text-[10px] text-zinc-400 font-semibold font-mono">
                                     {count}
                                   </span>
                                 </motion.button>
@@ -997,7 +1044,7 @@ export function WeeklyReportModal({
                             <div className="pt-0.5">
                               <button
                                 onClick={() => setShowAllTopics(!showAllTopics)}
-                                className="flex items-center gap-1 text-[10.5px] font-mono text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
+                                className="flex items-center gap-1 text-[11px] font-mono text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
                               >
                                 {showAllTopics ? (
                                   <>
@@ -1014,29 +1061,29 @@ export function WeeklyReportModal({
                             </div>
                           )}
 
-                          {/* Smooth Accordion Expanded Problems under Topic */}
+                          {/* Accordion Expanded Problems under Topic */}
                           <AnimatePresence>
                             {selectedTopic && (
                               <motion.div
-                                initial={{ opacity: 0, height: 0, scale: 0.98 }}
-                                animate={{ opacity: 1, height: "auto", scale: 1 }}
-                                exit={{ opacity: 0, height: 0, scale: 0.98 }}
-                                transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-                                className="rounded-xl border border-zinc-800/80 bg-zinc-950/90 p-2 space-y-1 font-mono overflow-hidden shadow-inner mt-2"
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                                className="rounded-xl border border-zinc-800/80 bg-zinc-950/90 p-2.5 space-y-1 font-mono overflow-hidden shadow-inner mt-2"
                               >
-                                <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-zinc-850/60">
+                                <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-zinc-800">
                                   <div className="flex items-center gap-2">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
-                                    <span className="text-[11px] font-bold text-zinc-200 tracking-wide">
+                                    <span className="h-2 w-2 rounded-full bg-sky-400" />
+                                    <span className="text-[11px] font-bold text-zinc-200 tracking-wide uppercase">
                                       {selectedTopic} Solves
                                     </span>
-                                    <span className="text-[10px] text-zinc-500 font-normal">
+                                    <span className="text-[10px] text-zinc-400 font-normal">
                                       ({solvedProblems.filter((p) => p.topics.includes(selectedTopic)).length} problems)
                                     </span>
                                   </div>
                                   <button
                                     onClick={() => setSelectedTopic(null)}
-                                    className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+                                    className="text-[10px] text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
                                   >
                                     Close
                                   </button>
@@ -1054,7 +1101,7 @@ export function WeeklyReportModal({
                                           className="group flex items-center justify-between py-2 px-2.5 rounded-lg hover:bg-zinc-900/80 transition-colors"
                                         >
                                           <div className="flex items-center gap-2.5 min-w-0 pr-3">
-                                            <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-400/90 shadow-[0_0_6px_rgba(52,211,153,0.6)] shrink-0" />
+                                            <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
                                             <a
                                               href={`https://leetcode.com/problems/${p.slug}/`}
                                               target="_blank"
@@ -1068,16 +1115,16 @@ export function WeeklyReportModal({
 
                                           <div className="flex items-center gap-2 shrink-0 font-mono">
                                             {p.focusSeconds && p.focusSeconds > 0 && (
-                                              <span className="text-[10px] text-zinc-500">
+                                              <span className="text-[10px] text-zinc-400">
                                                 {formatDuration(p.focusSeconds)}
                                               </span>
                                             )}
                                             {hasRating ? (
-                                              <span className="text-[11px] font-semibold text-zinc-400 group-hover:text-[#dfa054] tabular-nums transition-colors">
+                                              <span className="text-[11px] font-semibold text-amber-400 tabular-nums">
                                                 ★ {Math.round(p.rating!)}
                                               </span>
                                             ) : p.difficulty ? (
-                                              <span className="text-[10px] text-zinc-500">
+                                              <span className="text-[10px] text-zinc-400">
                                                 {p.difficulty}
                                               </span>
                                             ) : null}
@@ -1105,21 +1152,37 @@ export function WeeklyReportModal({
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    transition={{ duration: 0.18, ease: "easeOut" }}
                     className="space-y-3"
                   >
-                    <div className="flex items-center justify-between text-xs border-b border-zinc-800/80 pb-2 px-1">
-                      <span className="text-zinc-400 font-mono text-[11px]">
-                        Chronological Solve Log ({solvedProblems.length} problems)
-                      </span>
-                      <span className="text-zinc-500 font-mono text-[10px]">
-                        Verified Tags & Rating
-                      </span>
+                    {/* Search & Filter Header */}
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Search by problem name or topic..."
+                          className="w-full bg-zinc-900/80 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-xs font-mono text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-amber-500/50 transition-colors"
+                        />
+                        {searchQuery && (
+                          <button
+                            onClick={() => setSearchQuery("")}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono text-zinc-500 hover:text-zinc-300"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                      <div className="text-[11px] font-mono text-zinc-400 shrink-0 px-2">
+                        {filteredProblems.length} of {solvedProblems.length}
+                      </div>
                     </div>
 
-                    {solvedProblems.length > 0 ? (
-                      <div className="rounded-2xl border border-zinc-800/80 bg-[#0d0d0f] p-2 space-y-1 shadow-sm">
-                        {solvedProblems.map((p, idx) => {
+                    {filteredProblems.length > 0 ? (
+                      <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/25 p-2 space-y-1 shadow-sm max-h-[58vh] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-800">
+                        {filteredProblems.map((p, idx) => {
                           const hasRating = typeof p.rating === "number" && p.rating > 0
 
                           return (
@@ -1128,34 +1191,34 @@ export function WeeklyReportModal({
                               initial={{ opacity: 0, y: 4 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ duration: 0.18, delay: idx * 0.015 }}
-                              className="group flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-zinc-900/80 border border-transparent hover:border-zinc-800/60 transition-all"
+                              className="group flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-zinc-850/60 border border-transparent hover:border-zinc-800/70 transition-all"
                             >
                               <div className="flex items-center gap-3 min-w-0 pr-3">
-                                <span className="text-[10px] text-zinc-600 font-mono w-4 text-right shrink-0">
+                                <span className="text-[10px] text-zinc-500 font-mono w-5 text-right shrink-0">
                                   {idx + 1}
                                 </span>
-                                <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-400/90 shadow-[0_0_6px_rgba(52,211,153,0.6)] shrink-0" />
+                                <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
                                 <div className="min-w-0">
                                   <a
                                     href={`https://leetcode.com/problems/${p.slug}/`}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="font-sans text-[13px] font-medium text-zinc-300 group-hover:text-zinc-100 transition-colors truncate flex items-center gap-1.5"
+                                    className="font-sans text-[13px] font-medium text-zinc-200 group-hover:text-white transition-colors truncate flex items-center gap-1.5"
                                   >
                                     <span className="truncate">{p.title}</span>
                                     <ExternalLink size={11} className="opacity-0 group-hover:opacity-60 transition-opacity text-zinc-400 shrink-0" />
                                   </a>
-                                  <div className="flex flex-wrap items-center gap-1 mt-0.5 font-mono">
+                                  <div className="flex flex-wrap items-center gap-1.5 mt-0.5 font-mono">
                                     {p.topics.slice(0, 3).map((t) => (
                                       <span
                                         key={t}
-                                        className="text-[9px] text-zinc-500 hover:text-zinc-300 transition-colors"
+                                        className="text-[9.5px] text-zinc-400 hover:text-zinc-200 transition-colors"
                                       >
                                         #{t}
                                       </span>
                                     ))}
                                     {p.topics.length > 3 && (
-                                      <span className="text-[9px] text-zinc-600">
+                                      <span className="text-[9px] text-zinc-500 font-mono">
                                         +{p.topics.length - 3}
                                       </span>
                                     )}
@@ -1165,16 +1228,16 @@ export function WeeklyReportModal({
 
                               <div className="flex items-center gap-3 shrink-0 font-mono">
                                 {p.focusSeconds && p.focusSeconds > 0 && (
-                                  <span className="text-[10px] text-zinc-500">
+                                  <span className="text-[10.5px] text-zinc-400 tabular-nums">
                                     {formatDuration(p.focusSeconds)}
                                   </span>
                                 )}
                                 {hasRating ? (
-                                  <span className="text-[11px] font-semibold text-zinc-400 group-hover:text-[#dfa054] tabular-nums transition-colors">
+                                  <span className="text-[11px] font-semibold text-amber-400 tabular-nums">
                                     ★ {Math.round(p.rating!)}
                                   </span>
                                 ) : p.difficulty ? (
-                                  <span className="text-[10px] text-zinc-500">
+                                  <span className="text-[10px] text-zinc-400 font-mono">
                                     {p.difficulty}
                                   </span>
                                 ) : null}
@@ -1185,7 +1248,7 @@ export function WeeklyReportModal({
                       </div>
                     ) : (
                       <div className="p-8 text-center text-zinc-500 font-mono text-xs border border-dashed border-zinc-800 rounded-xl">
-                        No solves recorded in the last 7 days.
+                        {searchQuery ? "No problems match your search criteria." : "No solves recorded in the last 7 days."}
                       </div>
                     )}
                   </motion.div>
@@ -1197,50 +1260,50 @@ export function WeeklyReportModal({
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    transition={{ duration: 0.18, ease: "easeOut" }}
                     className="space-y-4"
                   >
-                    {/* Executive Strategy Box */}
-                    <div className="rounded-2xl border border-amber-500/25 bg-gradient-to-r from-amber-500/10 via-zinc-950 to-zinc-950 p-4 sm:p-5 space-y-2">
-                      <div className="flex items-center gap-2 text-xs font-mono font-bold text-[#dfa054] uppercase tracking-wider">
+                    {/* Executive Strategy Directive */}
+                    <div className="rounded-2xl border border-amber-500/25 bg-gradient-to-r from-amber-500/10 via-zinc-950/80 to-zinc-950 p-4 sm:p-5 space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-mono font-bold text-amber-400 uppercase tracking-wider">
                         <Target size={14} />
-                        Tactical Practice Directive
+                        Tactical Frontier Directive
                       </div>
                       <p className="text-xs leading-relaxed text-zinc-300 font-sans">
                         {peakProblem?.rating
-                          ? `Your current conquered rating frontier is ★ ${Math.round(peakProblem.rating)}. To break into the next performance tier, target 3 problems at the ${Math.floor(peakProblem.rating / 100) * 100 + 50}–${Math.floor(peakProblem.rating / 100) * 100 + 150} Elo band this week.`
+                          ? `Your current conquered rating frontier is ★ ${Math.round(peakProblem.rating)}. To break into the next contest tier, target 3 problems at the ${Math.floor(peakProblem.rating / 100) * 100 + 50}–${Math.floor(peakProblem.rating / 100) * 100 + 150} Elo band this week.`
                           : `Establish consistent problem-solving velocity by recording 25-minute practice sessions across foundational patterns.`}
                       </p>
                     </div>
 
-                    {/* 3 Recommended Frontier Problems */}
+                    {/* Recommended Frontier Problems */}
                     {nextTargetProblems.length > 0 && (
                       <div className="space-y-2">
                         <div className="text-xs font-bold text-zinc-200 font-sans flex items-center gap-1.5">
-                          <Sparkles size={13} className="text-[#dfa054]" />
+                          <Sparkles size={13} className="text-amber-400" />
                           Frontier Targets for Next Week
                         </div>
 
-                        <div className="rounded-2xl border border-zinc-800/80 bg-[#0d0d0f] p-2 space-y-1 shadow-sm">
+                        <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/25 p-2 space-y-1 shadow-sm">
                           {nextTargetProblems.map((prob) => {
                             const isAlreadySolved = solvedProblems.some((s) => s.slug === prob.TitleSlug.toLowerCase())
 
                             return (
                               <div
                                 key={prob.TitleSlug}
-                                className="group flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-zinc-900/80 border border-transparent hover:border-zinc-800/60 transition-all"
+                                className="group flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-zinc-850/60 border border-transparent hover:border-zinc-800/70 transition-all"
                               >
-                                <div>
-                                  <div className="text-[13px] font-medium text-zinc-200 font-sans group-hover:text-white transition-colors">
+                                <div className="min-w-0 pr-3">
+                                  <div className="text-[13px] font-medium text-zinc-200 font-sans group-hover:text-white transition-colors truncate">
                                     {prob.Title}
                                   </div>
-                                  <div className="text-[9.5px] font-mono text-zinc-500 mt-0.5">
+                                  <div className="text-[10px] font-mono text-zinc-400 mt-0.5">
                                     {prob.ContestID_en || "Contest Challenge"} · Index {prob.ProblemIndex || "Q"}
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-3 font-mono">
-                                  <span className="text-[11px] font-semibold text-[#dfa054] tabular-nums">
+                                <div className="flex items-center gap-3 font-mono shrink-0">
+                                  <span className="text-[11px] font-semibold text-amber-400 tabular-nums">
                                     ★ {Math.round(prob.Rating)}
                                   </span>
                                   {isAlreadySolved ? (
@@ -1253,7 +1316,7 @@ export function WeeklyReportModal({
                                       href={`https://leetcode.com/problems/${prob.TitleSlug}/`}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-sans font-semibold transition-colors flex items-center gap-1"
+                                      className="px-3 py-1 rounded-lg bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-200 text-xs font-sans font-semibold transition-all flex items-center gap-1 shadow-sm"
                                     >
                                       <span>Solve</span>
                                       <ArrowRight size={12} />
@@ -1272,15 +1335,15 @@ export function WeeklyReportModal({
             </div>
 
             {/* Modal Footer */}
-            <div className="relative z-10 flex items-center justify-between border-t border-zinc-800/80 bg-zinc-950/80 px-5 py-3.5 shrink-0">
-              <span className="text-[10px] font-mono text-zinc-500">
-                AlgoVault Performance Telemetry
+            <div className="relative z-10 flex items-center justify-between border-t border-zinc-800/80 bg-zinc-950/90 px-5 py-3.5 shrink-0">
+              <span className="text-[10px] font-mono text-zinc-400">
+                AlgoVault Practice Intelligence
               </span>
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={onClose}
-                className="px-5 py-1.5 rounded-lg bg-[#dfa054] hover:bg-[#e6ab62] text-zinc-950 font-bold text-xs font-sans transition-colors cursor-pointer shadow-sm"
+                className="px-5 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-zinc-950 font-bold text-xs font-sans transition-all cursor-pointer shadow-sm"
               >
                 Done
               </motion.button>

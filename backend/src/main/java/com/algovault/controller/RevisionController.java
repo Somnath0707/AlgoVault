@@ -27,6 +27,15 @@ public class RevisionController {
     private final UserContextService userContextService;
 
     @GetMapping
+    public ResponseEntity<List<RevisionResponse>> getQueue(HttpServletRequest request,
+            @RequestParam(required = false) Integer solvedWithinDays) {
+        if (solvedWithinDays != null && (solvedWithinDays < 1 || solvedWithinDays > 3650)) {
+            return ResponseEntity.badRequest().build();
+        }
+        User user = userContextService.resolveUser(request);
+        return ResponseEntity.ok(revisionService.getQueue(user.getId(), solvedWithinDays));
+    }
+
     public ResponseEntity<List<RevisionResponse>> getQueue(HttpServletRequest request) {
         User user = userContextService.resolveUser(request);
         return ResponseEntity.ok(revisionService.getQueue(user.getId()));

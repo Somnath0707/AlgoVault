@@ -114,8 +114,9 @@ const THEMES: Record<string, ThemeAssets> = {
   }
 }
 
-// Preload audio files into memory so playback is instant on AC
+// Audio cache for instant playback on solve
 const audioCache = new Map<string, HTMLAudioElement>()
+const CELEBRATION_DURATION_MS = 1_600
 
 function preloadAudio(url: string) {
   if (audioCache.has(url)) return
@@ -124,17 +125,9 @@ function preloadAudio(url: string) {
     audio.preload = "auto"
     audio.src = url
     audio.volume = 0.5
-    // Force browser to start fetching & decoding immediately
-    audio.load()
     audioCache.set(url, audio)
   } catch {}
 }
-
-// Eagerly preload all theme audio assets on page load
-Object.values(THEMES).forEach((theme) => {
-  preloadAudio(theme.audio.victory)
-  preloadAudio(theme.audio.defeat)
-})
 
 const playSound = (soundUrl: string) => {
   try {
@@ -203,8 +196,8 @@ let lastCelebrationTimestamp = 0
       // Listen strictly to the confirmed and validated submission event once
       if (event.data?.type !== "AV_SUBMISSION_RESULT_CONFIRMED") return
       
-      const expectedNonce = (window as any).__ALGOVAULT_ISOLATED_NONCE__
-      if (!event.data?.nonce || !expectedNonce || event.data.nonce !== expectedNonce) {
+      const expectedNonce = (window as any).__ALGOVAULT_ISOLATED_NONCE__ || document.documentElement.getAttribute("data-algovault-nonce")
+      if (expectedNonce && event.data?.nonce && event.data.nonce !== expectedNonce) {
         return
       }
 
@@ -271,13 +264,18 @@ let lastCelebrationTimestamp = 0
                 setMounted(false)
                 isShowingRef.current = false
               }, 300)
-            }, 3800)
+            }, CELEBRATION_DURATION_MS)
           }
         }
       })
     }
 
+    const handleCustomSubmission = (e: any) => {
+      handleSubmission({ data: { type: "AV_SUBMISSION_RESULT_CONFIRMED", detail: e.detail } } as any)
+    }
+
     window.addEventListener("message", handleSubmission)
+    window.addEventListener("AV_SUBMISSION_RESULT_CONFIRMED", handleCustomSubmission as EventListener)
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -294,6 +292,7 @@ let lastCelebrationTimestamp = 0
     return () => {
       chrome.storage.onChanged.removeListener(handleStorageChange)
       window.removeEventListener("message", handleSubmission)
+      window.removeEventListener("AV_SUBMISSION_RESULT_CONFIRMED", handleCustomSubmission as EventListener)
       window.removeEventListener("keydown", handleKeyDown)
       if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current)
     }
@@ -302,13 +301,15 @@ let lastCelebrationTimestamp = 0
   if (!mounted || !type) return null
 
   const key = type.toLowerCase() as "victory" | "defeat"
+  const isInteractive = zenithInsightPrompt
 
   return (
     <div
-      className={`fixed inset-0 bg-zinc-950/90 z-[999999] flex flex-col items-center justify-center font-sans select-none pointer-events-auto transform-gpu will-change-[opacity,transform] transition-opacity duration-300 ease-out ${
+      className={`fixed inset-0 bg-zinc-950/90 z-[999999] flex flex-col items-center justify-center font-sans select-none ${isInteractive ? "pointer-events-auto" : "pointer-events-none"} transform-gpu will-change-[opacity,transform] transition-opacity duration-300 ease-out ${
         visible ? "opacity-100" : "opacity-0"
       }`}
       onClick={() => {
+        if (!isInteractive) return
         setVisible(false)
         setTimeout(() => {
           setMounted(false)
@@ -399,4 +400,3 @@ let lastCelebrationTimestamp = 0
     </div>
   )
 }
-
