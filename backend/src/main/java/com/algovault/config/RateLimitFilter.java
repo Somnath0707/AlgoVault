@@ -30,9 +30,21 @@ public class RateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         String path = request.getRequestURI();
-        int limit = (path.equals("/api/auth/github-exchange") || path.equals("/api/auth/github-token")) ? 10
-            : path.equals("/api/auth/github-state") ? 30 : 180;
-        long windowSeconds = path.startsWith("/api/auth/") ? 3600 : 60;
+        int limit;
+        long windowSeconds;
+        if (path.equals("/api/auth/github-exchange")) {
+            limit = 30;
+            windowSeconds = 3600;
+        } else if (path.equals("/api/auth/github-token")) {
+            limit = 120;
+            windowSeconds = 3600;
+        } else if (path.equals("/api/auth/github-state")) {
+            limit = 60;
+            windowSeconds = 3600;
+        } else {
+            limit = 180;
+            windowSeconds = 60;
+        }
         String key = "ratelimit:" + path + ":" + request.getRemoteAddr() + ":" + (System.currentTimeMillis() / (windowSeconds * 1000));
         Long count;
         try {

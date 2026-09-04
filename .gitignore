@@ -36,6 +36,7 @@ target/
 tsconfig.tsbuildinfo
 release/
 temp/
+*.tar.gz
 fucking-algorithm-english/
 !extension/build/chrome-mv3-prod/**
 

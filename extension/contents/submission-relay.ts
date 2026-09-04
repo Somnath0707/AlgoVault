@@ -24,14 +24,6 @@ type SubmissionPayload = {
 
 const relayedSubmissionIds = new Set<string>()
 
-function runWhenIdle(work: () => void) {
-  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-    (window as any).requestIdleCallback(work, { timeout: 2_500 })
-    return
-  }
-  setTimeout(work, 1_000)
-}
-
 function currentSlug() {
   return getLeetCodeProblemSlug()
 }
@@ -44,12 +36,16 @@ function currentTitle() {
 function editorCodeFallback() {
   const textarea = document.querySelector<HTMLTextAreaElement>("textarea.inputarea")
   if (textarea?.value?.trim()) return textarea.value
-  return undefined
+  // Use textContent to avoid synchronous forced reflow/layout freezes
+  const lines = Array.from(document.querySelectorAll<HTMLElement>(".view-lines .view-line"))
+    .map((line) => line.textContent || "")
+    .filter(Boolean)
+  return lines.length ? lines.join("\n") : undefined
 }
 
 function languageFallback() {
   const selected = document.querySelector<HTMLElement>("[data-cy='lang-select'], button[id*='headlessui-listbox-button']")
-  return selected?.textContent?.trim() || undefined
+  return selected?.innerText?.trim() || undefined
 }
 
 function parseRuntimeMs(runtime?: string) {
@@ -175,19 +171,65 @@ function showPostSolveDialog(titleSlug: string) {
   })
 }
 
-// Listen for postMessage from MAIN world (CustomEvents do NOT cross MAIN→ISOLATED boundary)
+let lastHandledAcTime = 0
+
+function handleAcceptedVerdict(detail?: any) {
+  const now = Date.now()
+  if (now - lastHandledAcTime < 8000) return
+  lastHandledAcTime = now
+
+  const slug = currentSlug()
+  if (!slug) return
+
+  const code = detail?.code || editorCodeFallback()
+  const codeLang = detail?.codeLang || detail?.lang || languageFallback()
+  const runtimeMs = parseRuntimeMs(detail?.runtime)
+  const memoryKb = parseMemoryKb(detail?.memory)
+
+  const payload: SubmissionPayload = {
+    submissionId: detail?.submissionId ? String(detail.submissionId) : undefined,
+    titleSlug: slug,
+    title: currentTitle(),
+    statusCode: 10,
+    statusDisplay: "Accepted",
+    language: detail?.lang || codeLang,
+    runtimeMs,
+    memoryKb,
+    totalCorrect: detail?.totalCorrect,
+    totalTestcases: detail?.totalTestcases,
+    submittedAt: new Date().toISOString(),
+    code,
+    codeLang
+  }
+
+  console.log("[AlgoVault Relay] Confirmed Accepted solve! Stopping timer and triggering celebration...", payload)
+
+  // 1. Instantly stop the session timer
+  chrome.runtime.sendMessage({ action: "session_finish_v2", language: payload.language })
+
+  // 2. Instantly trigger celebration audio and visual overlay
+  chrome.runtime.sendMessage({ action: "trigger_celebration", verdict: "Accepted", detail: payload })
+  window.postMessage({ type: "AV_SUBMISSION_RESULT_CONFIRMED", detail: payload }, window.location.origin || "*")
+
+  // 3. Dispatch to background for GitHub commit & backend telemetry
+  chrome.runtime.sendMessage({ action: "submission_result", payload })
+
+  // 4. Update local solved slugs cache
+  chrome.storage.local.get("algovault.solvedSlugs", (result) => {
+    const cached = result["algovault.solvedSlugs"] || {}
+    const slugs = new Set<string>(Array.isArray(cached?.slugs) ? cached.slugs : [])
+    slugs.add(slug)
+    chrome.storage.local.set({ "algovault.solvedSlugs": { fetchedAt: Date.now(), slugs: Array.from(slugs) } })
+  })
+
+  // 5. Present post-solve self-report dialog
+  showPostSolveDialog(slug)
+}
+
+// ─── Path 1: Listen for postMessage from MAIN world interceptor ───────
 window.addEventListener("message", ((event: MessageEvent) => {
   if (event.origin !== window.location.origin || event.source !== window) return
   if (event.data?.type !== "AV_SUBMISSION_RESULT") return
-  
-  const expectedNonce = (window as any).__ALGOVAULT_ISOLATED_NONCE__ || document.documentElement.getAttribute("data-algovault-nonce")
-  if (expectedNonce && event.data?.nonce && event.data.nonce !== expectedNonce) {
-    console.warn("AlgoVault: submission-relay nonce mismatch!", {
-      received: event.data?.nonce,
-      expected: expectedNonce
-    })
-    return
-  }
 
   const detail = event.data.detail || {}
 
@@ -214,49 +256,138 @@ window.addEventListener("message", ((event: MessageEvent) => {
     if (relayedSubmissionIds.size > 100) relayedSubmissionIds.delete(relayedSubmissionIds.values().next().value!)
   }
 
-  const runtimeMs = parseRuntimeMs(detail.runtime)
-  const memoryKb = parseMemoryKb(detail.memory)
+  const statusDisplay = verdictFromCode(detail.statusCode, detail.statusDisplay)
 
-  const code = detail.code || undefined
+  if (statusDisplay === "Accepted" || statusCode === 10) {
+    handleAcceptedVerdict(detail)
+    return
+  }
 
+  // Non-accepted submission (Wrong Answer, TLE, Runtime Error, etc.)
   const payload: SubmissionPayload = {
     submissionId: detail.submissionId ? String(detail.submissionId) : undefined,
     titleSlug: slug,
     title: currentTitle(),
     statusCode: detail.statusCode,
-    statusDisplay: verdictFromCode(detail.statusCode, detail.statusDisplay),
+    statusDisplay,
     language: detail.lang,
-    runtimeMs: runtimeMs,
-    memoryKb: memoryKb,
+    runtimeMs: parseRuntimeMs(detail.runtime),
+    memoryKb: parseMemoryKb(detail.memory),
     totalCorrect: detail.totalCorrect,
     totalTestcases: detail.totalTestcases,
     submittedAt: new Date().toISOString(),
-    code: code || editorCodeFallback(),
+    code: detail.code || editorCodeFallback(),
     codeLang: detail.codeLang || detail.lang || languageFallback()
   }
 
-  // Fire the background message immediately (non-blocking)
   chrome.runtime.sendMessage({ action: "submission_result", payload })
-
-  const notifyCelebration = () => {
-    const activeNonce = expectedNonce || event.data?.nonce || ""
-    window.postMessage({ type: "AV_SUBMISSION_RESULT_CONFIRMED", nonce: activeNonce, detail: payload }, window.location.origin || "*")
-    window.dispatchEvent(new CustomEvent("AV_SUBMISSION_RESULT_CONFIRMED", { detail: payload }))
-  }
-
-  if (payload.statusDisplay === "Accepted") {
-    // Immediately stop the practice session & timer
-    chrome.runtime.sendMessage({ action: "session_finish_v2", language: payload.language })
-
-    // Trigger celebration audio & overlay promptly
-    setTimeout(() => {
-      notifyCelebration()
-    }, 100)
-
-    runWhenIdle(() => {
-      showPostSolveDialog(slug)
-    })
-  } else {
-    notifyCelebration()
-  }
+  chrome.runtime.sendMessage({ action: "trigger_celebration", verdict: statusDisplay, detail: payload })
+  window.postMessage({ type: "AV_SUBMISSION_RESULT_CONFIRMED", detail: payload }, window.location.origin || "*")
 }))
+
+let lastSubmitClickTime = 0
+
+// Track user clicks to strictly differentiate "Submit" from "Run Code"
+document.addEventListener("click", (e) => {
+  const target = e.target as HTMLElement | null
+  const btn = target?.closest("button")
+  if (!btn) return
+
+  const isSubmitBtn =
+    btn.getAttribute("data-e2e-locator") === "console-submit-button" ||
+    btn.textContent?.trim().toLowerCase() === "submit"
+
+  const isRunBtn =
+    btn.getAttribute("data-e2e-locator") === "console-run-button" ||
+    btn.textContent?.trim().toLowerCase() === "run" ||
+    btn.textContent?.trim().toLowerCase() === "run code"
+
+  if (isSubmitBtn) {
+    lastSubmitClickTime = Date.now()
+    console.log("[AlgoVault Relay] User clicked Submit button at", lastSubmitClickTime)
+  } else if (isRunBtn) {
+    lastSubmitClickTime = 0
+    console.log("[AlgoVault Relay] User clicked Run button; disallowing solve trigger")
+  }
+}, true)
+
+// Keyboard shortcut (Ctrl+Enter or Cmd+Enter initiates Submit on LeetCode)
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !e.shiftKey) {
+    lastSubmitClickTime = Date.now()
+  }
+}, true)
+
+// ─── Path 2: Bulletproof DOM MutationObserver Fallback ───────────────
+// If network interception is blocked by Brave Shields or CSP, this guarantees
+// timer stop, celebration sound, and GitHub commit when "Accepted" appears on screen.
+// STRICTLY excludes "Run Code" / sample testcase results!
+function setupDomAcObserver() {
+  let debounceTimeout: any = null
+
+  const checkDomForAc = () => {
+    // 1. HARD GUARD: Must have clicked Submit within the last 45 seconds
+    const timeSinceSubmit = Date.now() - lastSubmitClickTime
+    if (timeSinceSubmit > 45000 || lastSubmitClickTime === 0) {
+      return
+    }
+
+    // 2. Check for standard LeetCode submission result element
+    const resultElement = document.querySelector('[data-e2e-locator="submission-result"]')
+    if (resultElement && resultElement.textContent?.trim() === "Accepted") {
+      // Must NOT be inside the test result panel
+      if (!resultElement.closest('[data-layout-path*="testresult"], [class*="test-result"]')) {
+        handleAcceptedVerdict()
+        return
+      }
+    }
+
+    // 3. Scan candidate result status elements, strictly excluding test results
+    const candidates = document.querySelectorAll(
+      'span[class*="text-green"], div[class*="text-green"], span[class*="text-success"], div[class*="text-success"]'
+    )
+    for (let i = 0; i < candidates.length; i++) {
+      const el = candidates[i]
+      if (el.textContent?.trim() === "Accepted") {
+        // Must NOT be inside the testcase/testresult console
+        if (el.closest('[data-layout-path*="testresult"], [class*="test-result"], [data-cy="run-code-result"]')) {
+          continue
+        }
+        const container = el.closest('[class*="submission"], [class*="result"], [data-layout-path*="submission"]') || el.parentElement?.parentElement
+        if (container) {
+          const containerText = container.textContent || ""
+          // If container has "Case 1", "Testcase", or "Expected", it is Run Code, ignore it
+          if (/Case\s*1|Testcase|Expected/i.test(containerText)) {
+            continue
+          }
+          // Real submission contains "Beats" or "Runtime" without sample testcase labels
+          if (/Beats\s+[\d.]+%|Runtime/i.test(containerText)) {
+            handleAcceptedVerdict()
+            return
+          }
+        }
+      }
+    }
+  }
+
+  const observer = new MutationObserver((mutations) => {
+    if (debounceTimeout) return
+    const hasRelevantMutation = mutations.some((m) => {
+      const target = m.target instanceof Element ? m.target : m.target.parentElement
+      return !target?.closest(".monaco-editor, .view-lines, #algovault-post-solve, plasmo-csui")
+    })
+    if (!hasRelevantMutation) return
+
+    debounceTimeout = setTimeout(() => {
+      debounceTimeout = null
+      checkDomForAc()
+    }, 250)
+  })
+
+  observer.observe(document.body, { childList: true, subtree: true })
+}
+
+// Initialize DOM observer failsafe
+setupDomAcObserver()
+
+

@@ -114,9 +114,8 @@ const THEMES: Record<string, ThemeAssets> = {
   }
 }
 
-// Audio cache for instant playback on solve
+// Preload audio files into memory so playback is instant on AC
 const audioCache = new Map<string, HTMLAudioElement>()
-const CELEBRATION_DURATION_MS = 1_600
 
 function preloadAudio(url: string) {
   if (audioCache.has(url)) return
@@ -125,9 +124,17 @@ function preloadAudio(url: string) {
     audio.preload = "auto"
     audio.src = url
     audio.volume = 0.5
+    // Force browser to start fetching & decoding immediately
+    audio.load()
     audioCache.set(url, audio)
   } catch {}
 }
+
+// Eagerly preload all theme audio assets on page load
+Object.values(THEMES).forEach((theme) => {
+  preloadAudio(theme.audio.victory)
+  preloadAudio(theme.audio.defeat)
+})
 
 const playSound = (soundUrl: string) => {
   try {
@@ -190,17 +197,9 @@ export default function SolveCelebration() {
     }
     chrome.storage.onChanged.addListener(handleStorageChange)
 
-let lastCelebrationTimestamp = 0
+    let lastCelebrationTimestamp = 0
 
-    const handleSubmission = (event: MessageEvent) => {
-      // Listen strictly to the confirmed and validated submission event once
-      if (event.data?.type !== "AV_SUBMISSION_RESULT_CONFIRMED") return
-      
-      const expectedNonce = (window as any).__ALGOVAULT_ISOLATED_NONCE__ || document.documentElement.getAttribute("data-algovault-nonce")
-      if (expectedNonce && event.data?.nonce && event.data.nonce !== expectedNonce) {
-        return
-      }
-
+    const triggerCelebration = (detail: any = {}, overrideVerdict?: string) => {
       // Hard debounce guard: allow at most 1 celebration audio/overlay per 3.5 seconds
       const now = Date.now()
       if (now - lastCelebrationTimestamp < 3500) {
@@ -208,8 +207,9 @@ let lastCelebrationTimestamp = 0
       }
       lastCelebrationTimestamp = now
 
-      const detail = event.data.detail || {}
-      const submissionKey = detail.submissionId ? String(detail.submissionId) : `${detail.titleSlug || 'unknown'}-${detail.statusCode}-${detail.runtime || ''}`
+      const submissionKey = detail.submissionId
+        ? String(detail.submissionId)
+        : `${detail.titleSlug || "unknown"}-${detail.statusCode || ""}-${overrideVerdict || ""}`
       if (handledSubmissionsRef.current.has(submissionKey)) {
         return
       }
@@ -220,7 +220,7 @@ let lastCelebrationTimestamp = 0
       }
 
       const status = detail.statusCode != null ? Number(detail.statusCode) : null
-      const verdict = String(detail.statusDisplay || "").toLowerCase()
+      const verdict = String(overrideVerdict || detail.statusDisplay || "").toLowerCase()
 
       let newType: "VICTORY" | "DEFEAT" | null = null
       if (status === 10 || verdict === "accepted") newType = "VICTORY"
@@ -237,6 +237,7 @@ let lastCelebrationTimestamp = 0
 
       // Fast-path synchronous audio trigger (plays exactly once)
       if (prefsRef.current.sound) {
+        console.log("[AlgoVault Celebration] Playing AC sound for theme:", prefsRef.current.theme)
         playSound(newType === "VICTORY" ? activeTheme.audio.victory : activeTheme.audio.defeat)
       }
 
@@ -251,7 +252,7 @@ let lastCelebrationTimestamp = 0
           if (isShowingRef.current) return
           isShowingRef.current = true
           setMounted(true)
-          
+
           requestAnimationFrame(() => {
             setVisible(true)
           })
@@ -264,18 +265,25 @@ let lastCelebrationTimestamp = 0
                 setMounted(false)
                 isShowingRef.current = false
               }, 300)
-            }, CELEBRATION_DURATION_MS)
+            }, 3800)
           }
         }
       })
     }
 
-    const handleCustomSubmission = (e: any) => {
-      handleSubmission({ data: { type: "AV_SUBMISSION_RESULT_CONFIRMED", detail: e.detail } } as any)
+    const handleSubmission = (event: MessageEvent) => {
+      if (event.data?.type !== "AV_SUBMISSION_RESULT_CONFIRMED") return
+      triggerCelebration(event.data.detail)
+    }
+
+    const handleRuntimeMessage = (msg: any) => {
+      if (msg?.action === "trigger_celebration") {
+        triggerCelebration(msg.detail, msg.verdict)
+      }
     }
 
     window.addEventListener("message", handleSubmission)
-    window.addEventListener("AV_SUBMISSION_RESULT_CONFIRMED", handleCustomSubmission as EventListener)
+    chrome.runtime.onMessage.addListener(handleRuntimeMessage)
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -292,7 +300,7 @@ let lastCelebrationTimestamp = 0
     return () => {
       chrome.storage.onChanged.removeListener(handleStorageChange)
       window.removeEventListener("message", handleSubmission)
-      window.removeEventListener("AV_SUBMISSION_RESULT_CONFIRMED", handleCustomSubmission as EventListener)
+      chrome.runtime.onMessage.removeListener(handleRuntimeMessage)
       window.removeEventListener("keydown", handleKeyDown)
       if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current)
     }
@@ -301,15 +309,13 @@ let lastCelebrationTimestamp = 0
   if (!mounted || !type) return null
 
   const key = type.toLowerCase() as "victory" | "defeat"
-  const isInteractive = zenithInsightPrompt
 
   return (
     <div
-      className={`fixed inset-0 bg-zinc-950/90 z-[999999] flex flex-col items-center justify-center font-sans select-none ${isInteractive ? "pointer-events-auto" : "pointer-events-none"} transform-gpu will-change-[opacity,transform] transition-opacity duration-300 ease-out ${
+      className={`fixed inset-0 bg-zinc-950/90 z-[999999] flex flex-col items-center justify-center font-sans select-none pointer-events-auto transform-gpu will-change-[opacity,transform] transition-opacity duration-300 ease-out ${
         visible ? "opacity-100" : "opacity-0"
       }`}
       onClick={() => {
-        if (!isInteractive) return
         setVisible(false)
         setTimeout(() => {
           setMounted(false)
@@ -400,3 +406,4 @@ let lastCelebrationTimestamp = 0
     </div>
   )
 }
+

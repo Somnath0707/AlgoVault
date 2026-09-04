@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.data.redis.core.RedisTemplate;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
@@ -15,6 +16,7 @@ import java.time.Duration;
 import java.util.UUID;
 
 @Service
+@Slf4j
 @org.springframework.transaction.annotation.Transactional
 @RequiredArgsConstructor
 public class JwtService {
@@ -92,9 +94,11 @@ public class JwtService {
     public boolean isTokenRevoked(String token) {
         try {
             String tokenId = extractAllClaims(token).getId();
-            return tokenId != null && Boolean.TRUE.equals(redisTemplate.opsForValue().get("auth:revoked:" + tokenId));
-        } catch (Exception ignored) {
-            return true;
+            if (tokenId == null) return false;
+            return Boolean.TRUE.equals(redisTemplate.opsForValue().get("auth:revoked:" + tokenId));
+        } catch (Exception e) {
+            log.warn("Redis revocation check unavailable, failing open for cryptographically valid token: {}", e.getMessage());
+            return false;
         }
     }
 

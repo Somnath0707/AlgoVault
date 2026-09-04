@@ -1,34 +1,19 @@
 import type { PlasmoCSConfig } from "plasmo"
 
+// This file runs natively in the MAIN world context at document_start via Chrome MV3.
+// Because it runs with world: "MAIN", it is NOT blocked by page CSP or Brave Shields.
 export const config: PlasmoCSConfig = {
   matches: ["https://leetcode.com/problems/*", "https://leetcode.com/contest/*/problems/*"],
-  run_at: "document_start",
-  world: "MAIN"
+  run_at: "document_start"
 }
 
-// Runs natively in the page's MAIN execution world at document_start.
-// Completely immune to LeetCode's CSP and Brave Shields (no <script> tags needed).
-;(function initAlgoVaultInterceptor() {
-  const w = window as any
-  if (w.__ALGOVAULT_FETCH_PATCHED__) return
-  w.__ALGOVAULT_FETCH_PATCHED__ = true
-
-  // Establish or read cross-world validation nonce without removing it from DOM
-  function getOrSetNonce(): string {
-    let nonce = document.documentElement.getAttribute("data-algovault-nonce")
-    if (!nonce) {
-      nonce = (typeof crypto !== "undefined" && crypto.randomUUID)
-        ? crypto.randomUUID()
-        : Math.random().toString(36).substring(2) + Date.now().toString(36)
-      document.documentElement.setAttribute("data-algovault-nonce", nonce)
-    }
-    return nonce
-  }
+;(function () {
+  if ((window as any).__ALGOVAULT_FETCH_PATCHED__) return
+  ;(window as any).__ALGOVAULT_FETCH_PATCHED__ = true
 
   let lastSeenSubmissionId: string | undefined
-  let submitResetTimer: any = null
   const originalFetch = window.fetch
-  w.__ALGOVAULT_IS_SUBMITTING__ = false
+  ;(window as any).__ALGOVAULT_IS_SUBMITTING__ = false
 
   function normalizeUrl(input: any): string {
     if (typeof input === "string") return input
@@ -44,123 +29,80 @@ export const config: PlasmoCSConfig = {
     const body = data && data.data ? data.data : data
     if (!body || body.state !== "SUCCESS") return
 
-    // CRITICAL GUARD: Exclude Run Code (interpret_solution / testcases) responses
-    if (body.run_success !== undefined || body.code_answer !== undefined || body.interpret_id !== undefined || body.expected_code_answer !== undefined) {
-      w.__ALGOVAULT_IS_SUBMITTING__ = false
+    // 1. HARD GUARD AGAINST RUN CODE / TESTCASE RUNNER:
+    // When running code, LeetCode responses always contain run_success, code_answer,
+    // expected_code_answer, or correct_answers. Real submissions never contain these.
+    if (
+      body.run_success !== undefined ||
+      body.code_answer !== undefined ||
+      body.expected_code_answer !== undefined ||
+      body.correct_answers !== undefined
+    ) {
       return
     }
 
-    const urlStr = String(url || "")
-    if (urlStr.indexOf("interpret") !== -1 || urlStr.indexOf("run_code") !== -1) {
-      w.__ALGOVAULT_IS_SUBMITTING__ = false
-      return
-    }
+    // 2. Only emit if a submit action was genuinely initiated by the user
+    if (!(window as any).__ALGOVAULT_IS_SUBMITTING__) return
 
-    // Only fire if the submit action was actively initiated (ignores run code)
-    if (!w.__ALGOVAULT_IS_SUBMITTING__) return
-
-    const match = urlStr.match(/\/submissions\/detail\/(\d+)\/check/)
+    const match = String(url).match(/\/submissions\/detail\/(\d+)\/check/)
     const submissionId = match ? match[1] : (body.submission_id ? String(body.submission_id) : undefined)
+
+    // Ignore run code (run code IDs start with "runcode_")
+    if (submissionId && !/^\d+$/.test(submissionId)) return
+
     if (submissionId && submissionId === lastSeenSubmissionId) return
     if (submissionId) lastSeenSubmissionId = submissionId
 
-    // Reset submit state once the terminal SUCCESS state is captured
-    w.__ALGOVAULT_IS_SUBMITTING__ = false
-    if (submitResetTimer) {
-      clearTimeout(submitResetTimer)
-      submitResetTimer = null
-    }
+    // Reset submit state once terminal result is captured
+    ;(window as any).__ALGOVAULT_IS_SUBMITTING__ = false
 
-    const nonce = getOrSetNonce()
-    const captured = w.__ALGOVAULT_LAST_SUBMITTED_CODE__ || {}
-    const rawCode = body.code || body.typed_code || captured.code
-    const code = typeof rawCode === "string" && rawCode.length <= 250_000 ? rawCode : undefined
+    const captured = (window as any).__ALGOVAULT_LAST_SUBMITTED_CODE__ || {}
+    const statusCode = body.status_code != null ? Number(body.status_code) : undefined
+    const statusDisplay = body.status_msg || body.status_runtime || (statusCode === 10 ? "Accepted" : body.state)
 
-    window.postMessage({
-      type: "AV_SUBMISSION_RESULT",
-      nonce,
-      detail: {
-        submissionId,
-        statusCode: body.status_code,
-        statusDisplay: body.status_msg || body.status_runtime || body.state || undefined,
-        runtime: body.status_runtime,
-        memory: body.status_memory,
-        totalCorrect: body.total_correct,
-        totalTestcases: body.total_testcases,
-        lang: body.lang || captured.lang,
-        code,
-        codeLang: body.lang || captured.lang
-      }
-    }, window.location.origin || "*")
-  }
-
-  // 1. Monkey-patch window.fetch
-  window.fetch = function(input: any, init?: any) {
-    const url = normalizeUrl(input)
-    const urlStr = String(url || "")
-
-    if (urlStr.indexOf("interpret") !== -1 || urlStr.indexOf("run_code") !== -1) {
-      w.__ALGOVAULT_IS_SUBMITTING__ = false
-    } else if (/\/submit(\/|\?|$)/.test(urlStr)) {
-      w.__ALGOVAULT_IS_SUBMITTING__ = true
-      if (submitResetTimer) clearTimeout(submitResetTimer)
-      submitResetTimer = setTimeout(() => {
-        w.__ALGOVAULT_IS_SUBMITTING__ = false
-      }, 90_000)
-
-      try {
-        if (init && init.body) {
-          const body = typeof init.body === "string" ? JSON.parse(init.body) : init.body
-          if (body && (body.typed_code || body.code)) {
-            w.__ALGOVAULT_LAST_SUBMITTED_CODE__ = {
-              code: body.typed_code || body.code,
-              lang: body.lang
-            }
-          }
-        }
-      } catch {}
-    }
-
-    return originalFetch.apply(this, arguments as any).then((response: Response) => {
-      if (/\/submissions\/detail\/\d+\/check/.test(urlStr) || urlStr.indexOf("/check") !== -1) {
-        try {
-          response.clone().json().then((data) => {
-            emitSubmissionResult(urlStr, data)
-          }).catch(() => {})
-        } catch {}
-      }
-      return response
+    console.log("[AlgoVault MAIN Interceptor] Genuine submission result captured:", {
+      submissionId,
+      statusCode,
+      statusDisplay
     })
+
+    window.postMessage(
+      {
+        type: "AV_SUBMISSION_RESULT",
+        detail: {
+          submissionId,
+          statusCode,
+          statusDisplay,
+          runtime: body.status_runtime,
+          memory: body.status_memory,
+          totalCorrect: body.total_correct,
+          totalTestcases: body.total_testcases,
+          lang: body.lang || captured.lang,
+          code: body.code || body.typed_code || captured.code,
+          codeLang: body.lang || captured.lang
+        }
+      },
+      window.location.origin || "*"
+    )
   }
 
-  // 2. Monkey-patch XMLHttpRequest
-  const originalXhrOpen = XMLHttpRequest.prototype.open
-  const originalXhrSend = XMLHttpRequest.prototype.send
+  // Monkey-patch window.fetch
+  window.fetch = function (input: any, init?: any) {
+    const url = normalizeUrl(input)
+    const isSubmit = /\/submit(\/|\?|$)/.test(url)
+    const isInterpret = /\/interpret_solution(\/|\?|$)/.test(url)
 
-  XMLHttpRequest.prototype.open = function(method: string, url: any) {
-    ;(this as any)._avUrl = typeof url === "string" ? url : (url && url.href ? url.href : String(url))
-    ;(this as any)._avMethod = method
-    return originalXhrOpen.apply(this, arguments as any)
-  }
+    if (isInterpret) {
+      ;(window as any).__ALGOVAULT_IS_SUBMITTING__ = false
+    }
 
-  XMLHttpRequest.prototype.send = function(body: any) {
-    const url = (this as any)._avUrl || ""
-    const urlStr = String(url || "")
-
-    if (urlStr.indexOf("interpret") !== -1 || urlStr.indexOf("run_code") !== -1) {
-      w.__ALGOVAULT_IS_SUBMITTING__ = false
-    } else if (/\/submit(\/|\?|$)/.test(urlStr)) {
-      w.__ALGOVAULT_IS_SUBMITTING__ = true
-      if (submitResetTimer) clearTimeout(submitResetTimer)
-      submitResetTimer = setTimeout(() => {
-        w.__ALGOVAULT_IS_SUBMITTING__ = false
-      }, 90_000)
-
-      if (body) {
+    if (isSubmit) {
+      ;(window as any).__ALGOVAULT_IS_SUBMITTING__ = true
+      if (init?.body) {
         try {
-          const payload = typeof body === "string" ? JSON.parse(body) : body
+          const payload = typeof init.body === "string" ? JSON.parse(init.body) : init.body
           if (payload && (payload.typed_code || payload.code)) {
-            w.__ALGOVAULT_LAST_SUBMITTED_CODE__ = {
+            ;(window as any).__ALGOVAULT_LAST_SUBMITTED_CODE__ = {
               code: payload.typed_code || payload.code,
               lang: payload.lang
             }
@@ -169,14 +111,65 @@ export const config: PlasmoCSConfig = {
       }
     }
 
-    if (/\/submissions\/detail\/\d+\/check/.test(urlStr) || urlStr.indexOf("/check") !== -1) {
-      this.addEventListener("loadend", function() {
+    return originalFetch.apply(this, arguments as any).then((response) => {
+      if (/\/submissions\/detail\/\d+\/check/.test(url) || (typeof url === "string" && url.includes("/check"))) {
+        try {
+          response
+            .clone()
+            .json()
+            .then((data) => {
+              emitSubmissionResult(url, data)
+            })
+            .catch(() => {})
+        } catch {}
+      }
+      return response
+    })
+  }
+
+  // Monkey-patch XMLHttpRequest
+  const originalXhrOpen = XMLHttpRequest.prototype.open
+  const originalXhrSend = XMLHttpRequest.prototype.send
+
+  XMLHttpRequest.prototype.open = function (method: string, url: any) {
+    ;(this as any)._avUrl = typeof url === "string" ? url : (url && url.href ? url.href : String(url))
+    return originalXhrOpen.apply(this, arguments as any)
+  }
+
+  XMLHttpRequest.prototype.send = function (body?: any) {
+    const url = (this as any)._avUrl || ""
+    const isSubmit = /\/submit(\/|\?|$)/.test(url)
+    const isInterpret = /\/interpret_solution(\/|\?|$)/.test(url)
+
+    if (isInterpret) {
+      ;(window as any).__ALGOVAULT_IS_SUBMITTING__ = false
+    }
+
+    if (isSubmit) {
+      ;(window as any).__ALGOVAULT_IS_SUBMITTING__ = true
+      if (body) {
+        try {
+          const payload = typeof body === "string" ? JSON.parse(body) : body
+          if (payload && (payload.typed_code || payload.code)) {
+            ;(window as any).__ALGOVAULT_LAST_SUBMITTED_CODE__ = {
+              code: payload.typed_code || payload.code,
+              lang: payload.lang
+            }
+          }
+        } catch {}
+      }
+    }
+
+    if (/\/submissions\/detail\/\d+\/check/.test(url) || url.includes("/check")) {
+      this.addEventListener("loadend", function () {
         try {
           if (this.status < 200 || this.status >= 300 || !this.responseText) return
-          emitSubmissionResult(urlStr, JSON.parse(this.responseText))
+          emitSubmissionResult(url, JSON.parse(this.responseText))
         } catch {}
-      }, { once: true })
+      })
     }
+
     return originalXhrSend.apply(this, arguments as any)
   }
 })()
+

@@ -126,16 +126,10 @@ export const Settings = () => {
     getGithubPat().then((token) => {
       if (token) {
         setGithubPat(token);
-        // Refresh GitHub profile & repos, validate token validity
+        // Refresh GitHub profile & repos non-destructively
         fetchUserGithubProfile(token).then(async (res) => {
           if (res.revoked) {
-            await clearGithubAuth();
-            setGithubPat('');
-            setGithubUser(null);
-            setGithubRepo('');
-            setGithubRepos([]);
-            setGitSyncStatus(null);
-            setAuthError("GitHub token was revoked or expired. Please connect your account again.");
+            setAuthError("GitHub token appears invalid or expired. You can reconnect below.");
             return;
           }
           if (res.ok && res.user) {
@@ -145,20 +139,11 @@ export const Settings = () => {
         });
         setLoadingRepos(true);
         fetchUserGithubRepos(token).then(async (res) => {
-          if (res.revoked) {
-            await clearGithubAuth();
-            setGithubPat('');
-            setGithubUser(null);
-            setGithubRepo('');
-            setGithubRepos([]);
-            setGitSyncStatus(null);
-            setAuthError("GitHub token was revoked or expired. Please connect your account again.");
-            setLoadingRepos(false);
-            return;
-          }
           if (res.ok) {
             setGithubRepos(res.repos);
           }
+          setLoadingRepos(false);
+        }).catch(() => {
           setLoadingRepos(false);
         });
       } else {

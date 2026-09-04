@@ -4,18 +4,22 @@
   if (window.__ALGOVAULT_FETCH_PATCHED__) return;
   window.__ALGOVAULT_FETCH_PATCHED__ = true;
 
-  // Read or establish nonce without removing it from DOM
-  function getOrSetNonce() {
-    var val = document.documentElement.getAttribute("data-algovault-nonce");
-    if (!val) {
-      val = (typeof crypto !== "undefined" && crypto.randomUUID) 
-        ? crypto.randomUUID() 
-        : Math.random().toString(36).substring(2) + Date.now().toString(36);
-      document.documentElement.setAttribute("data-algovault-nonce", val);
-    }
-    return val;
+  // The nonce will be read from the DOM attribute set by submission-interceptor.ts
+  var nonce = document.documentElement.getAttribute("data-algovault-nonce");
+  if (nonce) {
+    document.documentElement.removeAttribute("data-algovault-nonce");
+  } else {
+    // Observe for the attribute in case isolated world script runs slightly after
+    var observer = new MutationObserver(function() {
+      var val = document.documentElement.getAttribute("data-algovault-nonce");
+      if (val) {
+        nonce = val;
+        document.documentElement.removeAttribute("data-algovault-nonce");
+        observer.disconnect();
+      }
+    });
+    observer.observe(document.documentElement, { attributes: true });
   }
-  var nonce = getOrSetNonce();
 
   var lastSeenSubmissionId;
   var originalFetch = window.fetch;
@@ -35,48 +39,53 @@
     var body = data && data.data ? data.data : data;
     if (!body || body.state !== 'SUCCESS') return;
     
-    // CRITICAL GUARD: Exclude Run Code (interpret_solution / testcases) responses
-    if (body.run_success !== undefined || body.code_answer !== undefined || body.interpret_id !== undefined || body.expected_code_answer !== undefined) {
-      window.__ALGOVAULT_IS_SUBMITTING__ = false;
+    // HARD GUARD AGAINST RUN CODE:
+    if (
+      body.run_success !== undefined ||
+      body.code_answer !== undefined ||
+      body.expected_code_answer !== undefined ||
+      body.correct_answers !== undefined
+    ) {
       return;
     }
 
-    var urlStr = String(url || '');
-    if (urlStr.indexOf('interpret') !== -1 || urlStr.indexOf('run_code') !== -1) {
-      window.__ALGOVAULT_IS_SUBMITTING__ = false;
-      return;
-    }
-
-    // Only fire if the submit action was active (ignores run code)
+    // Only fire if the submit action was genuinely initiated
     if (!window.__ALGOVAULT_IS_SUBMITTING__) return;
-    
-    var match = urlStr.match(/\/submissions\/detail\/(\d+)\/check/);
+
+    var match = String(url).match(/\/submissions\/detail\/(\d+)\/check/);
     var submissionId = match ? match[1] : (body.submission_id ? String(body.submission_id) : undefined);
+    
+    // Ignore run code (run code IDs start with "runcode_")
+    if (submissionId && !/^\d+$/.test(submissionId)) return;
+
     if (submissionId && submissionId === lastSeenSubmissionId) return;
     if (submissionId) lastSeenSubmissionId = submissionId;
 
-    // Reset submit state once the terminal SUCCESS state is captured
+    // Reset submit state once terminal state captured
     window.__ALGOVAULT_IS_SUBMITTING__ = false;
     
-    nonce = getOrSetNonce();
+    if (!nonce) {
+      nonce = document.documentElement.getAttribute("data-algovault-nonce");
+      if (nonce) document.documentElement.removeAttribute("data-algovault-nonce");
+    }
     
     var captured = window.__ALGOVAULT_LAST_SUBMITTED_CODE__ || {};
-    var rawCode = body.code || body.typed_code || captured.code;
-    var code = typeof rawCode === 'string' && rawCode.length <= 250000 ? rawCode : undefined;
+    var statusCode = body.status_code != null ? Number(body.status_code) : undefined;
+    var statusDisplay = body.status_msg || body.status_runtime || (statusCode === 10 ? "Accepted" : body.state);
 
     window.postMessage({
       type: 'AV_SUBMISSION_RESULT',
       nonce: nonce,
       detail: {
         submissionId: submissionId,
-        statusCode: body.status_code,
-        statusDisplay: body.status_msg || body.status_runtime || body.state || undefined,
+        statusCode: statusCode,
+        statusDisplay: statusDisplay,
         runtime: body.status_runtime,
         memory: body.status_memory,
         totalCorrect: body.total_correct,
         totalTestcases: body.total_testcases,
         lang: body.lang || captured.lang,
-        code: code,
+        code: body.code || body.typed_code || captured.code,
         codeLang: body.lang || captured.lang
       }
     }, window.location.origin || '*');
@@ -85,17 +94,20 @@
   // Monkey-patch window.fetch
   window.fetch = function(input, init) {
     var url = normalizeUrl(input);
-    var urlStr = String(url || '');
+    var isSubmit = /\/submit(\/|\?|$)/.test(url);
+    var isInterpret = /\/interpret_solution(\/|\?|$)/.test(url);
 
-    if (urlStr.indexOf('interpret') !== -1 || urlStr.indexOf('run_code') !== -1) {
+    if (isInterpret) {
       window.__ALGOVAULT_IS_SUBMITTING__ = false;
-    } else if (/\/submit(\/|\?|$)/.test(urlStr)) {
+    }
+
+    if (isSubmit) {
       window.__ALGOVAULT_IS_SUBMITTING__ = true;
       try {
         if (init && init.body) {
           var body = typeof init.body === 'string' ? JSON.parse(init.body) : init.body;
-          if (body && (body.typed_code || body.code)) {
-            window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = { code: body.typed_code || body.code, lang: body.lang };
+          if (body && body.typed_code) {
+            window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = { code: body.typed_code, lang: body.lang };
           }
         }
       } catch(e) {}
@@ -103,10 +115,10 @@
 
     return originalFetch.apply(this, arguments).then(function(response) {
       // Match both specific check URL pattern and generic /check/ path
-      if (/\/submissions\/detail\/\d+\/check/.test(urlStr) || urlStr.indexOf('/check') !== -1) {
+      if (/\/submissions\/detail\/\d+\/check/.test(url) || (typeof url === 'string' && url.indexOf('/check') !== -1)) {
         try {
           response.clone().json().then(function(data) {
-            emitSubmissionResult(urlStr, data);
+            emitSubmissionResult(url, data);
           }).catch(function() {});
         } catch(e) {}
       }
@@ -126,26 +138,29 @@
 
   XMLHttpRequest.prototype.send = function(body) {
     var url = this._avUrl || '';
-    var urlStr = String(url || '');
+    var isSubmit = /\/submit(\/|\?|$)/.test(url);
+    var isInterpret = /\/interpret_solution(\/|\?|$)/.test(url);
 
-    if (urlStr.indexOf('interpret') !== -1 || urlStr.indexOf('run_code') !== -1) {
+    if (isInterpret) {
       window.__ALGOVAULT_IS_SUBMITTING__ = false;
-    } else if (/\/submit(\/|\?|$)/.test(urlStr)) {
+    }
+
+    if (isSubmit) {
       window.__ALGOVAULT_IS_SUBMITTING__ = true;
       if (body) {
         try {
           var payload = typeof body === 'string' ? JSON.parse(body) : body;
-          if (payload && (payload.typed_code || payload.code)) {
-            window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = { code: payload.typed_code || payload.code, lang: payload.lang };
+          if (payload && payload.typed_code) {
+            window.__ALGOVAULT_LAST_SUBMITTED_CODE__ = { code: payload.typed_code, lang: payload.lang };
           }
         } catch(e) {}
       }
     }
-    if (/\/submissions\/detail\/\d+\/check/.test(urlStr) || urlStr.indexOf('/check') !== -1) {
+    if (/\/submissions\/detail\/\d+\/check/.test(url) || url.indexOf('/check') !== -1) {
       this.addEventListener('loadend', function() {
         try {
           if (this.status < 200 || this.status >= 300 || !this.responseText) return;
-          emitSubmissionResult(urlStr, JSON.parse(this.responseText));
+          emitSubmissionResult(url, JSON.parse(this.responseText));
         } catch(e) {}
       });
     }

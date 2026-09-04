@@ -52,6 +52,23 @@ function isDisposableTimer(session: any) {
     || (session?.st === "PAUSED" && session?.pr === "TAB")
 }
 
+async function getActiveSessionSafe(): Promise<any> {
+  try {
+    const session = await storage.get<any>(ACTIVE_SESSION_KEY)
+    if (!session) return null
+    if (typeof session === "string") {
+      try {
+        return JSON.parse(session)
+      } catch {
+        return null
+      }
+    }
+    return session
+  } catch {
+    return null
+  }
+}
+
 // ─── APSE v2 BACKGROUND COORDINATOR ─────────────────────────────────
 
 /**
@@ -211,16 +228,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // APSE v2 State Machine Message Interceptors
   if (message.action === "claim_tab_ownership") {
     const tabId = sender.tab?.id || null
-    storage.get<any>(ACTIVE_SESSION_KEY).then(async (session) => {
+    getActiveSessionSafe().then(async (session) => {
       if (!session) {
         sendResponse({ ok: false })
+        return
+      }
+      if (session.st === "SOLVED") {
+        const updated = { ...session, ownerTabId: tabId || session.ownerTabId }
+        await storage.set(ACTIVE_SESSION_KEY, updated)
+        sendResponse({ ok: true, session: updated })
         return
       }
       if (tabId && session.ownerTabId === tabId && session.st === "RUNNING") {
         sendResponse({ ok: true, session })
         return
       }
-      if ((session.st === "PAUSED" && session.pr === "MANUAL") || session.st === "SOLVED") {
+      if (session.st === "PAUSED" && session.pr === "MANUAL") {
         const updated = { ...session, ownerTabId: tabId || session.ownerTabId }
         await storage.set(ACTIVE_SESSION_KEY, updated)
         sendResponse({ ok: true, session: updated })
@@ -247,7 +270,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     const tabId = sender.tab?.id || null
     const now = Date.now()
-    storage.get<any>(ACTIVE_SESSION_KEY).then(async (storedSession) => {
+    getActiveSessionSafe().then(async (storedSession) => {
       let existingSession = storedSession
       if (isExpiredRunningSession(existingSession, now)) {
         const store = (await storage.get<Record<string, any>>(SESSION_STORE_KEY)) || {}
@@ -261,7 +284,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       // 1. If active session is for the exact same slug, preserve it (DO NOT auto-restart if SOLVED or MANUAL PAUSE)!
       if (existingSession && existingSession.slug === slug) {
-        if (existingSession.st === "RUNNING" || (existingSession.st === "PAUSED" && existingSession.pr === "MANUAL") || existingSession.st === "SOLVED") {
+        if (existingSession.st === "SOLVED" || (existingSession.st === "PAUSED" && existingSession.pr === "MANUAL") || existingSession.st === "RUNNING") {
           const finalSession = { ...existingSession, ownerTabId: tabId || existingSession.ownerTabId }
           await storage.set(ACTIVE_SESSION_KEY, finalSession)
           sendResponse({ ok: true, session: finalSession })
@@ -280,7 +303,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       if (existingSession && existingSession.slug) {
         let pausedSession: any
-        if ((existingSession.st === "PAUSED" && existingSession.pr === "MANUAL") || existingSession.st === "SOLVED") {
+        if (existingSession.st === "SOLVED" || (existingSession.st === "PAUSED" && existingSession.pr === "MANUAL")) {
           pausedSession = existingSession
         } else {
           pausedSession = transitionSession(existingSession, "PAUSED", "TAB", now)
@@ -291,7 +314,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       let sessionForSlug = store[slug]
       if (sessionForSlug) {
-        if ((sessionForSlug.st === "PAUSED" && sessionForSlug.pr === "MANUAL") || sessionForSlug.st === "SOLVED") {
+        if (sessionForSlug.st === "SOLVED" || (sessionForSlug.st === "PAUSED" && sessionForSlug.pr === "MANUAL")) {
           sessionForSlug = { ...sessionForSlug, ownerTabId: tabId }
         } else {
           sessionForSlug = {
@@ -316,7 +339,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === "session_pause_v2") {
     const reason = message.reason || "MANUAL"
-    storage.get<any>(ACTIVE_SESSION_KEY).then(async (session) => {
+    getActiveSessionSafe().then(async (session) => {
       if (!session) {
         sendResponse({ ok: false })
         return
@@ -341,7 +364,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "session_paste_v2") {
-    storage.get<any>(ACTIVE_SESSION_KEY).then(async (session) => {
+    getActiveSessionSafe().then(async (session) => {
       if (!session || session.st !== "RUNNING") {
         sendResponse({ ok: false })
         return
@@ -355,9 +378,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === "session_resume_v2") {
     const tabId = sender.tab?.id || null
-    storage.get<any>(ACTIVE_SESSION_KEY).then(async (session) => {
+    getActiveSessionSafe().then(async (session) => {
       if (!session) {
         sendResponse({ ok: false })
+        return
+      }
+      if (session.st === "SOLVED") {
+        sendResponse({ ok: true, session })
         return
       }
       const transitioned = transitionSession(session, "RUNNING", null, Date.now())
@@ -373,7 +400,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "session_reset_v2") {
-    storage.get<any>(ACTIVE_SESSION_KEY).then(async (active) => {
+    getActiveSessionSafe().then(async (active) => {
       const slug = active?.slug
       await storage.remove(ACTIVE_SESSION_KEY)
       if (slug) {
@@ -389,7 +416,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === "session_stop_all_running_v2") {
     Promise.all([
-      storage.get<any>(ACTIVE_SESSION_KEY),
+      getActiveSessionSafe(),
       storage.get<Record<string, any>>(SESSION_STORE_KEY)
     ]).then(async ([active, storedSessions]) => {
       const store = storedSessions || {}
@@ -421,13 +448,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "session_finish_v2") {
-    storage.get<any>(ACTIVE_SESSION_KEY).then(async (session) => {
+    getActiveSessionSafe().then(async (session) => {
       if (!session) {
         sendResponse({ ok: false })
         return
       }
-      // If submission_result already transitioned this to SOLVED, skip duplicate work
+      // If submission_result already transitioned this to SOLVED, broadcast and return
       if (session.st === "SOLVED") {
+        chrome.runtime.sendMessage({ action: "session_updated_v2", session })
+        chrome.runtime.sendMessage({ action: "trigger_celebration", verdict: "Accepted" })
         sendResponse({ ok: true, session })
         return
       }
@@ -437,13 +466,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // the final solved state and session-tracker doesn't restart it.
       await storage.set(ACTIVE_SESSION_KEY, updated)
       chrome.runtime.sendMessage({ action: "session_updated_v2", session: updated })
+      chrome.runtime.sendMessage({ action: "trigger_celebration", verdict: "Accepted" })
       sendResponse({ ok: true, session: updated })
     })
     return true
   }
 
   if (message.action === "session_log_time_v2") {
-    storage.get<any>(ACTIVE_SESSION_KEY).then(async (session) => {
+    getActiveSessionSafe().then(async (session) => {
       if (!session) {
         sendResponse({ ok: false })
         return
@@ -618,17 +648,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       let helpType: "NONE" | "PENDING_SELF_REPORT" = "PENDING_SELF_REPORT";
 
       // 1. Extract APSE v2 Practice Telemetry
-      let activeSession = res[ACTIVE_SESSION_KEY];
-      if (typeof activeSession === "string") {
-        try {
-          activeSession = JSON.parse(activeSession);
-        } catch {
-          activeSession = null;
-        }
-      }
-      if (!activeSession) {
-        activeSession = await storage.get<any>(ACTIVE_SESSION_KEY);
-      }
+      let activeSession = await getActiveSessionSafe();
       if (activeSession && activeSession.slug === payload.titleSlug) {
         const now = Date.now();
         const accActiveMs = typeof activeSession.accActiveMs === "number" ? activeSession.accActiveMs : 0;
@@ -676,6 +696,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           await storage.set(ACTIVE_SESSION_KEY, updated);
           chrome.runtime.sendMessage({ action: "session_updated_v2", session: updated });
         }
+        chrome.runtime.sendMessage({ action: "trigger_celebration", verdict: "Accepted", detail: payload });
 
         // Asynchronously update solvedSlugs cache in background worker (lightweight string array)
         const solvedSlugClean = normalizeSlug(payload.titleSlug);
@@ -914,17 +935,9 @@ async function syncAcceptedSubmissionToGithub(payload: any, helpType = "PENDING_
   // Single atomic commit for all 3 files (code + README + metadata)
   const result = await batchCommitToGithub(pat, repo, writes, branch)
   if (!result.ok) {
-    if (result.revoked) {
-      try {
-        const verify = await fetchUserGithubProfile(pat);
-        if (verify.revoked) {
-          await clearGithubAuth();
-        }
-      } catch {}
-    }
     await storage.set("algovault.gitSyncStatus", {
       success: false,
-      message: result.message,
+      message: result.message || "Commit to GitHub failed",
       timestamp: Date.now(),
       problem: payload.title || payload.titleSlug,
       path: artifact.folder

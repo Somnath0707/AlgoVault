@@ -23,65 +23,101 @@ export const exchangeGithubCode = async (code: string, state: string, codeVerifi
   return res.json();
 }
 
+let activeRefreshPromise: Promise<string | null> | null = null;
+let inMemoryJwt: string | null = null;
+
+export async function getValidJwt(): Promise<string | null> {
+  if (inMemoryJwt) return inMemoryJwt;
+  const stored = await getJwtToken();
+  if (stored) {
+    inMemoryJwt = stored;
+    return stored;
+  }
+  return null;
+}
+
 export const authenticateGithubToken = async (token: string) => {
   const res = await fetch(`${BACKEND_URL}/api/auth/github-token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token })
   })
-  if (!res.ok) throw new Error("GitHub token verification failed")
+  if (!res.ok) {
+    const status = res.status;
+    const body = await res.text().catch(() => "");
+    const err: any = new Error(body || `GitHub token verification failed (${status})`);
+    err.status = status;
+    throw err;
+  }
   return res.json() as Promise<{ token: string; githubToken: string; username: string }>
 }
 
 async function trySilentRefresh(): Promise<string | null> {
-  const pat = await getGithubPat()
-  if (!pat) return null
-  try {
-    const authRes = await authenticateGithubToken(pat)
-    if (authRes?.token) {
-      await setJwtToken(authRes.token)
-      return authRes.token
-    }
-  } catch {
-    // Silent fail if network issue or invalid token
+  if (activeRefreshPromise) {
+    return activeRefreshPromise;
   }
-  return null
+
+  activeRefreshPromise = (async () => {
+    try {
+      const pat = await getGithubPat();
+      if (!pat) return null;
+
+      const authRes = await authenticateGithubToken(pat);
+      if (authRes?.token) {
+        inMemoryJwt = authRes.token;
+        await setJwtToken(authRes.token);
+        return authRes.token;
+      }
+      return null;
+    } catch (err: any) {
+      console.warn("[AlgoVault] Silent token refresh failed:", err?.message || err);
+      if (err?.status === 401) {
+        inMemoryJwt = null;
+        await clearJwtToken();
+      }
+      return null;
+    } finally {
+      activeRefreshPromise = null;
+    }
+  })();
+
+  return activeRefreshPromise;
 }
 
 // Every API request requires the JWT issued after server-verified GitHub OAuth.
 async function backendFetch<T = any>(path: string, init: RequestInit = {}): Promise<T> {
-  let jwt = await getJwtToken()
+  let jwt = await getValidJwt();
   if (!jwt) {
-    jwt = await trySilentRefresh()
+    jwt = await trySilentRefresh();
   }
 
-  const headers = new Headers(init.headers)
-  headers.set("Content-Type", headers.get("Content-Type") || "application/json")
+  const headers = new Headers(init.headers);
+  headers.set("Content-Type", headers.get("Content-Type") || "application/json");
 
-  if (!jwt) throw new Error("Connect GitHub in Settings before using cloud features.")
-  headers.set("Authorization", `Bearer ${jwt}`)
+  if (!jwt) throw new Error("Connect GitHub in Settings before using cloud features.");
+  headers.set("Authorization", `Bearer ${jwt}`);
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  let res: Response
+  let res: Response;
   try {
     res = await fetch(`${BACKEND_URL}${path}`, {
       ...init,
       headers,
       signal: controller.signal
-    })
+    });
   } finally {
-    clearTimeout(timeoutId)
+    clearTimeout(timeoutId);
   }
 
   if (res.status === 401) {
     // Attempt one automatic token refresh and retry
-    const freshJwt = await trySilentRefresh()
+    const freshJwt = await trySilentRefresh();
     if (freshJwt) {
-      const retryHeaders = new Headers(init.headers)
-      retryHeaders.set("Content-Type", retryHeaders.get("Content-Type") || "application/json")
-      retryHeaders.set("Authorization", `Bearer ${freshJwt}`)
+      const retryHeaders = new Headers(init.headers);
+      retryHeaders.set("Content-Type", retryHeaders.get("Content-Type") || "application/json");
+      retryHeaders.set("Authorization", `Bearer ${freshJwt}`);
       
       const retryController = new AbortController();
       const retryTimeoutId = setTimeout(() => retryController.abort(), 15000);
@@ -90,20 +126,31 @@ async function backendFetch<T = any>(path: string, init: RequestInit = {}): Prom
           ...init,
           headers: retryHeaders,
           signal: retryController.signal
-        })
+        });
         if (retryRes.ok) {
-          if (retryRes.status === 204) return null as T
-          const text = await retryRes.text().catch(() => "")
-          if (!text.trim()) return null as T
-          return JSON.parse(text) as T
+          if (retryRes.status === 204) return null as T;
+          const text = await retryRes.text().catch(() => "");
+          if (!text.trim()) return null as T;
+          return JSON.parse(text) as T;
         }
       } finally {
-        clearTimeout(retryTimeoutId)
+        clearTimeout(retryTimeoutId);
       }
     }
 
-    await clearJwtToken()
-    throw new Error("Your session expired. Reconnect GitHub in Settings.")
+    // Do NOT wipe the JWT if the refresh failure was a 429 rate limit or network issue!
+    const pat = await getGithubPat();
+    if (!pat) {
+      inMemoryJwt = null;
+      await clearJwtToken();
+      throw new Error("Connect GitHub in Settings before using cloud features.");
+    }
+
+    throw new Error("Your session could not be refreshed. Please check your connection or reconnect in Settings.");
+  }
+
+  if (res.status === 429) {
+    throw new Error("Too many cloud requests. Please wait a moment before trying again.");
   }
 
   if (!res.ok) {
@@ -206,6 +253,7 @@ export const logout = async (): Promise<void> => {
   try {
     await backendFetch("/api/auth/logout", { method: "POST" })
   } finally {
+    inMemoryJwt = null
     await clearJwtToken()
   }
 }
