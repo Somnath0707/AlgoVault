@@ -43,6 +43,7 @@ export async function setUsername(username: string): Promise<void> {
     await Promise.all([
       storage.remove("algovault.latestSyncedSubmissionTimestamp"),
       storage.remove("algovault.solvedSlugs"),
+      storage.remove("algovault.problem_tags"),
       storage.remove("algovault.syncHasMore"),
       storage.remove(STORAGE_KEYS.LAST_SYNC),
       storage.remove(STORAGE_KEYS.CACHED_DASHBOARD),

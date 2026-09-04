@@ -1,6 +1,6 @@
 import { fetchUserProfile, fetchSolvedProblems, fetchAllSubmissions, fetchContestHistory, fetchProblemMetadata, fetchUserStatus, fetchContestQuestions, fetchReplayEvents, fetchUpcomingContests, fetchPastContests } from "../lib/api/leetcode"
-import { getUserSettings, getUsername, setLastSync, setUsername, storage, getGithubPat, getGithubRepo, getGithubBranch, getGithubAutoSync, setGithubAutoSync, getZerotracData, getZerotracLastFetched, setZerotracData, clearGithubAuth, clearJwtToken } from "../lib/storage"
-import { commitToGithub, batchCommitToGithub, getExtensionForLanguage } from "../lib/api/github"
+import { getUserSettings, getUsername, setLastSync, setUsername, storage, getGithubPat, getGithubRepo, getGithubBranch, getGithubAutoSync, setGithubAutoSync, getZerotracData, getZerotracLastFetched, setZerotracData, clearGithubAuth } from "../lib/storage"
+import { commitToGithub, batchCommitToGithub, getExtensionForLanguage, fetchUserGithubProfile } from "../lib/api/github"
 import { type LeetCodeRegion } from "../lib/api/entranthub"
 import {
   fetchPrediction,
@@ -20,6 +20,18 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((error
 
 let isSyncing = false;
 let syncAbortController: AbortController | null = null;
+let syncProblemsCache: { fetchedAt: number; problems: any[] } | null = null;
+
+// Clean up legacy bloated rawProblems from algovault.solvedSlugs to free memory & IPC bandwidth immediately
+storage.get<any>("algovault.solvedSlugs").then((cached) => {
+  if (cached && (cached.rawProblems || Array.isArray(cached.rawProblems))) {
+    const slugs = Array.isArray(cached.slugs) ? cached.slugs : [];
+    storage.set("algovault.solvedSlugs", {
+      fetchedAt: cached.fetchedAt || Date.now(),
+      slugs
+    }).catch(() => {});
+  }
+}).catch(() => {});
 
 const ACTIVE_SESSION_KEY = "algovault.session.active"
 const LOGS_INDEX_KEY = "algovault.logs.index"
@@ -537,9 +549,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "reset_sync_state") {
+    syncProblemsCache = null
     Promise.all([
       storage.remove("algovault.latestSyncedSubmissionTimestamp"),
       storage.remove("algovault.solvedSlugs"),
+      storage.remove("algovault.problem_tags"),
       storage.remove("algovault.syncHasMore"),
       storage.remove("algovault.lastSync")
     ]).then(() => {
@@ -653,13 +667,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       // 3. Trigger GitHub sync and archive practice log if Accepted
       if (payload.statusDisplay === "Accepted") {
-        if (activeSession && activeSession.slug === payload.titleSlug) {
+        const normalizeSlug = (s?: string) => (s || "").toLowerCase().replace(/^\/+|\/+$/g, "").trim();
+        if (activeSession && (!activeSession.slug || normalizeSlug(activeSession.slug) === normalizeSlug(payload.titleSlug))) {
           const updated = transitionSession(activeSession, "SOLVED", null, Date.now());
           await archivePracticeLog(updated, true, payload.codeLang || payload.language);
           // Keep the SOLVED session in storage so that session-tracker sees it
           // and does NOT restart a new timer when the tab refocuses.
           await storage.set(ACTIVE_SESSION_KEY, updated);
           chrome.runtime.sendMessage({ action: "session_updated_v2", session: updated });
+        }
+
+        // Asynchronously update solvedSlugs cache in background worker (lightweight string array)
+        const solvedSlugClean = normalizeSlug(payload.titleSlug);
+        if (solvedSlugClean) {
+          storage.get<any>("algovault.solvedSlugs").then((cached) => {
+            if (cached && Array.isArray(cached.slugs)) {
+              if (!cached.slugs.includes(solvedSlugClean)) {
+                storage.set("algovault.solvedSlugs", {
+                  fetchedAt: Date.now(),
+                  slugs: [...cached.slugs, solvedSlugClean]
+                });
+              }
+            }
+          }).catch(() => {});
         }
 
         getGithubAutoSync().then((isAutoSync) => {
@@ -885,8 +915,12 @@ async function syncAcceptedSubmissionToGithub(payload: any, helpType = "PENDING_
   const result = await batchCommitToGithub(pat, repo, writes, branch)
   if (!result.ok) {
     if (result.revoked) {
-      await clearGithubAuth()
-      await clearJwtToken()
+      try {
+        const verify = await fetchUserGithubProfile(pat);
+        if (verify.revoked) {
+          await clearGithubAuth();
+        }
+      } catch {}
     }
     await storage.set("algovault.gitSyncStatus", {
       success: false,
@@ -929,8 +963,10 @@ async function runSync(username: string, startOffset = 0, signal?: AbortSignal, 
   await setUsername(normalizedUsername)
 
   if (forceFullSync) {
+    syncProblemsCache = null
     await storage.remove("algovault.latestSyncedSubmissionTimestamp")
     await storage.remove("algovault.solvedSlugs")
+    await storage.remove("algovault.problem_tags")
     await storage.remove("algovault.syncHasMore")
     startOffset = 0
   }
@@ -955,12 +991,11 @@ async function runSync(username: string, startOffset = 0, signal?: AbortSignal, 
     const profile = profileRes.data.matchedUser
 
     const problems: any[] = []
-    const cachedSolved = forceFullSync ? null : await storage.get<any>("algovault.solvedSlugs")
-    const isCacheValid = cachedSolved && cachedSolved.fetchedAt && (Date.now() - cachedSolved.fetchedAt < 15 * 60 * 1000) && Array.isArray(cachedSolved.rawProblems)
+    const isMemoryCacheValid = !forceFullSync && syncProblemsCache && (Date.now() - syncProblemsCache.fetchedAt < 15 * 60 * 1000) && Array.isArray(syncProblemsCache.problems)
 
-    if (isCacheValid) {
-      problems.push(...cachedSolved.rawProblems)
-    } else if (startOffset === 0) {
+    if (isMemoryCacheValid && syncProblemsCache) {
+      problems.push(...syncProblemsCache.problems)
+    } else {
       updateStatus("RUNNING", "Fetching solved problems...", 0, 0)
       let problemOffset = 0
       const problemPageSize = 100
@@ -978,33 +1013,28 @@ async function runSync(username: string, startOffset = 0, signal?: AbortSignal, 
         updateStatus("RUNNING", "Fetching solved problems...", problems.length, 0)
         await new Promise((resolve) => setTimeout(resolve, 300))
       }
-      await storage.set("algovault.solvedSlugs", {
-        fetchedAt: Date.now(),
-        slugs: problems.map((problem: any) => problem.titleSlug).filter(Boolean),
-        rawProblems: problems
-      })
-    } else {
-      if (cachedSolved && Array.isArray(cachedSolved.rawProblems)) {
-        problems.push(...cachedSolved.rawProblems)
-      } else {
-        updateStatus("RUNNING", "Fetching solved problems...", 0, 0)
-        let problemOffset = 0
-        const problemPageSize = 100
-        let totalSolved = Number.POSITIVE_INFINITY
-        while (problems.length < totalSolved) {
-          if (signal?.aborted) throw new Error("Sync stopped by user");
-          const problemsRes = await fetchSolvedProblems(problemOffset, problemPageSize)
-          const page = problemsRes.data?.problemsetQuestionList
-          if (!page) throw new Error("LeetCode did not return solved-problem data")
-          totalSolved = page.totalNum || 0
-          const questions = page.questions || []
-          if (questions.length === 0) break
-          problems.push(...questions)
-          problemOffset += questions.length
-          updateStatus("RUNNING", "Fetching solved problems...", problems.length, 0)
-          await new Promise((resolve) => setTimeout(resolve, 300))
+
+      const slugs = problems.map((problem: any) => problem.titleSlug).filter(Boolean)
+      const tagsMap: Record<string, string[]> = {}
+      for (const p of problems) {
+        if (p?.titleSlug && Array.isArray(p.topicTags)) {
+          const clean = String(p.titleSlug).toLowerCase().trim()
+          const tags = p.topicTags
+            .map((t: any) => (typeof t === "string" ? t : t?.name))
+            .filter(Boolean)
+          if (tags.length > 0) tagsMap[clean] = tags
         }
       }
+
+      // Store lightweight slug array (~30KB) and compact tag dictionary (~40KB) - NEVER store full rawProblems!
+      await Promise.all([
+        storage.set("algovault.solvedSlugs", {
+          fetchedAt: Date.now(),
+          slugs
+        }),
+        storage.set("algovault.problem_tags", tagsMap)
+      ])
+      syncProblemsCache = { fetchedAt: Date.now(), problems }
     }
 
     updateStatus("RUNNING", "Fetching submissions...", problems.length, 0)
@@ -1166,7 +1196,7 @@ async function getSolvedProblemSlugs(): Promise<string[]> {
   }
 
   const unique = Array.from(new Set(slugs))
-  await storage.set("algovault.solvedSlugs", { ...cached, fetchedAt: Date.now(), slugs: unique })
+  await storage.set("algovault.solvedSlugs", { fetchedAt: Date.now(), slugs: unique })
   return unique
 }
 

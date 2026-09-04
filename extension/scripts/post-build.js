@@ -23,7 +23,7 @@ const exactBackendPermission = backendHostPermission();
 // Sync chrome-mv3-prod to chrome-mv3-dev so both build targets have identical updated files
 const prodDir = path.join(__dirname, '../build/chrome-mv3-prod');
 const devDir = path.join(__dirname, '../build/chrome-mv3-dev');
-if (fs.existsSync(prodDir)) {
+if (fs.existsSync(prodDir) && fs.readdirSync(prodDir).length > 2) {
   fs.cpSync(prodDir, devDir, { recursive: true });
   console.log(`Synced build files from chrome-mv3-prod to chrome-mv3-dev`);
 }

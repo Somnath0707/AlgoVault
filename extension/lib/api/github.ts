@@ -61,8 +61,17 @@ export async function fetchUserGithubProfile(token: string): Promise<GithubProfi
         Accept: "application/vnd.github.v3+json"
       }
     });
-    if (res.status === 401 || res.status === 403) {
-      return { ok: false, revoked: true, error: "GitHub token was revoked or expired" };
+    if (res.status === 401) {
+      return { ok: false, revoked: true, error: "GitHub token is invalid or expired. Please reconnect in Settings." };
+    }
+    if (res.status === 403) {
+      const errBody = await res.json().catch(() => ({}));
+      const remaining = res.headers.get("x-ratelimit-remaining");
+      const isRateLimit = remaining === "0" || /rate limit/i.test(errBody?.message || "");
+      const errorMsg = isRateLimit
+        ? "GitHub API rate limit reached. Please wait a moment before trying again."
+        : (errBody?.message || "GitHub access forbidden (403). Check repository permissions.");
+      return { ok: false, revoked: false, error: errorMsg };
     }
     if (!res.ok) {
       const errText = await res.text().catch(() => "");
@@ -87,8 +96,17 @@ export async function fetchUserGithubRepos(token: string): Promise<GithubReposRe
         Accept: "application/vnd.github.v3+json"
       }
     });
-    if (res.status === 401 || res.status === 403) {
-      return { ok: false, repos: [], revoked: true, error: "GitHub token was revoked or expired" };
+    if (res.status === 401) {
+      return { ok: false, repos: [], revoked: true, error: "GitHub token is invalid or expired. Please reconnect in Settings." };
+    }
+    if (res.status === 403) {
+      const errBody = await res.json().catch(() => ({}));
+      const remaining = res.headers.get("x-ratelimit-remaining");
+      const isRateLimit = remaining === "0" || /rate limit/i.test(errBody?.message || "");
+      const errorMsg = isRateLimit
+        ? "GitHub API rate limit reached. Please wait a moment before trying again."
+        : (errBody?.message || "GitHub access forbidden (403). Check repository permissions.");
+      return { ok: false, repos: [], revoked: false, error: errorMsg };
     }
     if (!res.ok) {
       return { ok: false, repos: [], error: `GitHub error ${res.status}` };
@@ -156,8 +174,12 @@ export async function commitToGithub(
           "Cache-Control": "no-cache"
         }
       });
-      if (getRes.status === 401 || getRes.status === 403) {
-        return { ok: false, revoked: true, message: "GitHub token was revoked or expired. Please reconnect in Settings." };
+      if (getRes.status === 401) {
+        return { ok: false, revoked: true, message: "GitHub token is invalid or expired. Please reconnect in Settings." };
+      }
+      if (getRes.status === 403) {
+        const errText = await getRes.text().catch(() => "");
+        return { ok: false, revoked: false, message: `GitHub API permission or rate-limit error (403): ${errText}` };
       }
       if (getRes.ok) {
         const getJson = await getRes.json();
@@ -229,12 +251,12 @@ export async function commitToGithub(
 
     if (!putRes.ok) {
       const errorMsg = await putRes.text();
-      const isRevoked = putRes.status === 401 || putRes.status === 403;
+      const isRevoked = putRes.status === 401;
       return {
         ok: false,
         revoked: isRevoked,
         message: isRevoked
-          ? "GitHub token was revoked or expired. Please reconnect in Settings."
+          ? "GitHub token is invalid or expired. Please reconnect in Settings."
           : `GitHub API error (${putRes.status}): ${errorMsg}`
       };
     }
@@ -290,8 +312,12 @@ export async function batchCommitToGithub(
       { headers }
     );
 
-    if (refRes.status === 401 || refRes.status === 403) {
-      return { ok: false, revoked: true, message: "GitHub token was revoked or expired. Please reconnect in Settings." };
+    if (refRes.status === 401) {
+      return { ok: false, revoked: true, message: "GitHub token is invalid or expired. Please reconnect in Settings." };
+    }
+    if (refRes.status === 403) {
+      const errText = await refRes.text().catch(() => "");
+      return { ok: false, revoked: false, message: `GitHub API permission or rate-limit error (403): ${errText}` };
     }
 
     if (!refRes.ok) {
@@ -392,12 +418,12 @@ export async function batchCommitToGithub(
       if (fallback.ok) return fallback;
 
       const errText = await updateRes.text().catch(() => "");
-      const isRevoked = updateRes.status === 401 || updateRes.status === 403;
+      const isRevoked = updateRes.status === 401;
       return {
         ok: false,
         revoked: isRevoked,
         message: isRevoked
-          ? "GitHub token was revoked or expired. Please reconnect in Settings."
+          ? "GitHub token is invalid or expired. Please reconnect in Settings."
           : `Failed to update branch ref (${updateRes.status}): ${errText}`
       };
     }

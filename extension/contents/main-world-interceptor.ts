@@ -2,7 +2,8 @@ import type { PlasmoCSConfig } from "plasmo"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://leetcode.com/problems/*", "https://leetcode.com/contest/*/problems/*"],
-  run_at: "document_start"
+  run_at: "document_start",
+  world: "MAIN"
 }
 
 // Runs natively in the page's MAIN execution world at document_start.
@@ -43,10 +44,22 @@ export const config: PlasmoCSConfig = {
     const body = data && data.data ? data.data : data
     if (!body || body.state !== "SUCCESS") return
 
+    // CRITICAL GUARD: Exclude Run Code (interpret_solution / testcases) responses
+    if (body.run_success !== undefined || body.code_answer !== undefined || body.interpret_id !== undefined || body.expected_code_answer !== undefined) {
+      w.__ALGOVAULT_IS_SUBMITTING__ = false
+      return
+    }
+
+    const urlStr = String(url || "")
+    if (urlStr.indexOf("interpret") !== -1 || urlStr.indexOf("run_code") !== -1) {
+      w.__ALGOVAULT_IS_SUBMITTING__ = false
+      return
+    }
+
     // Only fire if the submit action was actively initiated (ignores run code)
     if (!w.__ALGOVAULT_IS_SUBMITTING__) return
 
-    const match = String(url).match(/\/submissions\/detail\/(\d+)\/check/)
+    const match = urlStr.match(/\/submissions\/detail\/(\d+)\/check/)
     const submissionId = match ? match[1] : (body.submission_id ? String(body.submission_id) : undefined)
     if (submissionId && submissionId === lastSeenSubmissionId) return
     if (submissionId) lastSeenSubmissionId = submissionId
@@ -84,9 +97,11 @@ export const config: PlasmoCSConfig = {
   // 1. Monkey-patch window.fetch
   window.fetch = function(input: any, init?: any) {
     const url = normalizeUrl(input)
-    const isSubmit = /\/submit(\/|\?|$)/.test(url)
+    const urlStr = String(url || "")
 
-    if (isSubmit) {
+    if (urlStr.indexOf("interpret") !== -1 || urlStr.indexOf("run_code") !== -1) {
+      w.__ALGOVAULT_IS_SUBMITTING__ = false
+    } else if (/\/submit(\/|\?|$)/.test(urlStr)) {
       w.__ALGOVAULT_IS_SUBMITTING__ = true
       if (submitResetTimer) clearTimeout(submitResetTimer)
       submitResetTimer = setTimeout(() => {
@@ -107,10 +122,10 @@ export const config: PlasmoCSConfig = {
     }
 
     return originalFetch.apply(this, arguments as any).then((response: Response) => {
-      if (/\/submissions\/detail\/\d+\/check/.test(url) || (typeof url === "string" && url.indexOf("/check") !== -1)) {
+      if (/\/submissions\/detail\/\d+\/check/.test(urlStr) || urlStr.indexOf("/check") !== -1) {
         try {
           response.clone().json().then((data) => {
-            emitSubmissionResult(url, data)
+            emitSubmissionResult(urlStr, data)
           }).catch(() => {})
         } catch {}
       }
@@ -130,8 +145,11 @@ export const config: PlasmoCSConfig = {
 
   XMLHttpRequest.prototype.send = function(body: any) {
     const url = (this as any)._avUrl || ""
-    const isSubmit = /\/submit(\/|\?|$)/.test(url)
-    if (isSubmit) {
+    const urlStr = String(url || "")
+
+    if (urlStr.indexOf("interpret") !== -1 || urlStr.indexOf("run_code") !== -1) {
+      w.__ALGOVAULT_IS_SUBMITTING__ = false
+    } else if (/\/submit(\/|\?|$)/.test(urlStr)) {
       w.__ALGOVAULT_IS_SUBMITTING__ = true
       if (submitResetTimer) clearTimeout(submitResetTimer)
       submitResetTimer = setTimeout(() => {
@@ -151,11 +169,11 @@ export const config: PlasmoCSConfig = {
       }
     }
 
-    if (/\/submissions\/detail\/\d+\/check/.test(url) || url.indexOf("/check") !== -1) {
+    if (/\/submissions\/detail\/\d+\/check/.test(urlStr) || urlStr.indexOf("/check") !== -1) {
       this.addEventListener("loadend", function() {
         try {
           if (this.status < 200 || this.status >= 300 || !this.responseText) return
-          emitSubmissionResult(url, JSON.parse(this.responseText))
+          emitSubmissionResult(urlStr, JSON.parse(this.responseText))
         } catch {}
       }, { once: true })
     }

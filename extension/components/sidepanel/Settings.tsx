@@ -130,7 +130,6 @@ export const Settings = () => {
         fetchUserGithubProfile(token).then(async (res) => {
           if (res.revoked) {
             await clearGithubAuth();
-            await clearJwtToken();
             setGithubPat('');
             setGithubUser(null);
             setGithubRepo('');
@@ -148,7 +147,6 @@ export const Settings = () => {
         fetchUserGithubRepos(token).then(async (res) => {
           if (res.revoked) {
             await clearGithubAuth();
-            await clearJwtToken();
             setGithubPat('');
             setGithubUser(null);
             setGithubRepo('');

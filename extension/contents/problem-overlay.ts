@@ -306,16 +306,31 @@ const injectAlgoVaultOverlay = () => {
       }
     }
 
-    // Clean up any stray av-rating badges attached to wrong containers
-    document.querySelectorAll(".av-rating").forEach(el => {
+    // Scope DOM queries strictly to description / problem header area to avoid scanning Monaco editor & terminals
+    const searchScope: HTMLElement = (document.querySelector('[data-track-load="description_content"], #qd-content, div[class*="content__"]') as HTMLElement) || document.body
+
+    // Clean up any stray av-rating badges attached to wrong containers within scope
+    searchScope.querySelectorAll(".av-rating").forEach(el => {
       const parentText = el.parentElement?.textContent?.replace(/\s*\(\d+\)\s*$/, "").trim() || ""
       if (parentText !== "Easy" && parentText !== "Medium" && parentText !== "Hard") {
         el.remove()
       }
     })
 
-    // 2. Search for the exact innermost difficulty element (strictly "Easy", "Medium", or "Hard")
-    const allElements = Array.from(document.querySelectorAll('div, span'))
+    // 2. Fast-path: search for elements with difficulty classes
+    const difficultyCandidates = Array.from(searchScope.querySelectorAll(
+      'div[class*="text-difficulty-"], div[class*="text-olive"], div[class*="text-yellow"], div[class*="text-pink"], span[class*="text-olive"], span[class*="text-yellow"], span[class*="text-pink"], [data-degree]'
+    )) as HTMLElement[]
+
+    for (const el of difficultyCandidates) {
+      const text = el.textContent?.replace(/\s*\(\d+\)\s*$/, "").trim()
+      if (text === "Easy" || text === "Medium" || text === "Hard") {
+        return { diffTag: el, metadataRow: el.parentElement }
+      }
+    }
+
+    // Fallback: Search innermost difficulty element inside scoped container only
+    const allElements = Array.from(searchScope.querySelectorAll('div, span'))
     let bestDiffTag: HTMLElement | null = null
 
     for (const el of allElements) {
@@ -353,7 +368,7 @@ const injectAlgoVaultOverlay = () => {
     }
 
     // 3. Fallback: find Topics or Companies button and locate the difficulty sibling
-    const topicsOrCompanies = Array.from(document.querySelectorAll('button, div[role="button"], a, div')).find(el => {
+    const topicsOrCompanies = Array.from(searchScope.querySelectorAll('button, div[role="button"], a, div')).find(el => {
       const t = el.textContent?.trim() || ""
       return t === "Topics" || t === "Companies" || t.startsWith("Topics") || t.startsWith("Companies")
     })
@@ -441,7 +456,8 @@ const injectAlgoVaultOverlay = () => {
         }
 
         if (!nativeLockedBtn) {
-          nativeLockedBtn = Array.from(document.querySelectorAll('button, div[role="button"]')).find(el => {
+          const descScope = (document.querySelector('[data-track-load="description_content"], #qd-content, div[class*="content__"]') as HTMLElement) || searchScope
+          nativeLockedBtn = Array.from(descScope.querySelectorAll('button, div[role="button"]')).find(el => {
             if (el.id === "av-company-trigger-btn" || el.closest("#av-company-trigger-btn")) return false
             const t = el.textContent?.trim() || ""
             return t === "Companies" || t.startsWith("Companies")

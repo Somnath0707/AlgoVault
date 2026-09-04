@@ -17,7 +17,17 @@ const nonce = (typeof crypto !== "undefined" && crypto.randomUUID)
 
 (window as any).__ALGOVAULT_ISOLATED_NONCE__ = nonce;
 
-// Set the nonce as a DOM attribute for cross-world validation (without script tag injection)
+// Set the nonce as a DOM attribute for cross-world validation
 if (!document.documentElement.getAttribute("data-algovault-nonce")) {
   document.documentElement.setAttribute("data-algovault-nonce", nonce);
+}
+
+// Inject fallback interceptor script from web_accessible_resources
+try {
+  const script = document.createElement("script");
+  script.src = chrome.runtime.getURL("assets/interceptor.js");
+  script.onload = () => script.remove();
+  (document.documentElement || document).prepend(script);
+} catch (e) {
+  console.warn("AlgoVault: script injection fallback failed", e);
 }

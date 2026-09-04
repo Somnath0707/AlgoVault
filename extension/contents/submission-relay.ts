@@ -25,11 +25,11 @@ type SubmissionPayload = {
 const relayedSubmissionIds = new Set<string>()
 
 function runWhenIdle(work: () => void) {
-  if ("requestIdleCallback" in window) {
-    window.requestIdleCallback(work, { timeout: 2_500 })
+  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+    (window as any).requestIdleCallback(work, { timeout: 2_500 })
     return
   }
-  window.setTimeout(work, 1_000)
+  setTimeout(work, 1_000)
 }
 
 function currentSlug() {
@@ -245,18 +245,15 @@ window.addEventListener("message", ((event: MessageEvent) => {
   }
 
   if (payload.statusDisplay === "Accepted") {
-    // Leave LeetCode's result rendering alone first. The visual celebration is
-    // non-blocking and the optional dialog/cache update wait for idle time.
+    // Immediately stop the practice session & timer
+    chrome.runtime.sendMessage({ action: "session_finish_v2", language: payload.language })
+
+    // Trigger celebration audio & overlay promptly
     setTimeout(() => {
       notifyCelebration()
-    }, 600)
+    }, 100)
+
     runWhenIdle(() => {
-      chrome.storage.local.get("algovault.solvedSlugs", (result) => {
-        const cached = result["algovault.solvedSlugs"] || {}
-        const slugs = new Set<string>(Array.isArray(cached?.slugs) ? cached.slugs : [])
-        slugs.add(slug)
-        chrome.storage.local.set({ "algovault.solvedSlugs": { ...cached, fetchedAt: Date.now(), slugs: Array.from(slugs) } })
-      })
       showPostSolveDialog(slug)
     })
   } else {
