@@ -1,5 +1,6 @@
 package com.algovault.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 import java.util.List;
@@ -10,7 +11,7 @@ public class SyncLeetcodeRequest {
     @Size(max = 100)
     private String username;
 
-    @jakarta.validation.Valid
+    @Valid
     private ProfileInfo profile;
 
     @Size(max = 5000)
@@ -18,7 +19,7 @@ public class SyncLeetcodeRequest {
     @Size(max = 500)
     private List<@jakarta.validation.Valid SubmissionInfo> submissions;
 
-    @jakarta.validation.Valid
+    @Valid
     private ContestRankingInfo contestRanking;
 
     @Size(max = 1000)
