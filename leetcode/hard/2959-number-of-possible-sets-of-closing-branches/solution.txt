@@ -1,23 +1,45 @@
-nt maxDistance, int[][] roads) {
+et.contains(v)) continue;
 
-        List<List<int[]>> list = new ArrayList<>();
+                    int total = len + currLen;
 
-        for (int i = 0; i < n; i++) {
-            list.add(new ArrayList<>());
+                    if (total < dist[v]) {
+                        dist[v] = total;
+                        pq.offer(new int[]{v, total});
+                    }
+                }
+            }
+
+            for (int i = 0; i < n; i++) {
+
+                if (set.contains(i)) continue;
+
+                if (dist[i] > max) {
+                    return false;
+                }
+            }
         }
 
-        for (int num[] : roads) {
-
-            int u = num[0];
-            int v = num[1];
-            int w = num[2];
-
-            list.get(u).add(new int[]{v, w});
-            list.get(v).add(new int[]{u, w});
-        }
-
-        Set<Integer> set = new HashSet<>();
-
-        return f(0, set, list, maxDistance, n);
+        return true;
     }
-}
+
+    public int f(int i, Set<Integer> set, List<List<int[]>> list,
+                 int maxDistance, int n) {
+
+        if (i == n) {
+            if(dijkstra(set,list,maxDistance , n)) return 1; 
+            return 0; 
+        }
+
+        int take = 0;
+        int skip = 0;
+
+        set.add(i);
+        take = f(i + 1, set, list, maxDistance, n);
+        set.remove(i);
+
+        skip = f(i + 1, set, list, maxDistance, n);
+
+        return take + skip;
+    }
+
+    public int numberOfSets(int n, int ma
