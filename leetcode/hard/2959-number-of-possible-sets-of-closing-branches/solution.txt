@@ -1,0 +1,23 @@
+nt maxDistance, int[][] roads) {
+
+        List<List<int[]>> list = new ArrayList<>();
+
+        for (int i = 0; i < n; i++) {
+            list.add(new ArrayList<>());
+        }
+
+        for (int num[] : roads) {
+
+            int u = num[0];
+            int v = num[1];
+            int w = num[2];
+
+            list.get(u).add(new int[]{v, w});
+            list.get(v).add(new int[]{u, w});
+        }
+
+        Set<Integer> set = new HashSet<>();
+
+        return f(0, set, list, maxDistance, n);
+    }
+}
