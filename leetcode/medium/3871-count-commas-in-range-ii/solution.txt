@@ -1,6 +1,0 @@
-comma += (long)(n-1000000000000000L + 1 );
-        }
-
-        return totalcomma;
-    }
-}
