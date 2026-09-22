@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "plasmo dev",
     "build": "plasmo build && node scripts/post-build.js",
-    "package": "plasmo package && node scripts/post-build.js"
+    "package": "plasmo package && node scripts/post-build.js",
+    "package:release": "node scripts/verify-release-config.js && plasmo package && node scripts/post-build.js && node scripts/verify-release-build.js"
   },
   "dependencies": {
     "@plasmohq/storage": "^1.11.0",

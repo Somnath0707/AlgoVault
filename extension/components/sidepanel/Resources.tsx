@@ -87,42 +87,45 @@ export const Resources = () => {
 
   return (
     <div className="space-y-3 pb-6 font-sans animate-fadeIn min-w-0 w-full max-w-full overflow-x-hidden">
+      <header className="flex items-end justify-between border-b border-white/[0.08] pb-3 px-1">
+        <div className="flex items-start gap-2.5"><div className="grid h-8 w-8 place-items-center rounded-lg border border-violet-400/25 bg-violet-400/10 text-violet-400"><BookOpen size={16} /></div><div><p className="text-[9px] font-bold uppercase tracking-[0.16em] text-violet-400">Reference desk</p><h1 className="mt-0.5 text-base font-semibold tracking-tight text-zinc-100">Learn</h1><p className="mt-0.5 text-[10px] text-zinc-500">Curriculum, reusable code, and sources worth returning to.</p></div></div>
+      </header>
       {/* Top Level 3-Tab Segmented Navigation - 3 Equal Columns */}
-      <div className="grid grid-cols-3 gap-1 bg-zinc-950/90 p-1 rounded-xl border border-zinc-800/80 shadow-inner w-full min-w-0">
+      <div className="grid grid-cols-3 gap-1 bg-[#282828] p-1 rounded-lg border border-white/[0.08] w-full min-w-0">
         <button
           onClick={() => setActiveTab("roadmap")}
-          className={`flex items-center justify-center gap-1 text-[10px] font-bold py-1.5 rounded-lg transition-all font-mono uppercase tracking-wider truncate ${
+          className={`flex items-center justify-center gap-1 text-[10px] font-bold py-1.5 rounded-md transition-all font-mono uppercase tracking-wider truncate ${
             activeTab === "roadmap"
-              ? "bg-zinc-900 text-[#dfa054] border border-[#dfa054]/30 shadow-md"
-              : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40"
+              ? "bg-[#333333] text-white border border-white/[0.12] shadow-sm"
+              : "text-zinc-400 hover:text-zinc-200 hover:bg-[#333333]/40 border border-transparent"
           }`}
           title="Curriculum Roadmap"
         >
-          <SearchCode size={12} className="shrink-0" />
+          <SearchCode size={12} className={activeTab === "roadmap" ? "text-[#ffa116] shrink-0" : "text-zinc-400 shrink-0"} />
           <span>Curriculum</span>
         </button>
         <button
           onClick={() => setActiveTab("templates")}
-          className={`flex items-center justify-center gap-1 text-[10px] font-bold py-1.5 rounded-lg transition-all font-mono uppercase tracking-wider truncate ${
+          className={`flex items-center justify-center gap-1 text-[10px] font-bold py-1.5 rounded-md transition-all font-mono uppercase tracking-wider truncate ${
             activeTab === "templates"
-              ? "bg-zinc-900 text-[#dfa054] border border-[#dfa054]/30 shadow-md"
-              : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40"
+              ? "bg-[#333333] text-white border border-white/[0.12] shadow-sm"
+              : "text-zinc-400 hover:text-zinc-200 hover:bg-[#333333]/40 border border-transparent"
           }`}
           title="Code Templates"
         >
-          <Code2 size={12} className="shrink-0" />
+          <Code2 size={12} className={activeTab === "templates" ? "text-[#ffa116] shrink-0" : "text-zinc-400 shrink-0"} />
           <span>Templates</span>
         </button>
         <button
           onClick={() => setActiveTab("resources")}
-          className={`flex items-center justify-center gap-1 text-[10px] font-bold py-1.5 rounded-lg transition-all font-mono uppercase tracking-wider truncate ${
+          className={`flex items-center justify-center gap-1 text-[10px] font-bold py-1.5 rounded-md transition-all font-mono uppercase tracking-wider truncate ${
             activeTab === "resources"
-              ? "bg-zinc-900 text-[#dfa054] border border-[#dfa054]/30 shadow-md"
-              : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40"
+              ? "bg-[#333333] text-white border border-white/[0.12] shadow-sm"
+              : "text-zinc-400 hover:text-zinc-200 hover:bg-[#333333]/40 border border-transparent"
           }`}
           title="Learning Resources"
         >
-          <BookOpen size={12} className="shrink-0" />
+          <BookOpen size={12} className={activeTab === "resources" ? "text-[#ffa116] shrink-0" : "text-zinc-400 shrink-0"} />
           <span>Resources</span>
         </button>
       </div>
@@ -166,8 +169,8 @@ export const Resources = () => {
                   onClick={() => setFilter(kind)}
                   className={`rounded-md px-2.5 py-1 text-[10px] font-mono capitalize transition-colors ${
                     filter === kind
-                      ? "bg-zinc-800 text-zinc-100 border border-zinc-700"
-                      : "text-zinc-500 hover:text-zinc-300 bg-zinc-900/40"
+                      ? "bg-[#333333] text-zinc-100 border border-white/[0.12]"
+                      : "text-zinc-400 hover:text-zinc-200 bg-[#282828] border border-transparent"
                   }`}
                 >
                   {kind}
@@ -179,12 +182,12 @@ export const Resources = () => {
               {visible.map((resource) => (
                 <Card
                   key={resource.name}
-                  className="p-3 border border-zinc-800/80 bg-zinc-950/70 hover:border-zinc-700 transition-all flex flex-col justify-between"
+                  className="p-3 border border-white/[0.08] bg-[#282828] hover:border-white/[0.15] transition-all flex flex-col justify-between"
                 >
                   <div>
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="text-xs font-bold text-zinc-100">{resource.name}</h3>
-                      <span className="rounded px-1.5 py-0.5 text-[9px] font-mono text-[#dfa054] bg-[#dfa054]/10 border border-[#dfa054]/20 uppercase">
+                      <span className="rounded px-1.5 py-0.5 text-[9px] font-mono text-[#ffa116] bg-[#ffa116]/10 border border-[#ffa116]/20 uppercase">
                         {resource.kind}
                       </span>
                     </div>
@@ -192,13 +195,13 @@ export const Resources = () => {
                       {resource.description}
                     </p>
                   </div>
-                  <div className="mt-2.5 flex items-center justify-between border-t border-zinc-900 pt-2">
+                  <div className="mt-2.5 flex items-center justify-between border-t border-white/[0.06] pt-2">
                     <span className="text-[10px] text-zinc-500 font-mono">{resource.focus}</span>
                     <a
                       href={resource.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-[10px] font-mono text-[#dfa054] hover:underline"
+                      className="inline-flex items-center gap-1 text-[10px] font-mono text-[#ffa116] hover:underline"
                     >
                       Open <ExternalLink size={10} />
                     </a>

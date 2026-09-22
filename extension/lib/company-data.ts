@@ -212,7 +212,7 @@ function hydrateCompanies(raw: any): { companies: CompanySummary[]; slugMap: Map
       name: c.n,
       slug: c.s,
       category: c.c,
-      accentColor: "#dfa054",
+      accentColor: "#ffa116",
       domain: c.d,
       logoSvg: "",
       totalProblems: cProblems.length,

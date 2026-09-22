@@ -14,7 +14,6 @@ import {
   ExternalLink,
   ArrowRight,
   Activity,
-  Sparkles,
   ChevronDown,
   ChevronUp,
   Tag,
@@ -125,11 +124,11 @@ const TOPIC_PALETTES: Record<string, TopicTheme> = {
 }
 
 const DEFAULT_TOPIC_THEME: TopicTheme = {
-  bar: "bg-[#dfa054]",
-  text: "text-[#dfa054]",
-  bg: "bg-[#dfa054]/10",
-  border: "border-[#dfa054]/25",
-  dot: "bg-[#dfa054]"
+  bar: "bg-[#ffa116]",
+  text: "text-[#ffa116]",
+  bg: "bg-[#ffa116]/10",
+  border: "border-[#ffa116]/25",
+  dot: "bg-[#ffa116]"
 }
 
 function getTopicTheme(topic: string): TopicTheme {
@@ -151,11 +150,11 @@ interface RatingBandDef {
 }
 
 const RATING_BANDS: RatingBandDef[] = [
-  { key: "easy", label: "< 1400", tierName: "Easy", color: "#10b981", glow: "rgba(16,185,129,0.35)", bg: "bg-emerald-500/10", border: "border-emerald-500/25", min: 0, max: 1399 },
-  { key: "medium", label: "1400–1699", tierName: "Medium", color: "#eab308", glow: "rgba(234,179,8,0.35)", bg: "bg-amber-500/10", border: "border-amber-500/25", min: 1400, max: 1699 },
-  { key: "hard", label: "1700–1999", tierName: "Hard", color: "#fb923c", glow: "rgba(251,146,60,0.35)", bg: "bg-orange-500/10", border: "border-orange-500/25", min: 1700, max: 1999 },
-  { key: "expert", label: "2000–2299", tierName: "Expert", color: "#f43f5e", glow: "rgba(244,63,94,0.35)", bg: "bg-rose-500/10", border: "border-rose-500/25", min: 2000, max: 2299 },
-  { key: "master", label: "2300+", tierName: "Master", color: "#a855f7", glow: "rgba(168,85,247,0.35)", bg: "bg-purple-500/10", border: "border-purple-500/25", min: 2300, max: 4000 }
+  { key: "easy", label: "< 1400", tierName: "Easy", color: "#00b8a3", glow: "rgba(0,184,163,0.35)", bg: "bg-emerald-500/10", border: "border-emerald-500/25", min: 0, max: 1399 },
+  { key: "medium", label: "1400–1699", tierName: "Medium", color: "#ffc01e", glow: "rgba(255,192,30,0.35)", bg: "bg-amber-500/10", border: "border-amber-500/25", min: 1400, max: 1699 },
+  { key: "hard", label: "1700–1999", tierName: "Hard", color: "#ffa116", glow: "rgba(255,161,22,0.35)", bg: "bg-orange-500/10", border: "border-orange-500/25", min: 1700, max: 1999 },
+  { key: "expert", label: "2000–2299", tierName: "Expert", color: "#a855f7", glow: "rgba(168,85,247,0.35)", bg: "bg-purple-500/10", border: "border-purple-500/25", min: 2000, max: 2299 },
+  { key: "master", label: "2300+", tierName: "Master", color: "#ef4743", glow: "rgba(239,71,67,0.35)", bg: "bg-rose-500/10", border: "border-rose-500/25", min: 2300, max: 4000 }
 ]
 
 function formatDuration(totalSeconds: number): string {
@@ -481,14 +480,14 @@ export function WeeklyReportModal({
   // Copy Markdown Summary
   const handleCopyMarkdown = () => {
     const summaryText = [
-      `### ⚡ AlgoVault Engineering Debrief [${dateRangeLabel}]`,
+      `### AlgoVault Engineering Debrief [${dateRangeLabel}]`,
       `**Developer:** @${username}`,
       ``,
       `#### 📊 Core Metrics`,
       `* **Total Active Practice:** ${formatDetailedDuration(weekFocusSeconds)}`,
       `* **Problems Solved:** ${weekSolves} across ${weekSessions} focused sessions`,
       avgMinutesPerSolve ? `* **Average Velocity:** ~${avgMinutesPerSolve} mins / solve` : ``,
-      peakProblem?.rating ? `* **Peak Elo Conquered:** ★ ${Math.round(peakProblem.rating)} (${peakProblem.title})` : ``,
+      peakProblem?.rating ? `* **Peak Elo Conquered:** ${Math.round(peakProblem.rating)} (${peakProblem.title})` : ``,
       strongestDay?.focusSeconds ? `* **Peak Productivity Day:** ${strongestDay.dateLabel} (${formatDuration(strongestDay.focusSeconds)})` : ``,
       ``,
       topicDistribution.length > 0 ? `#### 🏷️ Topics Solved: ${topicDistribution.map((t) => `${t.topic} (${t.count})`).join(", ")}` : ``,
@@ -513,7 +512,7 @@ export function WeeklyReportModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2, ease: "easeOut" }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md font-sans"
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/45 backdrop-blur-sm font-sans"
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 14 }}
@@ -524,38 +523,25 @@ export function WeeklyReportModal({
               damping: 30,
               stiffness: 350
             }}
-            className="relative flex flex-col w-full max-w-2xl max-h-[94vh] rounded-2xl border border-zinc-800/90 bg-[#090a0f] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95),0_0_0_1px_rgba(255,255,255,0.06)] text-zinc-200 overflow-hidden"
+            className="relative flex flex-col w-full max-w-2xl max-h-[94vh] rounded-2xl border border-white/10 bg-[#242424] shadow-2xl text-zinc-200 overflow-hidden font-sans"
           >
-            {/* Subtle AlgoVault Ambient Glow Backdrop */}
-            <div
-              className="pointer-events-none absolute inset-0 opacity-60"
-              style={{
-                background:
-                  "radial-gradient(ellipse 65% 50% at 90% 0%, rgba(245,158,11,0.07), transparent), radial-gradient(ellipse 50% 50% at 0% 100%, rgba(14,165,233,0.04), transparent)"
-              }}
-            />
-
             {/* Top Header Bar */}
-            <div className="relative z-10 flex items-center justify-between border-b border-zinc-800/80 bg-zinc-950/90 px-5 py-3.5 backdrop-blur shrink-0">
+            <div className="relative z-10 flex items-center justify-between border-b border-white/10 bg-[#282828] px-6 py-4 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-400 shadow-sm shrink-0">
-                  <Activity size={17} />
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10 text-[#ffa116] shrink-0">
+                  <Activity size={18} />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-mono font-bold uppercase tracking-[0.18em] text-amber-400/90">
-                      AlgoVault Telemetry
-                    </span>
-                    <span className="text-zinc-700">•</span>
-                    <span className="text-[10px] font-mono text-zinc-400">
-                      7-Day Debrief
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[#ffa116]">
+                      ALGOVAULT TELEMETRY · 7-Day Debrief
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    <h2 className="text-sm font-bold text-zinc-100 font-sans tracking-tight">
+                  <div className="flex items-center gap-2.5 mt-0.5 flex-wrap">
+                    <h2 className="text-base font-bold text-white font-sans tracking-tight">
                       Weekly Performance Report
                     </h2>
-                    <span className="text-[10px] font-medium text-zinc-400 font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-md shrink-0">
+                    <span className="text-xs font-medium text-zinc-400 font-mono bg-white/5 border border-white/10 px-2.5 py-0.5 rounded shrink-0">
                       {dateRangeLabel}
                     </span>
                   </div>
@@ -567,17 +553,17 @@ export function WeeklyReportModal({
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                   onClick={handleCopyMarkdown}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs font-mono transition-all cursor-pointer shadow-sm"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 bg-[#303030] hover:bg-[#383838] text-zinc-300 hover:text-white text-xs font-mono transition-all cursor-pointer shadow-sm"
                   title="Copy markdown debrief to clipboard"
                 >
-                  {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                  {copied ? <Check size={13} className="text-[#00b8a3]" /> : <Copy size={13} />}
                   <span>{copied ? "Copied" : "Copy"}</span>
                 </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.08 }}
                   whileTap={{ scale: 0.92 }}
                   onClick={onClose}
-                  className="p-1.5 rounded-lg border border-zinc-800 bg-zinc-900/90 text-zinc-400 hover:text-zinc-100 hover:border-zinc-700 transition-colors cursor-pointer"
+                  className="p-1.5 rounded-lg border border-white/10 bg-[#303030] text-zinc-400 hover:text-white hover:bg-[#383838] transition-colors cursor-pointer"
                   title="Close"
                 >
                   <X size={16} />
@@ -586,10 +572,10 @@ export function WeeklyReportModal({
             </div>
 
             {/* Navigation Switcher (Contained Segmented Control) */}
-            <div className="relative z-10 px-5 pt-3 pb-2.5 border-b border-zinc-800/80 bg-zinc-950/40 shrink-0">
-              <div className="flex items-center gap-1 p-1 rounded-xl bg-zinc-900/80 border border-zinc-800/80 w-full sm:w-auto sm:inline-flex overflow-x-auto scrollbar-none">
+            <div className="relative z-10 px-6 py-3 border-b border-white/10 bg-[#242424] shrink-0">
+              <div className="flex items-center gap-1 p-1 rounded-xl bg-[#1c1c1c] border border-white/5 w-full sm:w-auto sm:inline-flex overflow-x-auto scrollbar-none">
                 {[
-                  { key: "overview", label: "Executive Summary", icon: Activity },
+                  { key: "overview", label: "Executive Summary", icon: Zap },
                   { key: "problems", label: `Problems Conquered (${solvedProblems.length})`, icon: Trophy },
                   { key: "plan", label: "Next Week Targets", icon: Target }
                 ].map((tab) => {
@@ -599,19 +585,19 @@ export function WeeklyReportModal({
                     <button
                       key={tab.key}
                       onClick={() => setActiveTab(tab.key as any)}
-                      className={`relative flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer select-none whitespace-nowrap ${
-                        active ? "text-zinc-100 font-semibold" : "text-zinc-400 hover:text-zinc-200"
+                      className={`relative flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer select-none whitespace-nowrap ${
+                        active ? "text-white font-semibold" : "text-zinc-400 hover:text-zinc-200"
                       }`}
                     >
                       {active && (
                         <motion.div
                           layoutId="activeReportTab"
                           transition={{ type: "spring", stiffness: 420, damping: 32 }}
-                          className="absolute inset-0 rounded-lg bg-zinc-800 border border-zinc-700/60 shadow-sm"
+                          className="absolute inset-0 rounded-lg bg-[#282828] border border-white/10 shadow-sm"
                         />
                       )}
                       <span className="relative z-10 flex items-center gap-1.5">
-                        <Icon size={13} className={active ? "text-amber-400" : "text-zinc-500"} />
+                        <Icon size={13} className={active ? "text-[#ffa116]" : "text-zinc-500"} />
                         <span>{tab.label}</span>
                       </span>
                     </button>
@@ -621,7 +607,7 @@ export function WeeklyReportModal({
             </div>
 
             {/* Modal Scrollable Body */}
-            <div className="relative z-10 p-5 overflow-y-auto space-y-4 scrollbar-thin scrollbar-thumb-zinc-800">
+            <div className="relative z-10 p-6 overflow-y-auto space-y-4 scrollbar-thin scrollbar-thumb-zinc-800">
               <AnimatePresence mode="wait">
                 {activeTab === "overview" && (
                   <motion.div
@@ -633,103 +619,99 @@ export function WeeklyReportModal({
                     className="space-y-4"
                   >
                     {/* 4 Responsive KPI Metric Cards */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {/* Active Time */}
-                      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-3.5 flex flex-col justify-between hover:bg-zinc-900/50 hover:border-zinc-700/60 transition-all shadow-sm">
+                      <div className="rounded-xl border border-white/10 bg-[#282828] p-4 flex flex-col justify-between hover:border-white/20 transition-all shadow-sm">
                         <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-400">
+                          <span className="text-[10px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-400">
                             Active Time
                           </span>
-                          <Clock size={12} className="text-zinc-500" />
+                          <Clock size={14} className="text-zinc-500" />
                         </div>
-                        <div className="my-1.5">
-                          <span className="block text-xl font-bold font-mono tabular-nums text-zinc-100">
+                        <div className="my-2">
+                          <span className="block text-2xl font-bold font-mono tabular-nums text-white">
                             {formatDuration(weekFocusSeconds)}
                           </span>
                         </div>
-                        <span className="text-[10px] text-zinc-400 font-mono block truncate" title={avgMinutesPerSolve ? `~${avgMinutesPerSolve} mins per solve` : ""}>
+                        <span className="text-xs text-zinc-400 font-mono block truncate">
                           {avgMinutesPerSolve ? `~${avgMinutesPerSolve}m avg / solve` : formatDetailedDuration(weekFocusSeconds)}
                         </span>
                       </div>
 
                       {/* Solves */}
-                      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-3.5 flex flex-col justify-between hover:bg-zinc-900/50 hover:border-zinc-700/60 transition-all shadow-sm">
+                      <div className="rounded-xl border border-white/10 bg-[#282828] p-4 flex flex-col justify-between hover:border-white/20 transition-all shadow-sm">
                         <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-400">
+                          <span className="text-[10px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-400">
                             Problems Solved
                           </span>
-                          <CheckCircle2 size={12} className="text-emerald-400/80" />
+                          <CheckCircle2 size={14} className="text-[#00b8a3]" />
                         </div>
-                        <div className="my-1.5">
-                          <span className="block text-xl font-bold font-mono tabular-nums text-emerald-400">
+                        <div className="my-2">
+                          <span className="block text-2xl font-bold font-mono tabular-nums text-[#00b8a3]">
                             {weekSolves} Solved
                           </span>
                         </div>
-                        <span className="text-[10px] text-zinc-400 font-mono block">
+                        <span className="text-xs text-zinc-400 font-mono block">
                           in 7-day window
                         </span>
                       </div>
 
                       {/* Peak ZeroTrac Elo */}
-                      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-3.5 flex flex-col justify-between hover:bg-zinc-900/50 hover:border-zinc-700/60 transition-all shadow-sm">
+                      <div className="rounded-xl border border-white/10 bg-[#282828] p-4 flex flex-col justify-between hover:border-white/20 transition-all shadow-sm">
                         <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-400">
+                          <span className="text-[10px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-400">
                             Peak Conquered
                           </span>
-                          <Trophy size={12} className="text-amber-400/80" />
+                          <Trophy size={14} className="text-[#ffc01e]" />
                         </div>
-                        <div className="my-1.5">
-                          <span className="block text-xl font-bold font-mono tabular-nums text-amber-400">
-                            {peakProblem?.rating ? `★ ${Math.round(peakProblem.rating)}` : "—"}
+                        <div className="my-2">
+                          <span className="block text-2xl font-bold font-mono tabular-nums text-[#ffc01e]">
+                            {peakProblem?.rating ? `Elo ${Math.round(peakProblem.rating)}` : "—"}
                           </span>
                         </div>
-                        <span className="text-[10px] text-zinc-400 font-mono block truncate" title={peakProblem?.title || "No rated problems"}>
+                        <span className="text-xs text-zinc-400 font-mono block truncate" title={peakProblem?.title || "No rated problems"}>
                           {peakProblem ? peakProblem.title : "Unrated practice"}
                         </span>
                       </div>
 
                       {/* Practice Sessions */}
-                      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-3.5 flex flex-col justify-between hover:bg-zinc-900/50 hover:border-zinc-700/60 transition-all shadow-sm">
+                      <div className="rounded-xl border border-white/10 bg-[#282828] p-4 flex flex-col justify-between hover:border-white/20 transition-all shadow-sm">
                         <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-400">
+                          <span className="text-[10px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-400">
                             Focus Sessions
                           </span>
-                          <Zap size={12} className="text-sky-400/80" />
+                          <Zap size={14} className="text-[#38bdf8]" />
                         </div>
-                        <div className="my-1.5">
-                          <span className="block text-xl font-bold font-mono tabular-nums text-sky-400">
+                        <div className="my-2">
+                          <span className="block text-2xl font-bold font-mono tabular-nums text-[#38bdf8]">
                             {weekSessions} Sessions
                           </span>
                         </div>
-                        <span className="text-[10px] text-zinc-400 font-mono block">
+                        <span className="text-xs text-zinc-400 font-mono block">
                           {sessionSuccessRate}% completion rate
                         </span>
                       </div>
                     </div>
 
                     {/* 7-Day Velocity Rhythm (Audio-Waveform / GitHub Pulse Style) */}
-                    <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/25 p-4 sm:p-5 space-y-3.5 shadow-sm">
+                    <div className="rounded-2xl border border-white/10 bg-[#282828] p-5 space-y-4 shadow-sm">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span className="text-xs font-bold text-zinc-100 font-sans tracking-tight flex items-center gap-1.5">
-                          <BarChart3 size={15} className="text-amber-400" />
+                        <span className="text-sm font-semibold text-white font-sans tracking-tight flex items-center gap-2">
+                          <BarChart3 size={16} className="text-[#ffa116]" />
                           Weekly Velocity Rhythm
                         </span>
-                        {hoveredDay ? (
-                          <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/25 px-2.5 py-0.5 rounded-full flex items-center gap-1 font-semibold animate-fadeIn">
-                            {hoveredDay.dateLabel}: {formatDuration(hoveredDay.focusSeconds)} · {hoveredDay.solves} Solves
-                          </span>
-                        ) : strongestDay && strongestDay.focusSeconds > 0 ? (
-                          <span className="text-[10px] font-mono text-amber-400/90 bg-amber-500/10 border border-amber-500/25 px-2.5 py-0.5 rounded-full flex items-center gap-1 font-medium">
-                            <Sparkles size={11} className="text-amber-400" />
+                        {strongestDay && strongestDay.focusSeconds > 0 ? (
+                          <span className="text-xs font-mono text-[#ffa116] bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-full flex items-center gap-1.5 font-medium">
+                            <TrendingUp size={12} className="text-[#ffa116]" />
                             Peak: {strongestDay.dateLabel} · {formatDuration(strongestDay.focusSeconds)}
                           </span>
                         ) : null}
                       </div>
 
-                      <div className="grid grid-cols-7 gap-2 pt-1">
+                      <div className="grid grid-cols-7 gap-2.5 pt-1">
                         {days.map((day, idx) => {
                           const maxSecs = Math.max(...days.map((d) => d.focusSeconds), 3600)
-                          const heightPercent = day.focusSeconds > 0 ? Math.max(16, Math.round((day.focusSeconds / maxSecs) * 100)) : 8
+                          const heightPercent = day.focusSeconds > 0 ? Math.max(20, Math.round((day.focusSeconds / maxSecs) * 100)) : 10
                           const isStrongest = strongestDay && day.key === strongestDay.key && day.focusSeconds > 0
                           const isHovered = hoveredDay?.key === day.key
 
@@ -738,14 +720,14 @@ export function WeeklyReportModal({
                               key={day.key}
                               onMouseEnter={() => setHoveredDay(day)}
                               onMouseLeave={() => setHoveredDay(null)}
-                              className="flex flex-col items-center gap-2 cursor-pointer group"
+                              className="flex flex-col items-center gap-2.5 cursor-pointer group"
                             >
-                              <div className={`h-28 w-full flex items-end justify-center bg-zinc-900/50 rounded-xl p-1 border transition-all overflow-hidden ${
-                                isHovered 
-                                  ? "border-amber-500/50 bg-zinc-850/80 shadow-[0_0_12px_rgba(245,158,11,0.15)]" 
-                                  : isStrongest
-                                  ? "border-amber-500/30 bg-zinc-900/70"
-                                  : "border-zinc-800/60 hover:border-zinc-700"
+                              <div className={`h-28 w-full flex items-end justify-center bg-[#202020] rounded-xl p-1 border transition-all overflow-hidden ${
+                                isStrongest
+                                  ? "border-amber-400/40 bg-[#ffa116]/10"
+                                  : isHovered 
+                                  ? "border-white/20 bg-[#303030]" 
+                                  : "border-white/5 hover:border-white/10"
                               }`}>
                                 <motion.div
                                   initial={{ height: "0%" }}
@@ -757,30 +739,30 @@ export function WeeklyReportModal({
                                   }}
                                   className={`w-full rounded-lg transition-all ${
                                     isStrongest
-                                      ? "bg-gradient-to-t from-amber-600 via-amber-500 to-amber-300 shadow-[0_0_14px_rgba(245,158,11,0.4)]"
+                                      ? "bg-[#ffa116] border border-amber-400/50 shadow-md"
                                       : isHovered
-                                      ? "bg-gradient-to-t from-amber-500 to-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.3)]"
+                                      ? "bg-zinc-400"
                                       : day.focusSeconds > 0
-                                      ? "bg-gradient-to-t from-zinc-600 via-zinc-500 to-zinc-300 group-hover:from-zinc-500 group-hover:to-zinc-200"
+                                      ? "bg-[#383838] group-hover:bg-[#484848]"
                                       : "bg-zinc-800/40"
                                   }`}
                                 />
                               </div>
-                              <div className="flex flex-col items-center gap-0.5">
-                                <span className={`text-[10px] font-mono font-bold transition-colors ${
-                                  isHovered ? "text-amber-400" : isStrongest ? "text-amber-300/90" : "text-zinc-300"
+                              <div className="flex flex-col items-center gap-1">
+                                <span className={`text-xs font-mono font-bold transition-colors ${
+                                  isStrongest || isHovered ? "text-[#ffa116]" : "text-zinc-300"
                                 }`}>
                                   {day.label}
                                 </span>
-                                <span className="text-[9px] font-mono text-zinc-500 tabular-nums">
+                                <span className="text-[10px] font-mono text-zinc-400 tabular-nums">
                                   {day.focusSeconds > 0 ? formatDuration(day.focusSeconds) : "0m"}
                                 </span>
                                 {day.solves > 0 ? (
-                                  <span className="text-[8.5px] font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded-md mt-0.5">
-                                    {day.solves}✓
+                                  <span className="text-[9.5px] font-mono font-semibold text-[#00b8a3] bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full mt-0.5">
+                                    {day.solves} solved
                                   </span>
                                 ) : (
-                                  <span className="text-[9px] font-mono text-zinc-600 mt-0.5">—</span>
+                                  <span className="text-[10px] font-mono text-zinc-600 mt-0.5">—</span>
                                 )}
                               </div>
                             </div>
@@ -790,15 +772,15 @@ export function WeeklyReportModal({
                     </div>
 
                     {/* ZeroTrac Rating Distribution */}
-                    <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/25 p-4 sm:p-5 space-y-3.5 shadow-sm">
+                    <div className="rounded-2xl border border-white/10 bg-[#282828] p-5 space-y-4 shadow-sm">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-1.5">
-                          <Trophy size={14} className="text-amber-400" />
-                          <span className="text-xs font-bold text-zinc-100 font-sans tracking-tight">
+                        <div className="flex items-center gap-2">
+                          <Trophy size={16} className="text-[#ffa116]" />
+                          <span className="text-sm font-semibold text-white font-sans tracking-tight">
                             ZeroTrac Rating Distribution
                           </span>
                         </div>
-                        <span className="text-[10px] font-mono text-zinc-500">
+                        <span className="text-xs font-mono text-zinc-500">
                           {selectedRatingBand ? "Click tier to reset" : "Click tier to inspect problems"}
                         </span>
                       </div>
@@ -875,7 +857,7 @@ export function WeeklyReportModal({
                             animate={{ opacity: 1, height: "auto" }}
                             exit={{ opacity: 0, height: 0 }}
                             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                            className="rounded-xl border border-zinc-800/80 bg-zinc-950/90 p-2.5 space-y-1 overflow-hidden shadow-inner mt-2"
+                            className="rounded-xl border border-white/10 bg-[#1e1e20] p-3 space-y-1 overflow-hidden shadow-sm mt-2"
                           >
                             {(() => {
                               const band = ratingBandsData.find((b) => b.key === selectedRatingBand)
@@ -883,7 +865,7 @@ export function WeeklyReportModal({
 
                               return (
                                 <>
-                                  <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-zinc-800">
+                                  <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-white/10">
                                     <div className="flex items-center gap-2">
                                       <span
                                         className="h-2 w-2 rounded-full"
@@ -909,7 +891,7 @@ export function WeeklyReportModal({
                                       band.problems.map((p) => (
                                         <div
                                           key={p.slug}
-                                          className="group flex items-center justify-between py-2 px-2.5 rounded-lg hover:bg-zinc-900/80 transition-colors"
+                                          className="group flex items-center justify-between py-2 px-2.5 rounded-lg hover:bg-white/5 transition-colors"
                                         >
                                           <div className="flex items-center gap-2.5 min-w-0 pr-3">
                                             <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
@@ -927,7 +909,7 @@ export function WeeklyReportModal({
                                           <div className="flex items-center gap-2 shrink-0 font-mono">
                                             {typeof p.rating === "number" && p.rating > 0 ? (
                                               <span className="text-[11px] font-semibold text-amber-400 tabular-nums">
-                                                ★ {Math.round(p.rating)}
+                                                Elo {Math.round(p.rating)}
                                               </span>
                                             ) : p.difficulty ? (
                                               <span className="text-[10px] text-zinc-400 font-mono">
@@ -1069,9 +1051,9 @@ export function WeeklyReportModal({
                                 animate={{ opacity: 1, height: "auto" }}
                                 exit={{ opacity: 0, height: 0 }}
                                 transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                                className="rounded-xl border border-zinc-800/80 bg-zinc-950/90 p-2.5 space-y-1 font-mono overflow-hidden shadow-inner mt-2"
+                                className="rounded-xl border border-white/10 bg-[#1e1e20] p-3 space-y-1 font-mono overflow-hidden shadow-sm mt-2"
                               >
-                                <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-zinc-800">
+                                <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-white/10">
                                   <div className="flex items-center gap-2">
                                     <span className="h-2 w-2 rounded-full bg-sky-400" />
                                     <span className="text-[11px] font-bold text-zinc-200 tracking-wide uppercase">
@@ -1098,7 +1080,7 @@ export function WeeklyReportModal({
                                       return (
                                         <div
                                           key={p.slug}
-                                          className="group flex items-center justify-between py-2 px-2.5 rounded-lg hover:bg-zinc-900/80 transition-colors"
+                                          className="group flex items-center justify-between py-2 px-2.5 rounded-lg hover:bg-white/5 transition-colors"
                                         >
                                           <div className="flex items-center gap-2.5 min-w-0 pr-3">
                                             <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
@@ -1121,7 +1103,7 @@ export function WeeklyReportModal({
                                             )}
                                             {hasRating ? (
                                               <span className="text-[11px] font-semibold text-amber-400 tabular-nums">
-                                                ★ {Math.round(p.rating!)}
+                                                Elo {Math.round(p.rating!)}
                                               </span>
                                             ) : p.difficulty ? (
                                               <span className="text-[10px] text-zinc-400">
@@ -1234,7 +1216,7 @@ export function WeeklyReportModal({
                                 )}
                                 {hasRating ? (
                                   <span className="text-[11px] font-semibold text-amber-400 tabular-nums">
-                                    ★ {Math.round(p.rating!)}
+                                    Elo {Math.round(p.rating!)}
                                   </span>
                                 ) : p.difficulty ? (
                                   <span className="text-[10px] text-zinc-400 font-mono">
@@ -1264,14 +1246,14 @@ export function WeeklyReportModal({
                     className="space-y-4"
                   >
                     {/* Executive Strategy Directive */}
-                    <div className="rounded-2xl border border-amber-500/25 bg-gradient-to-r from-amber-500/10 via-zinc-950/80 to-zinc-950 p-4 sm:p-5 space-y-2">
+                    <div className="rounded-2xl border border-amber-500/25 bg-amber-500/[0.06] p-4 sm:p-5 space-y-2">
                       <div className="flex items-center gap-2 text-xs font-mono font-bold text-amber-400 uppercase tracking-wider">
                         <Target size={14} />
                         Tactical Frontier Directive
                       </div>
                       <p className="text-xs leading-relaxed text-zinc-300 font-sans">
                         {peakProblem?.rating
-                          ? `Your current conquered rating frontier is ★ ${Math.round(peakProblem.rating)}. To break into the next contest tier, target 3 problems at the ${Math.floor(peakProblem.rating / 100) * 100 + 50}–${Math.floor(peakProblem.rating / 100) * 100 + 150} Elo band this week.`
+                          ? `Your current conquered rating frontier is ${Math.round(peakProblem.rating)} Elo. To break into the next contest tier, target 3 problems at the ${Math.floor(peakProblem.rating / 100) * 100 + 50}–${Math.floor(peakProblem.rating / 100) * 100 + 150} Elo band this week.`
                           : `Establish consistent problem-solving velocity by recording 25-minute practice sessions across foundational patterns.`}
                       </p>
                     </div>
@@ -1280,7 +1262,7 @@ export function WeeklyReportModal({
                     {nextTargetProblems.length > 0 && (
                       <div className="space-y-2">
                         <div className="text-xs font-bold text-zinc-200 font-sans flex items-center gap-1.5">
-                          <Sparkles size={13} className="text-amber-400" />
+                          <TrendingUp size={13} className="text-amber-400" />
                           Frontier Targets for Next Week
                         </div>
 
@@ -1304,7 +1286,7 @@ export function WeeklyReportModal({
 
                                 <div className="flex items-center gap-3 font-mono shrink-0">
                                   <span className="text-[11px] font-semibold text-amber-400 tabular-nums">
-                                    ★ {Math.round(prob.Rating)}
+                                    Elo {Math.round(prob.Rating)}
                                   </span>
                                   {isAlreadySolved ? (
                                     <span className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
@@ -1335,15 +1317,15 @@ export function WeeklyReportModal({
             </div>
 
             {/* Modal Footer */}
-            <div className="relative z-10 flex items-center justify-between border-t border-zinc-800/80 bg-zinc-950/90 px-5 py-3.5 shrink-0">
-              <span className="text-[10px] font-mono text-zinc-400">
+            <div className="relative z-10 flex items-center justify-between border-t border-white/10 bg-[#282828] px-6 py-4 shrink-0">
+              <span className="text-xs font-mono text-zinc-400">
                 AlgoVault Practice Intelligence
               </span>
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={onClose}
-                className="px-5 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-zinc-950 font-bold text-xs font-sans transition-all cursor-pointer shadow-sm"
+                className="px-6 py-2 rounded-lg bg-[#ffa116] hover:bg-[#ffaa2b] text-black font-bold text-xs font-sans transition-all cursor-pointer shadow-md"
               >
                 Done
               </motion.button>

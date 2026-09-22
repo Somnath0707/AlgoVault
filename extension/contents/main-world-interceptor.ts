@@ -12,7 +12,10 @@ export const config: PlasmoCSConfig = {
   ;(window as any).__ALGOVAULT_FETCH_PATCHED__ = true
 
   let lastSeenSubmissionId: string | undefined
-  const originalFetch = window.fetch
+  let submitResetTimer: number | undefined
+  const terminalStatusCodes = new Set([10, 11, 14, 15, 20])
+  const maxCapturedCodeChars = 250_000
+  const originalFetch = window.fetch.bind(window)
   ;(window as any).__ALGOVAULT_IS_SUBMITTING__ = false
 
   function normalizeUrl(input: any): string {
@@ -26,8 +29,9 @@ export const config: PlasmoCSConfig = {
   }
 
   function emitSubmissionResult(url: string, data: any) {
-    const body = data && data.data ? data.data : data
-    if (!body || body.state !== "SUCCESS") return
+    const firstLayer = data && data.data ? data.data : data
+    const body = firstLayer && firstLayer.data ? firstLayer.data : firstLayer
+    if (!body || typeof body !== "object") return
 
     // 1. HARD GUARD AGAINST RUN CODE / TESTCASE RUNNER:
     // When running code, LeetCode responses always contain run_success, code_answer,
@@ -44,8 +48,14 @@ export const config: PlasmoCSConfig = {
     // 2. Only emit if a submit action was genuinely initiated by the user
     if (!(window as any).__ALGOVAULT_IS_SUBMITTING__) return
 
+    const statusCode = body.status_code != null ? Number(body.status_code) : undefined
+    // `state` is not stable across LeetCode's response versions. A genuine
+    // submit plus a known terminal judge code is the durable contract.
+    if (statusCode == null || !terminalStatusCodes.has(statusCode)) return
+
     const match = String(url).match(/\/submissions\/detail\/(\d+)\/check/)
-    const submissionId = match ? match[1] : (body.submission_id ? String(body.submission_id) : undefined)
+    const candidateId = match ? match[1] : (body.submission_id ?? body.submissionId ?? body.id)
+    const submissionId = candidateId != null ? String(candidateId) : undefined
 
     // Ignore run code (run code IDs start with "runcode_")
     if (submissionId && !/^\d+$/.test(submissionId)) return
@@ -55,16 +65,10 @@ export const config: PlasmoCSConfig = {
 
     // Reset submit state once terminal result is captured
     ;(window as any).__ALGOVAULT_IS_SUBMITTING__ = false
+    if (submitResetTimer) window.clearTimeout(submitResetTimer)
 
     const captured = (window as any).__ALGOVAULT_LAST_SUBMITTED_CODE__ || {}
-    const statusCode = body.status_code != null ? Number(body.status_code) : undefined
     const statusDisplay = body.status_msg || body.status_runtime || (statusCode === 10 ? "Accepted" : body.state)
-
-    console.log("[AlgoVault MAIN Interceptor] Genuine submission result captured:", {
-      submissionId,
-      statusCode,
-      statusDisplay
-    })
 
     window.postMessage(
       {
@@ -78,7 +82,9 @@ export const config: PlasmoCSConfig = {
           totalCorrect: body.total_correct,
           totalTestcases: body.total_testcases,
           lang: body.lang || captured.lang,
-          code: body.code || body.typed_code || captured.code,
+          code: typeof (body.code || body.typed_code) === "string" && (body.code || body.typed_code).length <= maxCapturedCodeChars
+            ? (body.code || body.typed_code)
+            : captured.code,
           codeLang: body.lang || captured.lang
         }
       },
@@ -98,10 +104,14 @@ export const config: PlasmoCSConfig = {
 
     if (isSubmit) {
       ;(window as any).__ALGOVAULT_IS_SUBMITTING__ = true
+      if (submitResetTimer) window.clearTimeout(submitResetTimer)
+      submitResetTimer = window.setTimeout(() => {
+        ;(window as any).__ALGOVAULT_IS_SUBMITTING__ = false
+      }, 120_000)
       if (init?.body) {
         try {
           const payload = typeof init.body === "string" ? JSON.parse(init.body) : init.body
-          if (payload && (payload.typed_code || payload.code)) {
+          if (payload && typeof (payload.typed_code || payload.code) === "string" && (payload.typed_code || payload.code).length <= maxCapturedCodeChars) {
             ;(window as any).__ALGOVAULT_LAST_SUBMITTED_CODE__ = {
               code: payload.typed_code || payload.code,
               lang: payload.lang
@@ -111,7 +121,7 @@ export const config: PlasmoCSConfig = {
       }
     }
 
-    return originalFetch.apply(this, arguments as any).then((response) => {
+    return originalFetch(input, init).then((response) => {
       if (/\/submissions\/detail\/\d+\/check/.test(url) || (typeof url === "string" && url.includes("/check"))) {
         try {
           response
@@ -147,10 +157,14 @@ export const config: PlasmoCSConfig = {
 
     if (isSubmit) {
       ;(window as any).__ALGOVAULT_IS_SUBMITTING__ = true
+      if (submitResetTimer) window.clearTimeout(submitResetTimer)
+      submitResetTimer = window.setTimeout(() => {
+        ;(window as any).__ALGOVAULT_IS_SUBMITTING__ = false
+      }, 120_000)
       if (body) {
         try {
           const payload = typeof body === "string" ? JSON.parse(body) : body
-          if (payload && (payload.typed_code || payload.code)) {
+          if (payload && typeof (payload.typed_code || payload.code) === "string" && (payload.typed_code || payload.code).length <= maxCapturedCodeChars) {
             ;(window as any).__ALGOVAULT_LAST_SUBMITTED_CODE__ = {
               code: payload.typed_code || payload.code,
               lang: payload.lang
@@ -172,4 +186,3 @@ export const config: PlasmoCSConfig = {
     return originalXhrSend.apply(this, arguments as any)
   }
 })()
-

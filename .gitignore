@@ -38,5 +38,10 @@ release/
 temp/
 *.tar.gz
 fucking-algorithm-english/
+leetStats_ref/
+ref-leetStats/
+poke-arena/
+pl-backend/
+*.tex
 !extension/build/chrome-mv3-prod/**
 

@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useMemo } from "react"
-import { Lightbulb, RotateCcw, ExternalLink } from "lucide-react"
+import { Lightbulb, RotateCcw, ExternalLink, ListTree, ChevronRight } from "lucide-react"
 import { Card } from "../ui/Card"
 import { ProgressBar } from "../ui/ProgressBar"
 import { STUDY_LISTS } from "../../lib/study-lists"
 import { buildZerotracRatingMap, normalizeZerotracPayload } from "../../lib/zerotrac"
+import { rankThemeForRating } from "../../lib/rank-theme"
 import { CompanyPrepView } from "./CompanyPrepView"
 import { motion, AnimatePresence } from "framer-motion"
 
@@ -337,16 +338,13 @@ export const Lists = () => {
 
   return (
     <div className="grid gap-3.5 font-sans select-none">
-      <div className="flex items-end justify-between px-1">
-        <div>
-          <div className="panel-label">Practice tracks</div>
-          <p className="mt-1 text-[11px] text-zinc-500">Structured paths when you want the next right problem without the noise.</p>
-        </div>
-        <span className="text-[10px] font-mono text-zinc-600">{solvedSlugs.size} solved</span>
-      </div>
+      <header className="flex items-end justify-between border-b border-white/[0.08] pb-3 px-1">
+        <div className="flex items-start gap-2.5"><div className="grid h-8 w-8 place-items-center rounded-lg border border-sky-400/25 bg-sky-400/10 text-sky-400"><ListTree size={16} /></div><div><p className="text-[9px] font-bold uppercase tracking-[0.16em] text-sky-400">Practice library</p><h1 className="mt-0.5 text-base font-semibold tracking-tight text-zinc-100">Study tracks</h1><p className="mt-0.5 text-[10px] text-zinc-500">A clean path from the next problem to the completed list.</p></div></div>
+        <span className="mb-0.5 text-[10px] font-mono text-sky-300">{solvedSlugs.size} solved</span>
+      </header>
 
       {/* List Type Switcher */}
-      <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-800 shadow-inner">
+      <div className="flex bg-[#1e1e1e] p-1.5 rounded-xl border border-white/10 items-center justify-between gap-1">
         {(["neetcode", "striver", "zerotrac", "companies"] as const).map((opt) => (
           <button
             key={opt}
@@ -354,10 +352,10 @@ export const Lists = () => {
               setActiveList(opt)
               setCurrentPage(1)
             }}
-            className={`flex-1 text-[10px] font-semibold py-2 rounded-md transition-all font-mono cursor-pointer ${
+            className={`flex-1 text-xs font-mono font-medium py-2 px-3 rounded-lg transition-all cursor-pointer text-center ${
               activeList === opt 
-                ? "bg-zinc-900 text-[#dfa054] border border-zinc-800/80 shadow" 
-                : "text-zinc-500 hover:text-zinc-300"
+                ? "bg-[#282828] text-white border border-white/10 shadow-sm" 
+                : "text-zinc-400 hover:text-white"
             }`}
           >
             {opt === "neetcode" ? "NeetCode 150" : opt === "striver" ? "Striver SDE" : opt === "zerotrac" ? "ZeroTrac" : "Companies"}
@@ -371,15 +369,11 @@ export const Lists = () => {
         // NeetCode & Striver Lists Rendering
         <div className="grid gap-3.5">
           {nextStudyProblem && (
-            <Card className="relative overflow-hidden border-[#dfa054]/30 bg-gradient-to-br from-[#1c140c] to-[#0a0a0a] p-0 shadow-[0_8px_30px_rgba(223,160,84,0.15)] group">
-              <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-[#dfa054] to-[#f6ce8e] shadow-[0_0_12px_rgba(223,160,84,0.8)]" />
-              <div className="absolute top-0 right-0 p-8 opacity-5 transition-opacity group-hover:opacity-20 pointer-events-none">
-                <Lightbulb size={120} className="text-[#dfa054] -rotate-12 transform translate-x-1/4 -translate-y-1/4" />
-              </div>
+            <Card className="relative overflow-hidden border-white/[0.08] bg-[#282828] p-0 group shadow-sm">
               <div className="flex items-center justify-between gap-4 p-5 pl-6 relative z-10">
                 <div className="min-w-0">
-                  <div className="panel-label tracking-widest text-[#dfa054]/80">Continue {currentStudyList?.name}</div>
-                  <div className="mt-1.5 truncate text-lg font-bold text-zinc-50 drop-shadow-md">{nextStudyProblem.title}</div>
+                  <div className="panel-label tracking-widest text-[#ffa116]">Continue {currentStudyList?.name}</div>
+                  <div className="mt-1.5 truncate text-lg font-bold text-zinc-100">{nextStudyProblem.title}</div>
                   <div className="mt-1.5 text-[10px] text-zinc-400 font-medium uppercase tracking-wider">
                     {nextStudyProblem.topic} <span className="mx-1.5 text-zinc-600">•</span> {listStats.solved}/{listStats.total} complete
                   </div>
@@ -388,7 +382,7 @@ export const Lists = () => {
                   href={`https://leetcode.com/problems/${nextStudyProblem.slug}/`}
                   target="_blank"
                   rel="noreferrer"
-                  className="shrink-0 rounded-lg bg-gradient-to-r from-[#dfa054] to-[#c78b40] px-4 py-2.5 text-[11px] font-extrabold text-[#111] transition-all hover:scale-105 hover:shadow-[0_0_15px_rgba(223,160,84,0.4)] tracking-wide shadow-md"
+                  className="shrink-0 rounded-lg bg-[#ffa116] hover:bg-[#e08e0b] px-4 py-2.5 text-[11px] font-semibold text-black transition-colors tracking-wide shadow-sm"
                 >
                   Open Problem
                 </a>
@@ -397,10 +391,10 @@ export const Lists = () => {
           )}
 
           {/* Progress Header */}
-          <Card className="p-4 bg-[#111] border border-zinc-900/80 shadow-inner">
+          <Card className="p-4 bg-[#282828] border border-white/[0.08] shadow-sm">
             <div className="flex justify-between items-center mb-3">
               <span className="text-xs font-bold tracking-widest text-zinc-300 uppercase">{currentStudyList?.name} Progress</span>
-              <span className="font-mono text-[#dfa054] font-bold tabular-nums text-sm drop-shadow-[0_0_8px_rgba(223,160,84,0.3)]">
+              <span className="font-mono text-[#ffa116] font-bold tabular-nums text-sm">
                 {listStats.solved} / {listStats.total} <span className="text-zinc-500 font-normal ml-1">({listStats.percent}%)</span>
               </span>
             </div>
@@ -420,29 +414,29 @@ export const Lists = () => {
               return (
                 <Card 
                   key={topic} 
-                  className={`overflow-hidden transition-all duration-300 relative border shadow-[0_4px_12px_rgba(0,0,0,0.2)] ${
+                  className={`overflow-hidden transition-all duration-300 relative border shadow-sm ${
                     isTopicComplete 
-                      ? 'border-[#ffffff0a] bg-[#161616] opacity-90 shadow-[inset_0_1px_0_rgba(16,185,129,0.2)]' 
+                      ? 'border-white/[0.08] bg-[#282828] opacity-90' 
                       : isExpanded 
-                      ? 'border-[#ffffff0a] bg-[#161616]'
-                      : 'border-[#ffffff05] bg-[#121212] hover:border-[#ffffff0a] hover:bg-[#161616]'
+                      ? 'border-white/[0.12] bg-[#282828]'
+                      : 'border-white/[0.08] bg-[#282828] hover:bg-[#303030]'
                   }`}
                 >
                   {/* Topic Header Toggle */}
                   <button
                     onClick={() => toggleTopic(topic)}
-                    className="w-full px-4 py-4 flex justify-between items-center hover:bg-white/5 transition-colors outline-none focus-visible:bg-white/5 cursor-pointer"
+                    className="w-full px-4 py-4 flex justify-between items-center hover:bg-white/[0.03] transition-colors outline-none focus-visible:bg-white/5 cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
-                      <span className={`text-[9px] transition-transform duration-300 cubic-bezier(0.2, 0.8, 0.2, 1) ${isExpanded ? "rotate-90 text-[#dfa054]" : "rotate-0 text-zinc-500"}`}>▶</span>
+                      <ChevronRight size={14} className={`transition-transform duration-300 cubic-bezier(0.2, 0.8, 0.2, 1) ${isExpanded ? "rotate-90 text-[#ffa116]" : "rotate-0 text-zinc-500"}`} />
                       <span className={`text-[13px] font-semibold tracking-wide ${isTopicComplete ? "text-zinc-400" : "text-zinc-200"}`}>{topic}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-[12px] font-medium text-zinc-500 font-mono tabular-nums">
+                      <span className="text-[12px] font-medium text-zinc-400 font-mono tabular-nums">
                         {topicSolved}/{topicTotal} solved
                       </span>
                       {isTopicComplete && (
-                        <span className="text-[9px] text-emerald-500/80 bg-emerald-500/10 border border-emerald-500/10 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Complete</span>
+                        <span className="text-[9px] text-[#00b8a3] bg-[#00b8a3]/10 border border-[#00b8a3]/20 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Complete</span>
                       )}
                     </div>
                   </button>
@@ -455,22 +449,22 @@ export const Lists = () => {
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                        className="px-4 pb-4 pt-1 flex flex-col gap-1.5 bg-gradient-to-b from-[#161616] to-[#0f0f0f] overflow-hidden"
+                        className="px-4 pb-4 pt-1 flex flex-col gap-1.5 bg-[#222222] border-t border-white/[0.08] overflow-hidden"
                       >
                         {problems.map((p, idx) => {
                           const cleanSlug = p.slug.toLowerCase().trim()
                           const isSolved = solvedSlugs.has(cleanSlug)
                           const diff = p.difficulty || "Medium"
                           
-                          let diffColor = "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                          let diffColor = "text-[#ffc01e] bg-[#ffc01e]/10 border-[#ffc01e]/20"
                           if (diff === "Easy") {
-                            diffColor = "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                            diffColor = "text-[#00b8a3] bg-[#00b8a3]/10 border-[#00b8a3]/20"
                           } else if (diff === "Hard") {
-                            diffColor = "text-red-400 bg-red-500/10 border-red-500/20"
+                            diffColor = "text-[#ef4743] bg-[#ef4743]/10 border-[#ef4743]/20"
                           }
                           
                           if (isSolved) {
-                            diffColor = "text-zinc-600 border-zinc-800 bg-transparent"
+                            diffColor = "text-zinc-500 border-white/[0.08] bg-transparent"
                           }
 
                           return (
@@ -478,19 +472,19 @@ export const Lists = () => {
                               key={idx} 
                               whileHover={{ scale: 1.01, x: 2 }}
                               transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                              className="flex items-center justify-between py-3 px-3.5 hover:bg-zinc-800/40 hover:shadow-lg rounded-lg border border-transparent hover:border-zinc-700/50 group transition-all duration-200 cursor-pointer"
+                              className="flex items-center justify-between py-3 px-3.5 hover:bg-[#282828] rounded-lg border border-transparent hover:border-white/[0.08] group transition-all duration-200 cursor-pointer"
                             >
                               <div className="flex items-center gap-3 min-w-0">
-                                {/* Sleek Checkbox */}
+                                {/* Checkbox */}
                                 <span 
                                   className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-300 ${
                                     isSolved 
-                                      ? "bg-emerald-500 border-emerald-500 text-zinc-950 shadow-[0_0_8px_rgba(16,185,129,0.5)]" 
+                                      ? "bg-[#00b8a3] border-[#00b8a3] text-black" 
                                       : "border-zinc-700 bg-zinc-900 text-transparent group-hover:border-zinc-500"
                                   }`}
                                 >
                                   {isSolved && (
-                                    <svg className="w-2.5 h-2.5 drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7"></path>
                                     </svg>
                                   )}
@@ -513,7 +507,7 @@ export const Lists = () => {
                                     target="_blank"
                                     rel="noreferrer"
                                     title={`Open solution discussions for ${p.title}`}
-                                    className="rounded-full bg-zinc-900 p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-[#dfa054] shadow-sm"
+                                    className="rounded-full bg-[#1a1a1a] p-1.5 text-zinc-400 transition-colors hover:bg-[#333333] hover:text-[#ffa116]"
                                   >
                                     <Lightbulb size={12} />
                                   </a>
@@ -537,7 +531,7 @@ export const Lists = () => {
         // ZeroTrac Interactive List Rendering
         <div className="grid gap-3.5 animate-fadeIn">
           {/* Header Banner */}
-          <div className="relative overflow-hidden rounded-xl border border-sky-500/20 bg-gradient-to-r from-sky-950/40 via-zinc-950/80 to-zinc-950 p-4 shadow-lg">
+          <div className="relative overflow-hidden rounded-xl border border-sky-500/20 bg-sky-500/[0.06] p-4 shadow-sm">
             <div className="flex items-center justify-between gap-3 relative z-10">
               <div>
                 <div className="flex items-center gap-2">
@@ -577,7 +571,7 @@ export const Lists = () => {
                   className={`shrink-0 px-2.5 py-1 rounded-md font-semibold transition-all border ${
                     isActive
                       ? "bg-sky-500/15 border-sky-500/40 text-sky-300 shadow-sm"
-                      : "bg-zinc-950/60 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700"
+                      : "bg-[#1e1e1e] border-white/10 text-zinc-400 hover:text-zinc-200 hover:border-white/20"
                   }`}
                 >
                   {preset.label}
@@ -587,7 +581,7 @@ export const Lists = () => {
           </div>
 
           {/* ZeroTrac Advanced Filters Form */}
-          <Card className="p-3.5 flex flex-col gap-3 font-sans border-zinc-800/80 bg-zinc-950/50 shadow-md">
+          <Card className="p-3.5 flex flex-col gap-3 font-sans border-white/10 bg-[#222224] shadow-md">
             {/* Search & Contest Inputs */}
             <div className="grid grid-cols-12 gap-2.5">
               <div className="col-span-5">
@@ -711,7 +705,7 @@ export const Lists = () => {
                 <select
                   value={sortBy}
                   onChange={(e) => handleSort(e.target.value as any)}
-                  className="bg-zinc-950 border border-zinc-800 rounded px-1.5 py-0.5 text-[9.5px] text-zinc-300 focus:outline-none font-mono cursor-pointer"
+                  className="bg-[#282828] border border-white/10 rounded px-2 py-0.5 text-[9.5px] text-zinc-300 focus:outline-none font-mono cursor-pointer"
                 >
                   <option value="rating">Rating {sortBy === "rating" ? (sortOrder === "asc" ? "↑" : "↓") : ""}</option>
                   <option value="index">Index {sortBy === "index" ? (sortOrder === "asc" ? "↑" : "↓") : ""}</option>
@@ -721,7 +715,7 @@ export const Lists = () => {
                 </select>
                 <button
                   onClick={() => setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))}
-                  className="text-xs text-zinc-400 hover:text-zinc-200 px-1 py-0.5 rounded border border-zinc-800 bg-zinc-950 font-mono"
+                  className="text-xs text-zinc-400 hover:text-zinc-200 px-1 py-0.5 rounded border border-white/10 bg-[#282828] font-mono"
                   title="Toggle sort direction"
                 >
                   {sortOrder === "asc" ? "▲" : "▼"}
@@ -730,9 +724,9 @@ export const Lists = () => {
             </div>
 
             {filteredZerotrac.length === 0 ? (
-              <div className="text-center py-10 text-xs text-zinc-500 font-mono bg-zinc-950/40 rounded-xl border border-dashed border-zinc-800 space-y-1">
+              <div className="text-center py-10 text-xs text-zinc-500 font-mono bg-[#222224] rounded-xl border border-dashed border-white/10 space-y-1">
                 <p className="font-semibold text-zinc-400">No matching ZeroTrac problems found</p>
-                <p className="text-[10px] text-zinc-600">Try adjusting your rating range or search query.</p>
+                <p className="text-[10px] text-zinc-500">Try adjusting your rating range or search query.</p>
               </div>
             ) : (
               <div className="flex flex-col gap-2">
@@ -744,17 +738,7 @@ export const Lists = () => {
                     const ratingVal = Math.round(p.Rating || 0)
                     const problemId = p.ID || p.QuestionID || (p as any).id || (p as any).questionId
 
-                    // Color code ZeroTrac rating badges:
-                    let ratingBadgeColor = "text-emerald-400 border-emerald-500/20 bg-emerald-500/10"
-                    if (ratingVal >= 2300) {
-                      ratingBadgeColor = "text-purple-400 border-purple-500/20 bg-purple-500/10"
-                    } else if (ratingVal >= 2000) {
-                      ratingBadgeColor = "text-rose-400 border-rose-500/20 bg-rose-500/10"
-                    } else if (ratingVal >= 1700) {
-                      ratingBadgeColor = "text-orange-400 border-orange-500/20 bg-orange-500/10"
-                    } else if (ratingVal >= 1400) {
-                      ratingBadgeColor = "text-amber-400 border-amber-500/20 bg-amber-500/10"
-                    }
+                    const ratingTheme = rankThemeForRating(ratingVal)
 
                     return (
                       <motion.div 
@@ -763,16 +747,16 @@ export const Lists = () => {
                         transition={{ type: "spring", stiffness: 400, damping: 25 }}
                         className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
                           isSolved 
-                            ? "bg-zinc-950/40 border-zinc-850/60 opacity-80" 
-                            : "bg-zinc-950/80 border-zinc-800/80 hover:border-zinc-700 shadow-sm"
+                            ? "bg-[#1e1e20]/60 border-white/5 opacity-80" 
+                            : "bg-[#222224] border-white/10 hover:border-white/20 shadow-sm"
                         }`}
                       >
                         <div className="flex items-center gap-3 min-w-0 pr-2">
                           <span 
                             className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
                               isSolved 
-                                ? "bg-emerald-500 border-emerald-500 text-zinc-950 shadow-[0_0_8px_rgba(16,185,129,0.5)]" 
-                                : "border-zinc-700 bg-zinc-900 text-transparent"
+                                ? "bg-[#00b8a3] border-[#00b8a3] text-zinc-950" 
+                                : "border-white/15 bg-[#282828] text-transparent"
                             }`}
                           >
                             {isSolved && (
@@ -807,8 +791,8 @@ export const Lists = () => {
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0 font-mono">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${ratingBadgeColor}`}>
-                            ★ {ratingVal}
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded border" style={{ color: ratingTheme.color, borderColor: ratingTheme.border, backgroundColor: ratingTheme.soft }}>
+                            Elo {ratingVal}
                           </span>
                           <a
                             href={`https://leetcode.com/problems/${p.TitleSlug}/`}

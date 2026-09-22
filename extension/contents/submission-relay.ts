@@ -202,8 +202,6 @@ function handleAcceptedVerdict(detail?: any) {
     codeLang
   }
 
-  console.log("[AlgoVault Relay] Confirmed Accepted solve! Stopping timer and triggering celebration...", payload)
-
   // 1. Instantly stop the session timer
   chrome.runtime.sendMessage({ action: "session_finish_v2", language: payload.language })
 
@@ -214,16 +212,14 @@ function handleAcceptedVerdict(detail?: any) {
   // 3. Dispatch to background for GitHub commit & backend telemetry
   chrome.runtime.sendMessage({ action: "submission_result", payload })
 
-  // 4. Update local solved slugs cache
-  chrome.storage.local.get("algovault.solvedSlugs", (result) => {
-    const cached = result["algovault.solvedSlugs"] || {}
-    const slugs = new Set<string>(Array.isArray(cached?.slugs) ? cached.slugs : [])
-    slugs.add(slug)
-    chrome.storage.local.set({ "algovault.solvedSlugs": { fetchedAt: Date.now(), slugs: Array.from(slugs) } })
-  })
-
-  // 5. Present post-solve self-report dialog
-  showPostSolveDialog(slug)
+  // 4. The background worker owns the solved-slug cache. Deferring the
+  // optional questionnaire leaves LeetCode free to render the verdict first.
+  const openSelfReport = () => showPostSolveDialog(slug)
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(openSelfReport, { timeout: 2_000 })
+  } else {
+    setTimeout(openSelfReport, 600)
+  }
 }
 
 // ─── Path 1: Listen for postMessage from MAIN world interceptor ───────
@@ -389,5 +385,3 @@ function setupDomAcObserver() {
 
 // Initialize DOM observer failsafe
 setupDomAcObserver()
-
-

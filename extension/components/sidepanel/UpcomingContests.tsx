@@ -105,9 +105,9 @@ export const UpcomingContests = () => {
     const others = contests.filter(c => !c.platform.toLowerCase().includes("leetcode") && !c.platform.toLowerCase().includes("codeforces"))
     
     return [
-      { id: "leetcode", title: "LeetCode", contests: leetcode, Logo: LeetCodeLogo, color: "text-amber-500", border: "border-amber-500/20", bg: "bg-amber-500/5" },
-      { id: "codeforces", title: "Codeforces", contests: codeforces, Logo: CodeforcesLogo, color: "text-blue-500", border: "border-blue-500/20", bg: "bg-blue-500/5" },
-      { id: "others", title: "Other Platforms", contests: others, Logo: Trophy, color: "text-purple-400", border: "border-purple-500/20", bg: "bg-purple-500/5" }
+      { id: "leetcode", title: "LeetCode", contests: leetcode, Logo: LeetCodeLogo, color: "text-[#ffa116]", border: "border-white/[0.08]", bg: "bg-[#282828]" },
+      { id: "codeforces", title: "Codeforces", contests: codeforces, Logo: CodeforcesLogo, color: "text-blue-500", border: "border-white/[0.08]", bg: "bg-[#282828]" },
+      { id: "others", title: "Other Platforms", contests: others, Logo: Trophy, color: "text-purple-400", border: "border-white/[0.08]", bg: "bg-[#282828]" }
     ].filter(group => group.contests.length > 0)
   }, [contests])
 
@@ -126,7 +126,7 @@ export const UpcomingContests = () => {
               <group.Logo />
             </div>
             <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-widest">{group.title}</h3>
-            <div className="flex-1 h-px bg-zinc-800/80 ml-2" />
+            <div className="flex-1 h-px bg-white/[0.06] ml-2" />
           </div>
 
           {/* Contests List */}
@@ -152,10 +152,10 @@ export const UpcomingContests = () => {
                     "p-3 rounded-lg transition-all duration-200",
                     "elevated-card",
                     isToday
-                      ? "border border-[#10b981]/40 shadow-[0_0_20px_rgba(16,185,129,0.1)] bg-gradient-to-br from-emerald-950/20 to-zinc-950"
-                      : `border ${group.border} bg-zinc-950/40 hover:bg-zinc-900/60`,
+                      ? "border border-[#00b8a3]/40 bg-[#282828]"
+                      : "border border-white/[0.08] bg-[#282828] hover:bg-[#333333]/50",
                     isReg
-                      ? "border-l-2 border-l-emerald-500 bg-emerald-500/5"
+                      ? "border-l-2 border-l-[#00b8a3] bg-[#00b8a3]/5"
                       : "",
                   ].filter(Boolean).join(" ")}
                 >
@@ -164,12 +164,12 @@ export const UpcomingContests = () => {
                       href={contest.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-xs font-bold text-zinc-200 hover:text-[#10b981] transition-colors line-clamp-1 flex-1 min-w-0"
+                      className="text-xs font-bold text-zinc-200 hover:text-[#00b8a3] transition-colors line-clamp-1 flex-1 min-w-0"
                     >
                       {contest.name}
                     </a>
                     {group.id === "others" && (
-                      <span className="shrink-0 flex items-center gap-1.5 text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded border border-zinc-700 bg-zinc-800 text-zinc-300">
+                      <span className="shrink-0 flex items-center gap-1.5 text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded border border-white/[0.08] bg-[#1a1a1a] text-zinc-300">
                         <div className="w-3 h-3">{getPlatformLogo(contest.platform)}</div>
                         {contest.platform}
                       </span>
@@ -179,25 +179,24 @@ export const UpcomingContests = () => {
                   <div className="flex items-center gap-1.5 mb-2 text-[10px] text-zinc-400 font-mono">
                     <CalendarDays size={11} className="text-zinc-500 shrink-0" />
                     {isToday && (
-                      <span className="relative flex h-2 w-2 shrink-0">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                      <span className="relative flex h-2 w-2 shrink-0 items-center justify-center">
+                        <span className="inline-flex rounded-full h-1.5 w-1.5 bg-[#00b8a3]" />
                       </span>
                     )}
-                    <span className={isToday ? "text-emerald-400 font-semibold" : ""}>
+                    <span className={isToday ? "text-[#00b8a3] font-semibold" : ""}>
                       {isToday ? "Today, " : ""}
                       {date.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between gap-2">
-                    <div className={`flex items-center gap-1 text-[10px] font-mono font-bold ${isUrgent ? "text-red-400 animate-pulse" : remaining <= 0 ? "text-zinc-500" : "text-zinc-300"}`}>
+                    <div className={`flex items-center gap-1 text-[10px] font-mono font-bold ${isUrgent ? "text-red-400" : remaining <= 0 ? "text-zinc-500" : "text-zinc-300"}`}>
                       <Clock size={11} className="shrink-0" />
                       <span>{formatCountdown(remaining)}</span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-400 text-[9px] font-mono border border-zinc-800">
+                      <span className="px-1.5 py-0.5 rounded bg-[#1a1a1a] text-zinc-400 text-[9px] font-mono border border-white/[0.08]">
                         {durationLabel}
                       </span>
                       <button
@@ -205,8 +204,8 @@ export const UpcomingContests = () => {
                         disabled={autoRegistered.has(contest.id)}
                         className={`text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors ${
                           isReg 
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-default" 
-                            : "bg-[#dfa054]/10 text-[#dfa054] border border-[#dfa054]/20 hover:bg-[#dfa054]/20 cursor-pointer"
+                            ? "bg-[#00b8a3]/10 text-[#00b8a3] border border-[#00b8a3]/20 cursor-default" 
+                            : "bg-[#ffa116]/10 text-[#ffa116] border border-[#ffa116]/20 hover:bg-[#ffa116]/20 cursor-pointer"
                         }`}
                       >
                         {autoRegistered.has(contest.id) ? "Auto-Reg" : isReg ? "Registered" : "Register"}

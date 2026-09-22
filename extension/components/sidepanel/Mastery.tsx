@@ -6,24 +6,33 @@ import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tool
 import { 
   Target, Shield, Zap, TrendingUp, Trophy, Activity, RefreshCw, 
   ChevronDown, Clock, Crosshair, Flame, ArrowUpRight, Brain, Sigma, 
-  Info, Sparkles, Award, BarChart3, Swords, Lock, Gauge, Search, 
+  Info, Award, BarChart3, Swords, Lock, Gauge, Search, 
   Filter, Layers, Crown, ExternalLink, CheckCircle2, Compass, Radio,
-  BookOpen, Eye, Sparkle, ArrowRight
+  BookOpen, Eye, ArrowRight, X
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import type { TagMastery } from "../../lib/types"
+import { RANK_THEME } from "../../lib/rank-theme"
+import {
+  GrandmasterCrest,
+  MasterCrest,
+  ExpertCrest,
+  SpecialistCrest,
+  PupilCrest,
+  NewbieCrest
+} from "../ui/RankCrests"
 
 /* ═══════════════════════════════════════════════════════════
    TIER DESIGN SYSTEM & COLOR PALETTE
    Codeforces & Chess Elo aligned rating tiers
    ═══════════════════════════════════════════════════════════ */
 const TIERS = [
-  { name: "Grandmaster", floor: 2200, minSolves: 20, minConf: 60, color: "#ef4444", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.35)", icon: Crown, desc: "Elite 1% mastery · Solves Hard problems with ease" },
-  { name: "Master",      floor: 1900, minSolves: 12, minConf: 50, color: "#f59e0b", bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.35)", icon: Crown, desc: "Top 5% mastery · High speed & clean algorithmic logic" },
-  { name: "Expert",      floor: 1600, minSolves: 8,  minConf: 40, color: "#a855f7", bg: "rgba(168,85,247,0.12)", border: "rgba(168,85,247,0.35)", icon: Shield, desc: "Top 15% mastery · Consistently solves Medium/Hard topics" },
-  { name: "Specialist",  floor: 1400, minSolves: 5,  minConf: 25, color: "#38bdf8", bg: "rgba(56,189,248,0.12)", border: "rgba(56,189,248,0.35)", icon: Shield, desc: "Top 35% mastery · Solid fundamentals across core patterns" },
-  { name: "Pupil",       floor: 1200, minSolves: 2,  minConf: 10, color: "#34d399", bg: "rgba(52,211,153,0.12)", border: "rgba(52,211,153,0.35)", icon: Trophy, desc: "Developing mastery · Good grasp on basic data structures" },
-  { name: "Newbie",      floor: 0,    minSolves: 0,  minConf: 0,  color: "#a1a1aa", bg: "rgba(161,161,170,0.08)", border: "rgba(161,161,170,0.20)", icon: Award, desc: "Early practice · Building foundational problem-solving habits" },
+  { name: "Grandmaster", floor: 2200, minSolves: 20, minConf: 60, color: RANK_THEME.grandmaster.color, bg: RANK_THEME.grandmaster.soft, border: RANK_THEME.grandmaster.border, icon: GrandmasterCrest, desc: "Elite topic command across difficult problems" },
+  { name: "Master",      floor: 1900, minSolves: 12, minConf: 50, color: RANK_THEME.master.color, bg: RANK_THEME.master.soft, border: RANK_THEME.master.border, icon: MasterCrest, desc: "Reliable high-level problem solving" },
+  { name: "Expert",      floor: 1600, minSolves: 8,  minConf: 40, color: RANK_THEME.expert.color, bg: RANK_THEME.expert.soft, border: RANK_THEME.expert.border, icon: ExpertCrest, desc: "Consistent performance across core patterns" },
+  { name: "Specialist",  floor: 1400, minSolves: 5,  minConf: 25, color: RANK_THEME.specialist.color, bg: RANK_THEME.specialist.soft, border: RANK_THEME.specialist.border, icon: SpecialistCrest, desc: "A dependable foundation in a topic" },
+  { name: "Pupil",       floor: 1200, minSolves: 2,  minConf: 10, color: RANK_THEME.pupil.color, bg: RANK_THEME.pupil.soft, border: RANK_THEME.pupil.border, icon: PupilCrest, desc: "Early evidence of a developing skill" },
+  { name: "Newbie",      floor: 0,    minSolves: 0,  minConf: 0,  color: RANK_THEME.newbie.color, bg: RANK_THEME.newbie.soft, border: RANK_THEME.newbie.border, icon: NewbieCrest, desc: "Early practice · Building foundational problem-solving habits" },
 ] as const
 
 const rdToConfidence = (rd: number) => Math.max(0, Math.min(100, Math.round(100 * (1 - Math.pow(rd / 350, 1.5)))))
@@ -48,10 +57,10 @@ const nextTier = (score: number) => {
 }
 
 const getStability = (vol: number) => {
-  if (vol <= 0.04) return { label: "Rock Solid", color: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-500/30", icon: Shield, note: "Consistent first-attempt solutions" }
-  if (vol <= 0.06) return { label: "Stable",     color: "text-[#38bdf8]",     bg: "bg-sky-400/10",     border: "border-sky-500/30",     icon: Shield, note: "Dependable performance with minimal retries" }
-  if (vol <= 0.08) return { label: "Moderate",   color: "text-amber-400",   bg: "bg-amber-400/10",   border: "border-amber-500/30",   icon: Activity, note: "Fluctuates on complex edge cases" }
-  return                   { label: "Volatile",   color: "text-rose-400",    bg: "bg-rose-400/10",    border: "border-rose-500/30",    icon: Zap, note: "Unpredictable outcomes — needs targeted practice" }
+  if (vol <= 0.04) return { label: "Rock Solid", color: "text-[#00b8a3]", bg: "bg-[#00b8a3]/10", border: "border-[#00b8a3]/30", icon: Shield, note: "Consistent first-attempt solutions" }
+  if (vol <= 0.06) return { label: "Stable",     color: "text-[#38bdf8]", bg: "bg-sky-400/10",    border: "border-sky-500/30",    icon: Shield, note: "Dependable performance with minimal retries" }
+  if (vol <= 0.08) return { label: "Moderate",   color: "text-[#ffc01e]", bg: "bg-[#ffc01e]/10",  border: "border-[#ffc01e]/30",  icon: Activity, note: "Fluctuates on complex edge cases" }
+  return                   { label: "Volatile",   color: "text-[#ef4743]", bg: "bg-[#ef4743]/10",  border: "border-[#ef4743]/30",  icon: Zap, note: "Unpredictable outcomes — needs targeted practice" }
 }
 
 const timeSince = (dateStr?: string) => {
@@ -62,8 +71,10 @@ const timeSince = (dateStr?: string) => {
   if (days < 7) return { text: `${days}d ago`, isDecaying: false }
   if (days < 30) return { text: `${Math.floor(days / 7)}w ago`, isDecaying: false }
   return { text: `${Math.floor(days / 30)}mo ago`, isDecaying: true }
-}/* ═══════════════════════════════════════════════════════════
-   PREMIUM SVG RING GAUGE (CHRONOGRAPH STYLE)
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CLEAN LEETCODE SVG RING GAUGE
    ═══════════════════════════════════════════════════════════ */
 const RingGauge = ({ score, size = 56, sw = 3.5, totalSolved = 100, rd = 50 }: { score: number; size?: number; sw?: number; totalSolved?: number; rd?: number }) => {
   const pct = Math.max(5, Math.min(100, (score / 2400) * 100))
@@ -74,14 +85,13 @@ const RingGauge = ({ score, size = 56, sw = 3.5, totalSolved = 100, rd = 50 }: {
   return (
     <div className="relative flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="#181920" strokeWidth={sw} fill="none" />
+        <circle cx={size / 2} cy={size / 2} r={r} stroke="#333333" strokeWidth={sw} fill="none" />
         <motion.circle
           cx={size / 2} cy={size / 2} r={r} stroke={tier.color} strokeWidth={sw} fill="none"
           strokeLinecap="round" strokeDasharray={c}
           initial={{ strokeDashoffset: c }}
           animate={{ strokeDashoffset: c - (pct / 100) * c }}
-          transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
-          style={{ filter: `drop-shadow(0 0 5px ${tier.color}66)` }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
         />
       </svg>
       <div className="absolute flex flex-col items-center justify-center text-center">
@@ -251,7 +261,7 @@ export const Mastery = () => {
     <div className="grid h-64 place-items-center font-sans">
       <div className="flex flex-col items-center gap-2">
         <RefreshCw size={22} className="animate-spin text-amber-400" />
-        <span className="text-xs font-mono uppercase tracking-widest text-zinc-400">Loading Skill Telemetry...</span>
+        <span className="text-xs font-mono uppercase tracking-widest text-zinc-400">Loading topic ratings...</span>
       </div>
     </div>
   )
@@ -259,7 +269,7 @@ export const Mastery = () => {
   if (!data.length || !analytics) return (
     <div className="rounded-2xl border border-dashed border-zinc-800 bg-[#090a0f] p-8 text-center font-sans">
       <Trophy className="mx-auto h-9 w-9 text-zinc-600 mb-2.5" />
-      <h2 className="text-sm font-bold text-zinc-200 uppercase tracking-wider font-mono">No Mastery Telemetry Logged</h2>
+      <h2 className="text-sm font-bold text-zinc-200 uppercase tracking-wider font-mono">No topic ratings yet</h2>
       <p className="mx-auto mt-1 max-w-[260px] text-xs leading-relaxed text-zinc-500 font-mono">
         Run a sync in Settings to compute your Glicko-2 topic ratings and weakness targets.
       </p>
@@ -268,6 +278,7 @@ export const Mastery = () => {
 
   const { sorted, powerIndex, avgRd, avgVol, solved, attempted, firstAc, tierDist, top3, weakest } = analytics
   const pi = getTier(powerIndex, solved, avgRd)
+  const leadingTier = top3[0] ? getTier(top3[0].masteryScore || 800, top3[0].totalSolved || 0, top3[0].rd || 350) : null
   const conf = rdToConfidence(avgRd)
   const stability = getStability(avgVol)
   const nextTr = nextTier(powerIndex)
@@ -289,18 +300,18 @@ export const Mastery = () => {
       {/* ══════════ 1. HEADER BAR & GUIDEBOOK TOGGLE ══════════ */}
       <div className="flex items-center justify-between px-0.5">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-400 shadow-sm shrink-0">
+          <div className="p-2 rounded-xl border shrink-0" style={{ color: pi.color, borderColor: `${pi.color}40`, backgroundColor: `${pi.color}15` }}>
             <Brain size={18} />
           </div>
           <div className="min-w-0">
-            <h1 className="text-sm font-bold text-zinc-100 uppercase tracking-wider font-mono flex items-center gap-2">
-              <span className="truncate">Mastery Engine</span>
-              <span className="flex items-center gap-1 text-[9px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.2 rounded-full font-normal shrink-0">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live Glicko-2
+            <h1 className="text-sm font-bold text-zinc-100 tracking-tight flex items-center gap-2">
+              <span className="truncate">Topic mastery</span>
+              <span className="flex items-center gap-1 text-[9px] text-[#00b8a3] bg-[#00b8a3]/10 border border-[#00b8a3]/25 px-2 py-0.2 rounded-full font-normal shrink-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#00b8a3]" /> Updated
               </span>
             </h1>
             <p className="text-[10px] text-zinc-400 font-mono truncate">
-              Algorithmic Elo ratings calibrated across {sorted.length} topics
+              A rank is a summary of your solve history across {sorted.length} topics
             </p>
           </div>
         </div>
@@ -308,20 +319,20 @@ export const Mastery = () => {
         <div className="flex items-center gap-1.5 font-mono shrink-0 ml-2">
           <button
             onClick={() => setShowGuidebook(!showGuidebook)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 text-[11px] text-zinc-300 hover:text-white transition cursor-pointer shadow-sm"
-            title="Open Mastery Guidebook"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/[0.08] bg-[#282828] hover:bg-[#333333] text-[11px] text-zinc-300 hover:text-white transition cursor-pointer shadow-sm"
+            title="How topic ratings work"
           >
-            <BookOpen size={12} className="text-amber-400" />
-            <span>Guide</span>
+            <BookOpen size={12} style={{ color: pi.color }} />
+            <span>About</span>
           </button>
 
           <button
             onClick={() => loadData(true)}
             disabled={refreshing}
-            className="p-1.5 rounded-lg border border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition cursor-pointer shadow-sm"
+            className="p-1.5 rounded-lg border border-white/[0.08] bg-[#282828] hover:bg-[#333333] text-zinc-400 hover:text-zinc-200 transition cursor-pointer shadow-sm"
             title="Recalculate Glicko-2 ratings"
           >
-            <RefreshCw size={13} className={refreshing ? "animate-spin text-amber-400" : ""} />
+            <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} style={{ color: refreshing ? pi.color : undefined }} />
           </button>
         </div>
       </div>
@@ -333,19 +344,19 @@ export const Mastery = () => {
             initial={{ opacity: 0, height: 0 }} 
             animate={{ opacity: 1, height: "auto" }} 
             exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }} 
             className="overflow-hidden"
           >
-            <div className="p-4 bg-[#0d0e14] rounded-2xl border border-amber-500/30 space-y-3 font-sans text-xs text-zinc-300 shadow-xl">
-              <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2.5">
-                <div className="flex items-center gap-2 text-amber-400 font-mono font-bold text-xs uppercase tracking-wider">
+            <div className="p-4 bg-[#282828] rounded-2xl border border-white/[0.08] space-y-3 font-sans text-xs text-zinc-300 shadow-xl">
+              <div className="flex items-center justify-between border-b border-white/[0.08] pb-2.5">
+                <div className="flex items-center gap-2 font-mono font-bold text-xs uppercase tracking-wider" style={{ color: pi.color }}>
                   <BookOpen size={14} /> Guidebook · Understanding Your Skill Metrics
                 </div>
                 <button 
                   onClick={() => setShowGuidebook(false)} 
                   className="text-zinc-500 hover:text-zinc-300 text-xs cursor-pointer p-0.5"
                 >
-                  ✕
+                  <X size={14} />
                 </button>
               </div>
 
@@ -354,8 +365,8 @@ export const Mastery = () => {
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 font-mono text-[9.5px]">
-                <div className="p-2.5 rounded-xl bg-zinc-950/80 border border-zinc-800/80 space-y-1">
-                  <span className="font-bold text-amber-400 uppercase flex items-center gap-1.5">
+                <div className="p-2.5 rounded-xl bg-[#202020] border border-white/[0.08] space-y-1">
+                  <span className="font-bold uppercase flex items-center gap-1.5" style={{ color: pi.color }}>
                     <Sigma size={12} /> Composite Power ELO
                   </span>
                   <p className="text-zinc-400 leading-relaxed text-[9.5px]">
@@ -363,8 +374,8 @@ export const Mastery = () => {
                   </p>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-zinc-950/80 border border-zinc-800/80 space-y-1">
-                  <span className="font-bold text-emerald-400 uppercase flex items-center gap-1.5">
+                <div className="p-2.5 rounded-xl bg-[#202020] border border-white/[0.08] space-y-1">
+                  <span className="font-bold text-[#00b8a3] uppercase flex items-center gap-1.5">
                     <Shield size={12} /> Certainty % (Rating Deviation)
                   </span>
                   <p className="text-zinc-400 leading-relaxed text-[9.5px]">
@@ -372,8 +383,8 @@ export const Mastery = () => {
                   </p>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-zinc-950/80 border border-zinc-800/80 space-y-1">
-                  <span className="font-bold text-sky-400 uppercase flex items-center gap-1.5">
+                <div className="p-2.5 rounded-xl bg-[#202020] border border-white/[0.08] space-y-1">
+                  <span className="font-bold text-[#38bdf8] uppercase flex items-center gap-1.5">
                     <Activity size={12} /> Stability & Volatility (σ)
                   </span>
                   <p className="text-zinc-400 leading-relaxed text-[9.5px]">
@@ -381,8 +392,8 @@ export const Mastery = () => {
                   </p>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-zinc-950/80 border border-zinc-800/80 space-y-1">
-                  <span className="font-bold text-purple-400 uppercase flex items-center gap-1.5">
+                <div className="p-2.5 rounded-xl bg-[#202020] border border-white/[0.08] space-y-1">
+                  <span className="font-bold text-[#ffc01e] uppercase flex items-center gap-1.5">
                     <CheckCircle2 size={12} /> 1st-Try AC Precision
                   </span>
                   <p className="text-zinc-400 leading-relaxed text-[9.5px]">
@@ -400,27 +411,30 @@ export const Mastery = () => {
         initial={{ opacity: 0, y: 8 }} 
         animate={{ opacity: 1, y: 0 }} 
         transition={{ duration: 0.3 }}
-        className="relative overflow-hidden rounded-2xl border bg-gradient-to-b from-zinc-900/90 via-[#0a0c10] to-[#0a0c10] p-5 shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.06)]"
-        style={{ borderColor: pi.border }}
+        className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#242424] p-5 shadow-sm"
+        style={{ borderTop: `2px solid ${pi.color}` }}
       >
-        {/* Radiant Ambient Tier Aura */}
-        <div 
-          className="absolute -top-16 -right-16 h-52 w-52 rounded-full blur-3xl pointer-events-none opacity-25 transition-all duration-700" 
-          style={{ backgroundColor: pi.color }} 
-        />
-
         <div className="relative space-y-4">
           {/* Card Top Eyebrow */}
           <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.2em] text-amber-400 font-mono">
-              <Sparkles size={12} /> Composite Elo Command Score
-            </span>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg border" style={{ color: pi.color, borderColor: `${pi.color}35`, backgroundColor: `${pi.color}15` }}>
+                <TierIcon size={18} color={pi.color} />
+              </div>
+              <div>
+                <span className="text-[9px] font-bold uppercase tracking-[0.2em] font-mono text-zinc-400 block">
+                  Overall rank
+                </span>
+                <span className="text-sm font-bold font-mono tracking-tight" style={{ color: pi.color }}>
+                  {pi.name}
+                </span>
+              </div>
+            </div>
             <div 
-              className="flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[9.5px] font-mono font-bold uppercase border shadow-sm"
-              style={{ color: pi.color, backgroundColor: pi.bg, borderColor: pi.border }}
+              className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-mono font-bold uppercase border"
+              style={{ color: pi.color, backgroundColor: `${pi.color}12`, borderColor: `${pi.color}35` }}
             >
-              <TierIcon size={12} />
-              <span>{pi.name} Tier</span>
+              <span>{pi.floor}+ ELO</span>
             </div>
           </div>
 
@@ -429,7 +443,7 @@ export const Mastery = () => {
             <div>
               <div className="flex items-baseline gap-2">
                 <motion.span
-                  className="text-4xl font-bold font-mono tracking-tight text-white leading-none tabular-nums drop-shadow-sm"
+                  className="text-4xl font-bold font-mono tracking-tight text-white leading-none tabular-nums"
                   initial={{ opacity: 0, scale: 0.94 }} 
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.08, type: "spring", stiffness: 200 }}
@@ -448,40 +462,37 @@ export const Mastery = () => {
             <RingGauge score={powerIndex} size={64} sw={4} totalSolved={solved} rd={avgRd} />
           </div>
 
-          {/* CODEFORCES / LEETCODE CONTINUUM BAR WITH GLOWING PIN */}
-          <div className="space-y-2 border-t border-zinc-800/80 pt-3.5 font-mono">
-            <div className="flex justify-between text-[8px] text-zinc-400 uppercase font-bold tracking-wider">
-              <span>Newbie (0)</span>
-              <span>Pupil (1200)</span>
-              <span>Specialist (1400)</span>
-              <span>Expert (1600)</span>
-              <span>Master (1900)</span>
-              <span>GM (2200+)</span>
+          {/* CONTINUUM BAR */}
+          <div className="space-y-2 border-t border-white/[0.08] pt-3.5 font-mono">
+            <div className="flex justify-between gap-1 text-[7px] uppercase font-bold tracking-wide">
+              {TIERS.slice().reverse().map((tier) => (
+                <span key={tier.name} className="truncate" style={{ color: tier.color }}>
+                  {tier.name === "Grandmaster" ? "GM" : tier.name}
+                </span>
+              ))}
             </div>
 
-            {/* Continuum Track with Interactive Glow Pin */}
-            <div className="relative h-2.5 w-full bg-zinc-950 border border-zinc-800 rounded-full p-0.5 flex items-center">
+            {/* Continuum Track with Clean Pin */}
+            <div className="relative h-2.5 w-full bg-[#1a1a1a] border border-white/[0.08] rounded-full p-0.5 flex items-center">
               {TIERS.slice().reverse().map(t => (
                 <div 
                   key={t.name} 
-                  className="h-full flex-1 border-r border-zinc-950/60 first:rounded-l-full last:rounded-r-full opacity-65" 
+                  className="h-full flex-1 border-r border-[#1a1a1a] first:rounded-l-full last:rounded-r-full opacity-65" 
                   style={{ backgroundColor: t.color }} 
                 />
               ))}
 
-              {/* Glowing Indicator Pin */}
+              {/* Indicator Pin */}
               <div 
-                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 border-white shadow-[0_0_10px_rgba(255,255,255,0.8)] flex items-center justify-center transition-all duration-700"
+                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full border-2 border-white shadow flex items-center justify-center transition-all duration-700"
                 style={{ left: `${continuumPct}%`, backgroundColor: pi.color }}
-              >
-                <div className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-              </div>
+              />
             </div>
 
             {/* Next Tier Progression */}
             <div className="flex items-center justify-between text-[9.5px] text-zinc-400 pt-0.5">
               <span>
-                Tier: <strong style={{ color: pi.color }}>{pi.name}</strong> ({pi.floor}+)
+                Current rank: <strong style={{ color: pi.color }}>{pi.name}</strong> ({pi.floor}+)
               </span>
               {nextTr ? (
                 <span className="font-semibold text-zinc-200 flex items-center gap-1">
@@ -489,13 +500,13 @@ export const Mastery = () => {
                   <strong style={{ color: nextTr.color }}>{nextTr.name}</strong>
                 </span>
               ) : (
-                <span className="text-emerald-400 font-bold">Peak Grandmaster Reached</span>
+                <span className="text-[#00b8a3] font-bold">Highest rank reached</span>
               )}
             </div>
 
             {/* Sleek Mini Progress Bar to Next Tier */}
             {nextTr && (
-              <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden flex items-center">
+              <div className="h-1.5 w-full bg-[#1a1a1a] rounded-full overflow-hidden flex items-center">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${tierProgressPct}%` }}
@@ -507,26 +518,26 @@ export const Mastery = () => {
             )}
           </div>
 
-          {/* 3 Prestige Telemetry Pods */}
+          {/* 3 Telemetry Pods */}
           <div className="grid grid-cols-3 gap-2 pt-1 font-mono text-center">
-            <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-2.5 flex flex-col justify-between shadow-sm">
-              <div className="text-[8px] font-bold uppercase tracking-wider text-zinc-400">Certainty (RD)</div>
-              <div className={`text-sm font-bold tabular-nums mt-1 ${conf >= 60 ? "text-emerald-400" : "text-amber-400"}`}>
+            <div className="rounded-xl border border-white/[0.08] bg-[#2c2c2c] p-2.5 flex flex-col justify-between shadow-sm">
+              <div className="text-[8px] font-bold uppercase tracking-wider text-zinc-400">Confidence</div>
+              <div className={`text-sm font-bold tabular-nums mt-1 ${conf >= 60 ? "text-[#00b8a3]" : "text-[#ffc01e]"}`}>
                 {conf}% <span className="text-[8.5px] text-zinc-400 font-normal">±{Math.round(avgRd)}</span>
               </div>
             </div>
 
-            <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-2.5 flex flex-col justify-between shadow-sm">
+            <div className="rounded-xl border border-white/[0.08] bg-[#2c2c2c] p-2.5 flex flex-col justify-between shadow-sm">
               <div className="text-[8px] font-bold uppercase tracking-wider text-zinc-400">Consistency</div>
               <div className={`text-sm font-bold mt-1 flex items-center justify-center gap-1.5 ${stability.color}`}>
-                <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-current" />
                 <span>{stability.label}</span>
               </div>
             </div>
 
-            <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-2.5 flex flex-col justify-between shadow-sm">
-              <div className="text-[8px] font-bold uppercase tracking-wider text-zinc-400">1st-Try AC Rate</div>
-              <div className="text-sm font-bold text-emerald-400 tabular-nums mt-1">
+            <div className="rounded-xl border border-white/[0.08] bg-[#2c2c2c] p-2.5 flex flex-col justify-between shadow-sm">
+              <div className="text-[8px] font-bold uppercase tracking-wider text-zinc-400">First-try AC</div>
+              <div className="text-sm font-bold text-[#00b8a3] tabular-nums mt-1">
                 {attempted > 0 ? Math.round((firstAc / attempted) * 100) : 0}%
                 <span className="text-[8.5px] text-zinc-400 font-normal ml-1">({firstAc}/{attempted})</span>
               </div>
@@ -535,14 +546,14 @@ export const Mastery = () => {
         </div>
       </motion.section>
 
-      {/* ══════════ 3. DUAL SPOTLIGHT: DOMINANT DOMAIN VS GROWTH FRONTIER ══════════ */}
+      {/* ══════════ 3. DUAL SPOTLIGHT: TOP TOPIC VS FOCUS TOPIC ══════════ */}
       <section className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-        {/* Hall of Fame (#1 Top Topic) */}
+        {/* Top Topic */}
         {top3[0] && (
-          <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-[#0d0e14] to-[#0d0e14] p-3.5 space-y-2.5 shadow-md">
+          <div className="rounded-2xl border border-white/10 bg-[#242424] p-4 space-y-3 shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                <Crown size={13} /> #1 Dominant Domain
+              <span className="text-[9px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ color: leadingTier?.color }}>
+                <Crown size={13} /> #1 Strongest Topic
               </span>
               <span className="text-[9px] font-mono text-zinc-400">Highest ELO</span>
             </div>
@@ -557,8 +568,8 @@ export const Mastery = () => {
                 </p>
               </div>
               <div className="text-right font-mono">
-                <span className="text-lg font-bold text-amber-400 tabular-nums">
-                  ★ {Math.round(top3[0].masteryScore || 800)}
+                <span className="text-lg font-bold tabular-nums" style={{ color: leadingTier?.color }}>
+                  Elo {Math.round(top3[0].masteryScore || 800)}
                 </span>
               </div>
             </div>
@@ -567,7 +578,8 @@ export const Mastery = () => {
               href={`https://leetcode.com/tag/${top3[0].tag.toLowerCase().replace(/\s+/g, '-')}/`}
               target="_blank"
               rel="noreferrer"
-              className="text-[10px] font-mono font-bold text-amber-400 hover:text-amber-300 flex items-center justify-end gap-1 pt-1.5 border-t border-zinc-800/80 transition-colors"
+              className="text-[10px] font-mono font-bold flex items-center justify-end gap-1 pt-1.5 border-t border-white/[0.08] transition-colors"
+              style={{ color: leadingTier?.color }}
             >
               <span>Practice Top Tag</span>
               <ArrowUpRight size={11} />
@@ -577,17 +589,17 @@ export const Mastery = () => {
 
         {/* Primary Weakness Target */}
         {weakest && (
-          <div className="rounded-2xl border border-rose-500/30 bg-gradient-to-br from-rose-500/10 via-[#0d0e14] to-[#0d0e14] p-3.5 space-y-2.5 shadow-md">
+          <div className="rounded-2xl border border-white/10 bg-[#242424] p-4 space-y-3 shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
-                <Crosshair size={13} /> Primary Growth Frontier
+              <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-[#ef4743] flex items-center gap-1.5">
+                <Crosshair size={13} /> Recommended Focus Topic
               </span>
               <span className="text-[9px] font-mono text-zinc-400">Needs Focus</span>
             </div>
 
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-rose-300 truncate" title={weakest.tag}>
+                <p className="text-sm font-bold text-[#ef4743] truncate" title={weakest.tag}>
                   {weakest.tag}
                 </p>
                 <p className="text-[10px] font-mono text-zinc-400 mt-0.5">
@@ -595,8 +607,8 @@ export const Mastery = () => {
                 </p>
               </div>
               <div className="text-right font-mono">
-                <span className="text-lg font-bold text-rose-400 tabular-nums">
-                  ★ {Math.round(weakest.masteryScore || 800)}
+                <span className="text-lg font-bold text-[#ef4743] tabular-nums">
+                  Elo {Math.round(weakest.masteryScore || 800)}
                 </span>
               </div>
             </div>
@@ -605,16 +617,16 @@ export const Mastery = () => {
               href={`https://leetcode.com/tag/${weakest.tag.toLowerCase().replace(/\s+/g, '-')}/`}
               target="_blank"
               rel="noreferrer"
-              className="text-[10px] font-mono font-bold text-rose-400 hover:text-rose-300 flex items-center justify-end gap-1 pt-1.5 border-t border-zinc-800/80 transition-colors"
+              className="text-[10px] font-mono font-bold text-[#ef4743] hover:text-[#ef4743]/80 flex items-center justify-end gap-1 pt-1.5 border-t border-white/[0.08] transition-colors"
             >
-              <span>Drill Weakness Target</span>
+              <span>Drill Focus Topic</span>
               <ArrowUpRight size={11} />
             </a>
           </div>
         )}
       </section>
 
-      {/* ══════════ 4. SKILL CONSTELLATION & HORIZON VISUALIZER ══════════ */}
+      {/* ══════════ 4. SKILL RADAR & DISTRIBUTION ══════════ */}
       {(() => {
         const items = sorted.filter(d => d.totalAttempted >= 2).slice(0, 8)
         if (items.length < 3) return null
@@ -627,32 +639,32 @@ export const Mastery = () => {
         }))
 
         return (
-          <div className="p-4 rounded-2xl bg-[#0d0e14] border border-zinc-800/80 space-y-3 shadow-md">
+          <div className="rounded-2xl border border-white/10 bg-[#242424] p-4 space-y-3 shadow-sm">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-1.5">
-                <Brain size={14} className="text-sky-400" />
+                <Brain size={14} className="text-[#ffa116]" />
                 <span className="text-xs font-bold text-zinc-100 font-sans tracking-tight">
-                  Skill Horizon Telemetry
+                  Topic shape
                 </span>
               </div>
 
-              {/* View Switcher: Radar vs Distribution */}
-              <div className="flex items-center gap-1 bg-zinc-900/90 border border-zinc-800 p-0.5 rounded-lg text-[10px] font-mono">
+              {/* View Switcher */}
+              <div className="flex items-center gap-1 bg-[#1e1e1e] border border-white/[0.08] p-0.5 rounded-lg text-[10px] font-mono">
                 <button
                   onClick={() => setChartMode("radar")}
                   className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
-                    chartMode === "radar" ? "bg-zinc-800 text-sky-400 font-bold shadow-sm" : "text-zinc-400 hover:text-zinc-200"
+                    chartMode === "radar" ? "bg-[#333333] text-white font-semibold" : "text-zinc-400 hover:text-zinc-200"
                   }`}
                 >
-                  Radar Constellation
+                  Radar
                 </button>
                 <button
                   onClick={() => setChartMode("distribution")}
                   className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
-                    chartMode === "distribution" ? "bg-zinc-800 text-amber-400 font-bold shadow-sm" : "text-zinc-400 hover:text-zinc-200"
+                    chartMode === "distribution" ? "bg-[#333333] text-[#ffa116] font-semibold" : "text-zinc-400 hover:text-zinc-200"
                   }`}
                 >
-                  Tier Horizon
+                  Rank distribution
                 </button>
               </div>
             </div>
@@ -661,17 +673,17 @@ export const Mastery = () => {
               <div className="h-[200px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart cx="50%" cy="50%" outerRadius="68%" data={radarData}>
-                    <PolarGrid stroke="#27272a" strokeDasharray="3 3" />
+                    <PolarGrid stroke="#383838" strokeDasharray="3 3" />
                     <PolarAngleAxis 
                       dataKey="subject" 
-                      tick={{ fill: '#a1a1aa', fontSize: 9, fontFamily: 'monospace', fontWeight: 600 }} 
+                      tick={{ fill: '#8a8a8e', fontSize: 9, fontFamily: 'monospace', fontWeight: 600 }} 
                     />
                     <Radar 
                       name="Ceiling" 
                       dataKey="raw" 
-                      stroke="rgba(56,189,248,0.45)" 
+                      stroke="rgba(0,184,163,0.45)" 
                       strokeWidth={1} 
-                      fill="rgba(56,189,248,0.08)" 
+                      fill="rgba(0,184,163,0.08)" 
                       fillOpacity={1} 
                     />
                     <Radar 
@@ -684,15 +696,15 @@ export const Mastery = () => {
                     />
                     <Tooltip
                       contentStyle={{ 
-                        backgroundColor: '#090a0f', 
-                        border: '1px solid #27272a', 
-                        borderRadius: '10px', 
+                        backgroundColor: '#1e1e1e', 
+                        border: '1px solid rgba(255,255,255,0.12)', 
+                        borderRadius: '8px', 
                         fontSize: 10.5, 
                         fontFamily: 'monospace', 
-                        boxShadow: '0 10px 30px rgba(0,0,0,0.9)', 
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.6)', 
                         padding: '8px 12px' 
                       }}
-                      formatter={(v: number, n: string) => [`★ ${v} ELO`, n]}
+                      formatter={(v: number, n: string) => [`${v} ELO`, n]}
                       labelFormatter={(label) => {
                         const item = radarData.find(d => d.subject === label)
                         return item ? item.fullName : label
@@ -710,12 +722,12 @@ export const Mastery = () => {
                     <div 
                       key={t.name} 
                       onClick={() => setTierFilter(t.name.toLowerCase())}
-                      className="flex items-center gap-2 text-xs hover:bg-zinc-850/40 p-1 rounded-lg transition-colors cursor-pointer group"
+                      className="flex items-center gap-2 text-xs hover:bg-[#333333] p-1 rounded-lg transition-colors cursor-pointer group"
                     >
                       <span className="w-24 truncate text-[10.5px] font-semibold" style={{ color: t.color }}>
                         {t.name}
                       </span>
-                      <div className="flex-1 h-3 bg-zinc-850/70 rounded-full overflow-hidden p-0.5">
+                      <div className="flex-1 h-3 bg-[#1a1a1a] rounded-full overflow-hidden p-0.5">
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${Math.max(2, pct)}%` }}
@@ -740,7 +752,7 @@ export const Mastery = () => {
       <div className="space-y-3 pt-2 font-mono">
         <div className="flex items-center justify-between px-0.5">
           <span className="text-xs font-bold text-zinc-100 flex items-center gap-1.5 font-sans tracking-tight">
-            <Layers size={14} className="text-amber-400" /> Topic Skill Matrix ({filteredTopics.length})
+            <Layers size={14} style={{ color: pi.color }} /> Topic ratings ({filteredTopics.length})
           </span>
           <span className="text-[10px] text-zinc-400 font-mono">
             Click any card to inspect
@@ -755,14 +767,14 @@ export const Mastery = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search topics by name (e.g. dp, graph, tree)..."
-            className="w-full bg-[#0d0e14] border border-zinc-800 rounded-xl pl-9 pr-8 py-2 text-xs font-mono text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-amber-500/50 transition-all shadow-sm"
+            className="mastery-input w-full rounded-xl border pl-9 pr-8 py-2 text-xs font-mono text-zinc-200 placeholder-zinc-500 focus:outline-none transition-all shadow-sm"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 p-0.5 cursor-pointer"
             >
-              ✕
+              <X size={14} />
             </button>
           )}
         </div>
@@ -773,8 +785,8 @@ export const Mastery = () => {
             onClick={() => setTierFilter("all")}
             className={`px-3 py-1 rounded-lg border text-[10.5px] whitespace-nowrap transition-all cursor-pointer ${
               tierFilter === "all"
-                ? "bg-zinc-800 text-zinc-100 border-zinc-700 shadow-sm font-semibold"
-                : "bg-[#0d0e14] text-zinc-400 border-zinc-800/80 hover:text-zinc-200"
+                ? "bg-[#333333] text-zinc-100 border-white/[0.12] shadow-sm font-semibold"
+                : "bg-[#282828] text-zinc-400 border-white/[0.08] hover:text-zinc-200"
             }`}
           >
             All Topics ({analytics.sorted.length})
@@ -789,7 +801,7 @@ export const Mastery = () => {
                 className={`px-2.5 py-1 rounded-lg border text-[10.5px] whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                   isSelected
                     ? "border-current font-bold shadow-sm"
-                    : "bg-[#0d0e14] text-zinc-400 border-zinc-800/80 hover:text-zinc-200"
+                    : "bg-[#282828] text-zinc-400 border-white/[0.08] hover:text-zinc-200"
                 }`}
                 style={isSelected ? { color: t.color, backgroundColor: `${t.color}18`, borderColor: `${t.color}50` } : {}}
               >
@@ -806,7 +818,7 @@ export const Mastery = () => {
           <span className="text-zinc-400 text-[10px] font-mono">
             Showing {filteredTopics.length} of {sorted.length} topics
           </span>
-          <div className="flex items-center gap-1 bg-zinc-900/80 border border-zinc-800 p-0.5 rounded-lg text-[10px]">
+          <div className="flex items-center gap-1 bg-[#1a1a1a] border border-white/[0.08] p-0.5 rounded-lg text-[10px]">
             {[
               { key: "score", label: "Elo ↓" },
               { key: "weakest", label: "Weakest ↑" },
@@ -817,7 +829,7 @@ export const Mastery = () => {
                 key={s.key}
                 onClick={() => setSortBy(s.key as any)}
                 className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
-                  sortBy === s.key ? "bg-zinc-800 text-amber-400 font-bold shadow-sm" : "text-zinc-400 hover:text-zinc-200"
+                  sortBy === s.key ? "bg-[#333333] text-[#ffa116] font-semibold" : "text-zinc-400 hover:text-zinc-200"
                 }`}
               >
                 {s.label}
@@ -830,7 +842,7 @@ export const Mastery = () => {
       {/* TOPIC MASTERY CARDS LIST */}
       <div className="space-y-2">
         {filteredTopics.length === 0 ? (
-          <div className="p-6 text-center text-xs font-mono text-zinc-500 border border-dashed border-zinc-800 rounded-2xl bg-[#0d0e14]">
+          <div className="p-6 text-center text-xs font-mono text-zinc-500 border border-dashed border-white/[0.08] rounded-2xl bg-[#282828]">
             No topic tags match your active filter.
           </div>
         ) : (
@@ -853,16 +865,16 @@ export const Mastery = () => {
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: Math.min(i * 0.02, 0.25) }}
-                className="rounded-2xl border bg-[#0d0e14] overflow-hidden transition-all hover:border-zinc-700/80 shadow-sm"
-                style={{ borderColor: open ? tierStyle.color : "rgba(39,39,42,0.7)" }}
+                className="rounded-2xl border bg-[#282828] overflow-hidden transition-all hover:bg-[#303030] shadow-sm"
+                style={{ borderColor: open ? tierStyle.color : "rgba(255,255,255,0.08)" }}
               >
                 <button 
                   onClick={() => setExpandedTag(open ? null : m.tag)} 
-                  className="w-full flex items-center gap-3.5 p-3.5 text-left cursor-pointer hover:bg-zinc-850/30 transition-colors"
+                  className="w-full flex items-center gap-3.5 p-3.5 text-left cursor-pointer hover:bg-white/[0.03] transition-colors"
                 >
                   {/* Tier Emblem Square */}
                   <div 
-                    className="w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 shadow-sm"
+                    className="w-9 h-9 rounded-xl border flex items-center justify-center shrink-0"
                     style={{ color: tierStyle.color, backgroundColor: tierStyle.bg, borderColor: tierStyle.border }}
                   >
                     <CardIcon size={16} />
@@ -876,7 +888,7 @@ export const Mastery = () => {
                       </span>
                       <div className="flex items-center gap-1 font-mono shrink-0">
                         <span className="text-xs font-bold tabular-nums text-zinc-100">
-                          ★ {Math.round(score)}
+                          Elo {Math.round(score)}
                         </span>
                         <span className="text-[9px] text-zinc-400 font-normal">ELO</span>
                       </div>
@@ -892,13 +904,13 @@ export const Mastery = () => {
                       <span className="text-zinc-400">
                         {m.totalSolved} Solved
                       </span>
-                      <span className="text-emerald-400 font-semibold">
+                      <span className="text-[#00b8a3] font-semibold">
                         {winRate}% WR
                       </span>
                     </div>
 
                     {/* Subtle Topic Strength Bar */}
-                    <div className="h-1 w-full bg-zinc-850/80 rounded-full overflow-hidden mt-1">
+                    <div className="h-1 w-full bg-[#1a1a1a] rounded-full overflow-hidden mt-1">
                       <div 
                         className="h-full rounded-full" 
                         style={{ width: `${progressToGm}%`, backgroundColor: tierStyle.color }} 
@@ -920,35 +932,35 @@ export const Mastery = () => {
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }} 
                       transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }} 
-                      className="overflow-hidden border-t border-zinc-800/80 bg-zinc-950/70"
+                      className="overflow-hidden border-t border-white/[0.08] bg-[#222222]"
                     >
                       <div className="p-4 space-y-3">
                         {/* 4 Detail Badges */}
                         <div className="grid grid-cols-4 gap-2 font-mono text-center">
-                          <div className="rounded-xl bg-[#0d0e14] p-2 border border-zinc-800/80">
+                          <div className="rounded-xl bg-[#282828] p-2 border border-white/[0.08]">
                             <div className="text-[8px] uppercase font-bold text-zinc-400">Solved</div>
                             <div className="text-xs font-bold text-zinc-200 mt-0.5 tabular-nums">
                               {m.totalSolved} / {m.totalAttempted}
                             </div>
                           </div>
 
-                          <div className="rounded-xl bg-[#0d0e14] p-2 border border-zinc-800/80">
+                          <div className="rounded-xl bg-[#282828] p-2 border border-white/[0.08]">
                             <div className="text-[8px] uppercase font-bold text-zinc-400">1st-Try AC</div>
-                            <div className="text-xs font-bold text-emerald-400 mt-0.5 tabular-nums">
+                            <div className="text-xs font-bold text-[#00b8a3] mt-0.5 tabular-nums">
                               {m.totalAttempted > 0 ? Math.round((m.firstAcCount / m.totalAttempted) * 100) : 0}%
                             </div>
                           </div>
 
-                          <div className="rounded-xl bg-[#0d0e14] p-2 border border-zinc-800/80">
+                          <div className="rounded-xl bg-[#282828] p-2 border border-white/[0.08]">
                             <div className="text-[8px] uppercase font-bold text-zinc-400">Certainty</div>
-                            <div className="text-xs font-bold text-amber-400 mt-0.5 tabular-nums">
+                            <div className="text-xs font-bold text-[#ffa116] mt-0.5 tabular-nums">
                               ±{Math.round(rd)} RD
                             </div>
                           </div>
 
-                          <div className="rounded-xl bg-[#0d0e14] p-2 border border-zinc-800/80">
+                          <div className="rounded-xl bg-[#282828] p-2 border border-white/[0.08]">
                             <div className="text-[8px] uppercase font-bold text-zinc-400">Last Active</div>
-                            <div className="text-xs font-bold text-sky-400 mt-0.5">
+                            <div className="text-xs font-bold text-[#38bdf8] mt-0.5">
                               {timeSince(m.lastSolvedAt).text}
                             </div>
                           </div>
@@ -964,7 +976,7 @@ export const Mastery = () => {
                           href={`https://leetcode.com/tag/${m.tag.toLowerCase().replace(/\s+/g, '-')}/`}
                           target="_blank"
                           rel="noreferrer"
-                          className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 py-2.5 text-xs font-mono font-bold text-amber-400 transition cursor-pointer shadow-sm"
+                          className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-[#ffa116] bg-[#ffa116] hover:bg-[#e08e0b] py-2.5 text-xs font-mono font-bold text-black transition cursor-pointer"
                         >
                           <span>Practice {m.tag} Problems on LeetCode</span>
                           <ExternalLink size={12} />

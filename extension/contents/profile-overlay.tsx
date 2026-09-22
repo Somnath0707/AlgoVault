@@ -81,7 +81,10 @@ export default function ProfileOverlay() {
 
   useEffect(() => {
     void refresh()
-    const interval = window.setInterval(() => void refresh(), 2 * 60 * 1000)
+    const interval = window.setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return
+      void refresh()
+    }, 5 * 60 * 1000)
     return () => window.clearInterval(interval)
   }, [username])
 
@@ -112,40 +115,39 @@ export default function ProfileOverlay() {
 
   return (
     <div className="fixed right-5 top-20 z-[2147483646] font-sans text-zinc-100">
-      {/* Trigger Button with Amber Glow */}
+      {/* Trigger Button */}
       <button
         onClick={() => setOpen((value) => !value)}
-        className="flex items-center gap-2.5 rounded-full border border-amber-500/30 bg-zinc-950/90 px-3.5 py-2 text-xs font-semibold shadow-[0_4px_25px_rgba(0,0,0,0.8)] backdrop-blur-xl transition-all duration-300 hover:border-amber-400/70 hover:shadow-[0_0_20px_rgba(245,158,11,0.25)] hover:bg-zinc-900 group"
+        className="flex items-center gap-2.5 rounded-full border border-white/[0.12] bg-[#282828] px-3.5 py-2 text-xs font-semibold shadow-lg backdrop-blur-xl transition-all duration-200 hover:border-[#ffa116]/50 hover:bg-[#333333] group cursor-pointer"
         title="Open AlgoVault profile analytics"
       >
-        <div className="flex items-center justify-center w-5 h-5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.3)] group-hover:scale-110 transition-transform">
+        <div className="flex items-center justify-center w-5 h-5 rounded-full bg-[#ffa116]/15 border border-[#ffa116]/30 text-[#ffa116] group-hover:scale-110 transition-transform">
           <BarChart3 size={12} />
         </div>
         <span className="font-mono text-zinc-200 tracking-tight">
           {loading && !contests.length ? "Loading..." : displayDelta(latest)}
         </span>
         {evidenceCount > 0 && (
-          <span className="rounded-full bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.2 text-[10px] font-bold text-amber-300 font-mono shadow-[0_0_8px_rgba(245,158,11,0.3)]">
+          <span className="rounded-full bg-[#ffa116]/20 border border-[#ffa116]/40 px-1.5 py-0.2 text-[10px] font-bold text-[#ffa116] font-mono">
             {evidenceCount}
           </span>
         )}
       </button>
 
-      {/* Main Glassmorphic Panel */}
+      {/* Main Panel */}
       {open && (
-        <section className="absolute right-0 mt-3 w-[390px] max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-b from-zinc-950 via-zinc-950/98 to-zinc-950/95 shadow-[0_20px_60px_rgba(0,0,0,0.95)] backdrop-blur-2xl animate-fadeIn">
+        <section className="absolute right-0 mt-3 w-[390px] max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-white/[0.12] bg-[#1a1a1a] shadow-2xl">
           {/* Header */}
-          <header className="flex items-center justify-between border-b border-zinc-800/80 bg-gradient-to-r from-amber-950/30 via-zinc-950 to-zinc-950 px-4 py-3">
+          <header className="flex items-center justify-between border-b border-white/[0.08] bg-[#282828] px-4 py-3">
             <div className="flex items-center gap-2.5">
-              <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/5 border border-amber-500/30 text-amber-400 font-bold text-xs font-mono shadow-[0_0_12px_rgba(245,158,11,0.15)]">
+              <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-[#ffa116]/15 border border-[#ffa116]/30 text-[#ffa116] font-bold text-xs font-mono">
                 AV
               </div>
               <div>
                 <div className="text-xs font-bold text-zinc-100 flex items-center gap-1.5">
                   AlgoVault Analytics
                   <span className="relative flex h-2 w-2 items-center justify-center">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                    <span className="inline-flex rounded-full h-1.5 w-1.5 bg-[#00b8a3]"></span>
                   </span>
                 </div>
                 <div className="text-[10px] font-mono text-zinc-400">@{username}</div>
@@ -155,14 +157,14 @@ export default function ProfileOverlay() {
               <button 
                 onClick={() => void refresh()} 
                 title="Refresh analytics" 
-                className="p-1.5 text-zinc-400 hover:text-zinc-100 rounded-lg hover:bg-zinc-900 transition-colors"
+                className="p-1.5 text-zinc-400 hover:text-zinc-100 rounded-lg hover:bg-[#333333] transition-colors cursor-pointer"
               >
-                <RefreshCw size={13} className={loading ? "animate-spin text-amber-400" : ""} />
+                <RefreshCw size={13} className={loading ? "animate-spin text-[#ffa116]" : ""} />
               </button>
               <button 
                 onClick={() => setOpen(false)} 
                 title="Close panel" 
-                className="p-1.5 text-zinc-400 hover:text-zinc-100 rounded-lg hover:bg-zinc-900 transition-colors"
+                className="p-1.5 text-zinc-400 hover:text-zinc-100 rounded-lg hover:bg-[#333333] transition-colors cursor-pointer"
               >
                 <X size={14} />
               </button>
@@ -170,12 +172,12 @@ export default function ProfileOverlay() {
           </header>
 
           {/* Replay Evidence Subheader Banner */}
-          <div className="flex items-center justify-between border-b border-zinc-800/80 bg-zinc-950/80 px-4 py-2.5 backdrop-blur-md">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold font-mono text-amber-400">
-              <ShieldCheck size={14} className="text-amber-400 drop-shadow-[0_0_6px_rgba(245,158,11,0.4)]" />
+          <div className="flex items-center justify-between border-b border-white/[0.08] bg-[#282828] px-4 py-2.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold font-mono text-[#ffa116]">
+              <ShieldCheck size={14} className="text-[#ffa116]" />
               <span className="tracking-wide">REPLAY EVIDENCE</span>
             </div>
-            <span className="text-[9.5px] font-mono font-semibold text-amber-300/90 bg-amber-500/10 border border-amber-500/25 px-2.5 py-0.5 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.1)]">
+            <span className="text-[9.5px] font-mono font-semibold text-[#ffa116] bg-[#ffa116]/10 border border-[#ffa116]/25 px-2.5 py-0.5 rounded-full">
               Last 5 Contests
             </span>
           </div>
@@ -183,14 +185,14 @@ export default function ProfileOverlay() {
           {/* Content Container */}
           <div className="max-h-[490px] overflow-y-auto p-3.5 space-y-3">
             {error && (
-              <div className="rounded-xl border border-red-500/30 bg-red-950/30 p-3 text-xs text-red-300 font-mono flex items-center gap-2">
-                <ShieldAlert size={14} className="shrink-0 text-red-400" />
+              <div className="rounded-xl border border-[#ef4743]/30 bg-[#ef4743]/10 p-3 text-xs text-[#ef4743] font-mono flex items-center gap-2">
+                <ShieldAlert size={14} className="shrink-0 text-[#ef4743]" />
                 <span>{error}</span>
               </div>
             )}
 
-            <div className="flex items-center gap-2 rounded-xl border border-amber-500/20 bg-gradient-to-r from-amber-500/10 to-transparent p-2.5 text-[10.5px] text-amber-200/90 font-mono">
-              <Zap size={13} className="shrink-0 text-amber-400" />
+            <div className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#282828] p-2.5 text-[10.5px] text-zinc-300 font-mono">
+              <Zap size={13} className="shrink-0 text-[#ffa116]" />
               <span>Real-time telemetry scanning focus loss & paste events.</span>
             </div>
 
@@ -203,19 +205,19 @@ export default function ProfileOverlay() {
               return (
                 <div 
                   key={contest.contestSlug} 
-                  className="group rounded-xl border border-zinc-800/80 bg-gradient-to-br from-zinc-900/60 via-zinc-950/80 to-zinc-950 p-3.5 transition-all duration-200 hover:border-amber-500/30 hover:shadow-[0_4px_20px_rgba(0,0,0,0.5)]"
+                  className="group rounded-xl border border-white/[0.08] bg-[#282828] hover:bg-[#333333] p-3.5 transition-all duration-200"
                 >
-                  <div className="flex items-center justify-between gap-2 border-b border-zinc-900/90 pb-2.5">
+                  <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] pb-2.5">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="truncate text-xs font-bold text-zinc-100 group-hover:text-amber-400 transition-colors">
+                        <span className="truncate text-xs font-bold text-zinc-100 group-hover:text-[#ffa116] transition-colors">
                           {contest.contestTitle}
                         </span>
                         {delta != null && (
-                          <span className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded border font-mono shrink-0 shadow-sm ${
+                          <span className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded border font-mono shrink-0 ${
                             isPositive 
-                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25 shadow-[0_0_6px_rgba(16,185,129,0.15)]" 
-                              : "bg-rose-500/10 text-rose-400 border-rose-500/25 shadow-[0_0_6px_rgba(244,63,94,0.15)]"
+                              ? "bg-[#00b8a3]/10 text-[#00b8a3] border-[#00b8a3]/25" 
+                              : "bg-[#ef4743]/10 text-[#ef4743] border-[#ef4743]/25"
                           }`}>
                             {isPositive ? `+${Math.round(delta)}` : Math.round(delta)}
                           </span>
@@ -223,7 +225,7 @@ export default function ProfileOverlay() {
                       </div>
                       {contest.rank != null && (
                         <div className="mt-1 flex items-center gap-2 text-[10px] font-mono text-zinc-400">
-                          <span className="bg-zinc-900/90 border border-zinc-800 px-1.5 py-0.5 rounded text-zinc-300 font-semibold">
+                          <span className="bg-[#1a1a1a] border border-white/[0.08] px-1.5 py-0.5 rounded text-zinc-300 font-semibold">
                             Rank #{contest.rank.toLocaleString()}
                           </span>
                         </div>
@@ -236,7 +238,7 @@ export default function ProfileOverlay() {
                         target="_blank" 
                         rel="noreferrer" 
                         title="Open official replay ranking" 
-                        className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 rounded-lg transition-colors"
+                        className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-[#1a1a1a] rounded-lg transition-colors cursor-pointer"
                       >
                         <ExternalLink size={13} />
                       </a>
@@ -244,9 +246,9 @@ export default function ProfileOverlay() {
                         onClick={() => void scanReplay(contest)} 
                         disabled={summary?.loading} 
                         title="Analyze replay events" 
-                        className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-gradient-to-r from-amber-500/15 to-amber-600/10 px-2.5 py-1 text-[10.5px] font-mono font-semibold text-amber-300 hover:border-amber-500/60 hover:from-amber-500/25 hover:to-amber-600/20 active:scale-95 disabled:opacity-50 transition-all shadow-[0_0_10px_rgba(245,158,11,0.1)]"
+                        className="flex items-center gap-1.5 rounded-lg border border-[#ffa116]/30 bg-[#ffa116]/10 px-2.5 py-1 text-[10.5px] font-mono font-semibold text-[#ffa116] hover:bg-[#ffa116]/20 disabled:opacity-50 transition-all cursor-pointer"
                       >
-                        <Search size={11} className={summary?.loading ? "animate-spin text-amber-400" : ""} />
+                        <Search size={11} className={summary?.loading ? "animate-spin text-[#ffa116]" : ""} />
                         {summary?.loading ? "Scanning..." : "Scan"}
                       </button>
                     </div>
@@ -262,16 +264,16 @@ export default function ProfileOverlay() {
                   {summary?.reports.map(({ title, report }) => {
                     const isManual = report.status === 'CLEAN';
                     const badgeColor = report.status === 'HEAVY_PASTE' 
-                      ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30 shadow-[0_0_8px_rgba(244,63,94,0.2)]' 
+                      ? 'bg-[#ef4743]/15 text-[#ef4743] border border-[#ef4743]/30' 
                       : report.status === 'MILD_PASTE' 
-                        ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_8px_rgba(245,158,11,0.2)]' 
+                        ? 'bg-[#ffc01e]/15 text-[#ffc01e] border border-[#ffc01e]/30' 
                         : report.status === 'SKIPPED'
-                          ? 'bg-zinc-800 text-zinc-400 border border-zinc-700'
-                          : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-[0_0_8px_rgba(16,185,129,0.2)]';
+                          ? 'bg-[#282828] text-zinc-400 border border-white/[0.08]'
+                          : 'bg-[#00b8a3]/15 text-[#00b8a3] border border-[#00b8a3]/30';
                     const labelText = report.status === 'CLEAN' ? 'Clean Telemetry' : report.label;
 
                     return (
-                      <div key={title} className="mt-2.5 border-t border-zinc-900/90 pt-2.5 font-mono">
+                      <div key={title} className="mt-2.5 border-t border-white/[0.08] pt-2.5 font-mono">
                         <div className="flex justify-between items-start gap-2">
                           <span className="text-[11px] font-semibold text-zinc-200 truncate" title={title}>{title}</span>
                           <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ${badgeColor}`}>
@@ -281,13 +283,13 @@ export default function ProfileOverlay() {
                         <ul className="mt-1.5 space-y-1 text-[10px] text-zinc-400">
                           {report.details.map((detail: string, idx: number) => (
                             <li key={idx} className="flex items-start gap-1.5 text-zinc-300">
-                              <span className="text-amber-500/70 text-[9px]">•</span>
+                              <span className="text-[#ffa116] text-[9px]">•</span>
                               <span>{detail}</span>
                             </li>
                           ))}
                           {isManual && (
-                            <li className="text-emerald-400/90 flex items-center gap-1">
-                              <CheckCircle2 size={11} className="text-emerald-400 shrink-0" />
+                            <li className="text-[#00b8a3] flex items-center gap-1">
+                              <CheckCircle2 size={11} className="text-[#00b8a3] shrink-0" />
                               <span>No external paste detected</span>
                             </li>
                           )}
@@ -301,7 +303,7 @@ export default function ProfileOverlay() {
 
             {!loading && contests.length === 0 && (
               <div className="py-12 text-center text-xs font-mono text-zinc-500 flex flex-col items-center justify-center gap-2">
-                <ShieldCheck size={24} className="text-zinc-700" />
+                <ShieldCheck size={24} className="text-zinc-600" />
                 <span>No finalized contests available for replay analysis.</span>
               </div>
             )}
@@ -309,9 +311,9 @@ export default function ProfileOverlay() {
 
           {/* Footer */}
           {latest?.refreshedAt && (
-            <footer className="border-t border-zinc-800/80 bg-zinc-950/90 px-4 py-2 flex items-center justify-between text-[9.5px] font-mono text-zinc-500">
+            <footer className="border-t border-white/[0.08] bg-[#282828] px-4 py-2 flex items-center justify-between text-[9.5px] font-mono text-zinc-400">
               <span className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#00b8a3] inline-block"></span>
                 Auto-sync active
               </span>
               <span>Refreshed {new Date(latest.refreshedAt).toLocaleTimeString()}</span>

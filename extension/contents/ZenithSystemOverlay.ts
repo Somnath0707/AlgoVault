@@ -135,10 +135,10 @@ const overlayStyle = `
     width: 60px;
     height: 60px;
     margin: 20px auto 0 auto;
-    background: rgba(223, 160, 84, 0.08);
-    border: 1px solid #dfa054;
+    background: rgba(255, 161, 22, 0.12);
+    border: 1px solid #ffa116;
     border-radius: 6px;
-    color: #f2c27b;
+    color: #ffa116;
     font-size: 11px;
     font-weight: 700;
     cursor: pointer;
@@ -147,13 +147,11 @@ const overlayStyle = `
     justify-content: center;
     transition: all 0.2s;
     outline: none;
-    box-shadow: 0 0 10px rgba(223, 160, 84, 0.18);
   }
 
   .solo-quest-confirm-btn:hover {
-    background: rgba(223, 160, 84, 0.16);
-    box-shadow: 0 0 20px rgba(223, 160, 84, 0.3);
-    transform: scale(1.05);
+    background: rgba(255, 161, 22, 0.24);
+    transform: scale(1.02);
   }
 
   .solo-quest-intents {

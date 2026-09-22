@@ -1,4 +1,4 @@
-var e,o;"function"==typeof(e=globalThis.define)&&(o=e,e=null),function(o,t,r,n,a){var s="undefined"!=typeof globalThis?globalThis:"undefined"!=typeof self?self:"undefined"!=typeof window?window:"undefined"!=typeof global?global:{},i="function"==typeof s[n]&&s[n],l=i.cache||{},d="undefined"!=typeof module&&"function"==typeof module.require&&module.require.bind(module);function c(e,t){if(!l[e]){if(!o[e]){var r="function"==typeof s[n]&&s[n];if(!t&&r)return r(e,!0);if(i)return i(e,!0);if(d&&"string"==typeof e)return d(e);var a=Error("Cannot find module '"+e+"'");throw a.code="MODULE_NOT_FOUND",a}u.resolve=function(t){var r=o[e][1][t];return null!=r?r:t},u.cache={};var p=l[e]=new c.Module(e);o[e][0].call(p.exports,u,p,p.exports,this)}return l[e].exports;function u(e){var o=u.resolve(e);return!1===o?{}:c(o)}}c.isParcelRequire=!0,c.Module=function(e){this.id=e,this.bundle=c,this.exports={}},c.modules=o,c.cache=l,c.parent=i,c.register=function(e,t){o[e]=[function(e,o){o.exports=t},{}]},Object.defineProperty(c,"root",{get:function(){return s[n]}}),s[n]=c;for(var p=0;p<t.length;p++)c(t[p]);if(r){var u=c(r);"object"==typeof exports&&"undefined"!=typeof module?module.exports=u:"function"==typeof e&&e.amd?e(function(){return u}):a&&(this[a]=u)}}({wJlMj:[function(e,o,t){var r=e("@parcel/transformer-js/src/esmodule-helpers.js");r.defineInteropFlag(t),r.export(t,"config",()=>n),r.export(t,"showZenithQuestModal",()=>l),r.export(t,"showZenithAlarmModal",()=>d),r.export(t,"showZenithToast",()=>c);let n={matches:["https://leetcode.com/problems/*"],run_at:"document_idle"},a=`
+var e,o;"function"==typeof(e=globalThis.define)&&(o=e,e=null),function(o,t,n,r,a){var s="undefined"!=typeof globalThis?globalThis:"undefined"!=typeof self?self:"undefined"!=typeof window?window:"undefined"!=typeof global?global:{},i="function"==typeof s[r]&&s[r],l=i.cache||{},d="undefined"!=typeof module&&"function"==typeof module.require&&module.require.bind(module);function c(e,t){if(!l[e]){if(!o[e]){var n="function"==typeof s[r]&&s[r];if(!t&&n)return n(e,!0);if(i)return i(e,!0);if(d&&"string"==typeof e)return d(e);var a=Error("Cannot find module '"+e+"'");throw a.code="MODULE_NOT_FOUND",a}u.resolve=function(t){var n=o[e][1][t];return null!=n?n:t},u.cache={};var p=l[e]=new c.Module(e);o[e][0].call(p.exports,u,p,p.exports,this)}return l[e].exports;function u(e){var o=u.resolve(e);return!1===o?{}:c(o)}}c.isParcelRequire=!0,c.Module=function(e){this.id=e,this.bundle=c,this.exports={}},c.modules=o,c.cache=l,c.parent=i,c.register=function(e,t){o[e]=[function(e,o){o.exports=t},{}]},Object.defineProperty(c,"root",{get:function(){return s[r]}}),s[r]=c;for(var p=0;p<t.length;p++)c(t[p]);if(n){var u=c(n);"object"==typeof exports&&"undefined"!=typeof module?module.exports=u:"function"==typeof e&&e.amd?e(function(){return u}):a&&(this[a]=u)}}({wJlMj:[function(e,o,t){var n=e("@parcel/transformer-js/src/esmodule-helpers.js");n.defineInteropFlag(t),n.export(t,"config",()=>r),n.export(t,"showZenithQuestModal",()=>l),n.export(t,"showZenithAlarmModal",()=>d),n.export(t,"showZenithToast",()=>c);let r={matches:["https://leetcode.com/problems/*"],run_at:"document_idle"},a=`
   @keyframes soloFadeIn {
     from { opacity: 0; transform: scale(0.95) translate(-50%, -50%); }
     to { opacity: 1; transform: scale(1) translate(-50%, -50%); }
@@ -124,10 +124,10 @@ var e,o;"function"==typeof(e=globalThis.define)&&(o=e,e=null),function(o,t,r,n,a
     width: 60px;
     height: 60px;
     margin: 20px auto 0 auto;
-    background: rgba(223, 160, 84, 0.08);
-    border: 1px solid #dfa054;
+    background: rgba(255, 161, 22, 0.12);
+    border: 1px solid #ffa116;
     border-radius: 6px;
-    color: #f2c27b;
+    color: #ffa116;
     font-size: 11px;
     font-weight: 700;
     cursor: pointer;
@@ -136,13 +136,11 @@ var e,o;"function"==typeof(e=globalThis.define)&&(o=e,e=null),function(o,t,r,n,a
     justify-content: center;
     transition: all 0.2s;
     outline: none;
-    box-shadow: 0 0 10px rgba(223, 160, 84, 0.18);
   }
 
   .solo-quest-confirm-btn:hover {
-    background: rgba(223, 160, 84, 0.16);
-    box-shadow: 0 0 20px rgba(223, 160, 84, 0.3);
-    transform: scale(1.05);
+    background: rgba(255, 161, 22, 0.24);
+    transform: scale(1.02);
   }
 
   .solo-quest-intents {
@@ -278,7 +276,7 @@ var e,o;"function"==typeof(e=globalThis.define)&&(o=e,e=null),function(o,t,r,n,a
     animation: slideToast 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     pointer-events: none;
   }
-`,s=!1;function i(){if(s)return;let e=document.createElement("style");e.textContent=a,document.head.appendChild(e),s=!0}function l(e,o){i();let t=document.createElement("div");t.className="solo-bg-blur";let r=document.createElement("div");r.className="solo-quest-card",r.innerHTML=`
+`,s=!1;function i(){if(s)return;let e=document.createElement("style");e.textContent=a,document.head.appendChild(e),s=!0}function l(e,o){i();let t=document.createElement("div");t.className="solo-bg-blur";let n=document.createElement("div");n.className="solo-quest-card",n.innerHTML=`
     <div class="solo-quest-header">
       <span>\u2726</span> ZENITH EXPEDITION
     </div>
@@ -314,7 +312,7 @@ var e,o;"function"==typeof(e=globalThis.define)&&(o=e,e=null),function(o,t,r,n,a
     <button class="solo-quest-confirm-btn" title="Begin Quest">
       BEGIN
     </button>
-  `,r.addEventListener("click",e=>e.stopPropagation());let n="FOCUSED_SOLVE";r.querySelectorAll(".solo-intent").forEach(e=>{e.addEventListener("click",()=>{n=e.dataset.intent||"FOCUSED_SOLVE",r.querySelectorAll(".solo-intent").forEach(e=>e.classList.remove("is-active")),e.classList.add("is-active")})}),r.querySelector(".solo-quest-confirm-btn")?.addEventListener("click",()=>{t.remove(),r.remove(),e(n)}),t.addEventListener("click",()=>{t.remove(),r.remove(),o()}),document.body.appendChild(t),document.body.appendChild(r)}function d(e,o,t,r){i();let n=document.createElement("div");n.className="solo-bg-blur";let a=document.createElement("div");a.className="solo-alarm-card",a.innerHTML=`
+  `,n.addEventListener("click",e=>e.stopPropagation());let r="FOCUSED_SOLVE";n.querySelectorAll(".solo-intent").forEach(e=>{e.addEventListener("click",()=>{r=e.dataset.intent||"FOCUSED_SOLVE",n.querySelectorAll(".solo-intent").forEach(e=>e.classList.remove("is-active")),e.classList.add("is-active")})}),n.querySelector(".solo-quest-confirm-btn")?.addEventListener("click",()=>{t.remove(),n.remove(),e(r)}),t.addEventListener("click",()=>{t.remove(),n.remove(),o()}),document.body.appendChild(t),document.body.appendChild(n)}function d(e,o,t,n){i();let r=document.createElement("div");r.className="solo-bg-blur";let a=document.createElement("div");a.className="solo-alarm-card",a.innerHTML=`
     <div class="solo-alarm-header">
       <span>\u25c7</span> CONTINUITY CHECK
     </div>
@@ -329,4 +327,4 @@ var e,o;"function"==typeof(e=globalThis.define)&&(o=e,e=null),function(o,t,r,n,a
       <button class="solo-alarm-btn solo-alarm-btn-obey">Return to focus</button>
       <button class="solo-alarm-btn solo-alarm-btn-proceed">Continue session</button>
     </div>
-  `,a.addEventListener("click",e=>e.stopPropagation()),a.querySelector(".solo-alarm-btn-obey")?.addEventListener("click",()=>{n.remove(),a.remove(),r()}),a.querySelector(".solo-alarm-btn-proceed")?.addEventListener("click",()=>{n.remove(),a.remove(),t()}),n.addEventListener("click",()=>{n.remove(),a.remove(),r()}),document.body.appendChild(n),document.body.appendChild(a)}function c(e){i(),document.querySelectorAll(".solo-toast-container").forEach(e=>e.remove());let o=document.createElement("div");o.className="solo-toast-container",o.textContent=`[System: ${e}]`,document.body.appendChild(o),setTimeout(()=>{o.style.transition="all 0.5s ease-in",o.style.opacity="0",o.style.transform="translateY(-20px)",setTimeout(()=>o.remove(),500)},3500)}},{"@parcel/transformer-js/src/esmodule-helpers.js":"fRZO2"}],fRZO2:[function(e,o,t){t.interopDefault=function(e){return e&&e.__esModule?e:{default:e}},t.defineInteropFlag=function(e){Object.defineProperty(e,"__esModule",{value:!0})},t.exportAll=function(e,o){return Object.keys(e).forEach(function(t){"default"===t||"__esModule"===t||o.hasOwnProperty(t)||Object.defineProperty(o,t,{enumerable:!0,get:function(){return e[t]}})}),o},t.export=function(e,o,t){Object.defineProperty(e,o,{enumerable:!0,get:t})}},{}]},["wJlMj"],"wJlMj","parcelRequiree717"),globalThis.define=o;
+  `,a.addEventListener("click",e=>e.stopPropagation()),a.querySelector(".solo-alarm-btn-obey")?.addEventListener("click",()=>{r.remove(),a.remove(),n()}),a.querySelector(".solo-alarm-btn-proceed")?.addEventListener("click",()=>{r.remove(),a.remove(),t()}),r.addEventListener("click",()=>{r.remove(),a.remove(),n()}),document.body.appendChild(r),document.body.appendChild(a)}function c(e){i(),document.querySelectorAll(".solo-toast-container").forEach(e=>e.remove());let o=document.createElement("div");o.className="solo-toast-container",o.textContent=`[System: ${e}]`,document.body.appendChild(o),setTimeout(()=>{o.style.transition="all 0.5s ease-in",o.style.opacity="0",o.style.transform="translateY(-20px)",setTimeout(()=>o.remove(),500)},3500)}},{"@parcel/transformer-js/src/esmodule-helpers.js":"fRZO2"}],fRZO2:[function(e,o,t){t.interopDefault=function(e){return e&&e.__esModule?e:{default:e}},t.defineInteropFlag=function(e){Object.defineProperty(e,"__esModule",{value:!0})},t.exportAll=function(e,o){return Object.keys(e).forEach(function(t){"default"===t||"__esModule"===t||o.hasOwnProperty(t)||Object.defineProperty(o,t,{enumerable:!0,get:function(){return e[t]}})}),o},t.export=function(e,o,t){Object.defineProperty(e,o,{enumerable:!0,get:t})}},{}]},["wJlMj"],"wJlMj","parcelRequiree717"),globalThis.define=o;

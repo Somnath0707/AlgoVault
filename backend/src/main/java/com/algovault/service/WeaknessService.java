@@ -200,7 +200,6 @@ public class WeaknessService {
             }
         }
 
-        // Step 3: If any tag is still underserved, query general rating band
         boolean hasUnderserved = weakTags.stream()
             .anyMatch(wt -> addedCountPerTag.getOrDefault(wt.getTag(), 0) < MAX_PROBLEMS_PER_TAG);
 

@@ -13,6 +13,7 @@
   body {
     @apply bg-av-bg-primary text-av-text-primary antialiased;
     letter-spacing: 0;
+    font-size: 13px;
   }
 
   button, a {
@@ -26,20 +27,19 @@
   }
 
   .elevated-base {
-    background-color: #09090b;
+    background-color: #1f1f1f;
   }
 
   .elevated-card {
-    background-color: #121214;
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02), 0 8px 20px rgba(0, 0, 0, 0.16);
+    background-color: #262626;
+    border: 1px solid rgba(255, 255, 255, 0.075);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
   }
 
   .elevated-floating {
-    background-color: #1c1c1f;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(12px);
+    background-color: #282828;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   }
 
   .panel-label {
@@ -48,6 +48,29 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #71717a;
+  }
+
+  /* Colour is reserved for information: state, difficulty, or rank. */
+  .rank-newbie { color: #94a3b8; }
+  .rank-pupil { color: #3b82f6; }
+  .rank-specialist { color: #06b6d4; }
+  .rank-expert { color: #84cc16; }
+  .rank-master { color: #c084fc; }
+  .rank-grandmaster { color: #fb4f63; }
+
+  /* Clean Mastery Surface and Input Styling */
+  .mastery-surface {
+    border-color: rgba(255, 255, 255, 0.08);
+    background-color: #242424;
+  }
+
+  .mastery-input {
+    border-color: rgba(255, 255, 255, 0.1);
+    background-color: #1e1e1e;
+  }
+
+  .mastery-input:focus {
+    border-color: #ffa116;
   }
 
   .metric-value {

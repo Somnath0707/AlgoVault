@@ -77,7 +77,7 @@ function highlightLine(line: string): React.ReactNode[] {
       )
     } else if (/^[A-Z][a-zA-Z0-9_]*$/.test(token)) {
       nodes.push(
-        <span key={key} className="text-[#dfa054] font-medium">
+        <span key={key} className="text-[#ffa116] font-medium">
           {token}
         </span>
       )

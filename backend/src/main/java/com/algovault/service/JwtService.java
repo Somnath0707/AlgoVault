@@ -97,8 +97,11 @@ public class JwtService {
             if (tokenId == null) return false;
             return Boolean.TRUE.equals(redisTemplate.opsForValue().get("auth:revoked:" + tokenId));
         } catch (Exception e) {
-            log.warn("Redis revocation check unavailable, failing open for cryptographically valid token: {}", e.getMessage());
-            return false;
+            // Logout revocation is a security control. Redis is already a
+            // required dependency for OAuth state, so do not silently accept
+            // a previously revoked token while that dependency is unhealthy.
+            log.error("Redis revocation check unavailable; rejecting token: {}", e.getMessage());
+            return true;
         }
     }
 

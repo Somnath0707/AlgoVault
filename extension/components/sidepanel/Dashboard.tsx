@@ -12,7 +12,6 @@ import {
   Play,
   RefreshCw,
   Shuffle,
-  Sparkles,
   Lock,
   Square,
   Target,
@@ -240,9 +239,9 @@ function ActionButton({
   className?: string
 }) {
   const tones = {
-    zinc: "border-zinc-700 bg-zinc-100 text-zinc-950 hover:bg-white",
-    amber: "border-amber-400/50 bg-amber-400 text-zinc-950 hover:bg-amber-300",
-    blue: "border-sky-400/50 bg-sky-400 text-zinc-950 hover:bg-sky-300"
+    zinc: "border-white/[0.12] bg-[#333333] text-zinc-100 hover:bg-[#3d3d3d]",
+    amber: "border-[#ffa116] bg-[#ffa116] text-black font-semibold hover:bg-[#e08e0b]",
+    blue: "border-[#00b8a3] bg-[#00b8a3] text-black font-semibold hover:bg-[#00a390]"
   }
   const className = `inline-flex min-h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 text-[11px] font-bold transition-colors ${tones[tone]} ${disabled ? "cursor-not-allowed opacity-45" : ""} ${extraClassName}`
 
@@ -254,10 +253,10 @@ function ActionButton({
 
 function Badge({ badge }: { badge: EvidenceBadge }) {
   const tone = {
-    amber: "border-amber-400/25 bg-amber-400/[0.08] text-amber-300",
-    blue: "border-sky-400/25 bg-sky-400/[0.08] text-sky-300",
-    emerald: "border-emerald-400/25 bg-emerald-400/[0.08] text-emerald-300",
-    zinc: "border-zinc-700/80 bg-zinc-900/70 text-zinc-400"
+    amber: "border-[#ffa116]/30 bg-[#ffa116]/10 text-[#ffa116]",
+    blue: "border-[#00b8a3]/30 bg-[#00b8a3]/10 text-[#00b8a3]",
+    emerald: "border-[#00b8a3]/30 bg-[#00b8a3]/10 text-[#00b8a3]",
+    zinc: "border-white/[0.08] bg-[#333333] text-zinc-300"
   }[badge.tone]
   return <span className={`rounded-full border px-2 py-0.5 text-[8px] font-mono font-semibold ${tone}`}>{badge.label}</span>
 }
@@ -539,7 +538,7 @@ export const Dashboard = () => {
         badges: [
           { label: selectedRecommendation.tag ?? "Targeted practice", tone: "blue" },
           { label: evidenceLabel(level), tone: evidenceTone(level) },
-          ...(isPremium ? [{ label: "🔒 LeetCode Premium", tone: "amber" as const }] : []),
+          ...(isPremium ? [{ label: "Premium", tone: "amber" as const }] : []),
           ...(selectedWeakTag?.totalAttempted ? [{ label: `${selectedWeakTag.totalAttempted} tagged attempts`, tone: "zinc" as const }] : []),
           ...(selectedRecommendation.actualRating ? [{ label: `Rating ${Math.round(selectedRecommendation.actualRating)}`, tone: "zinc" as const }] : [])
         ]
@@ -558,7 +557,7 @@ export const Dashboard = () => {
         badges: [
           { label: studyContinuation.list.name, tone: "blue" },
           { label: studyContinuation.problem.topic, tone: "zinc" },
-          ...(isPremium ? [{ label: "🔒 LeetCode Premium", tone: "amber" as const }] : [])
+          ...(isPremium ? [{ label: "Premium", tone: "amber" as const }] : [])
         ]
       }
     }
@@ -816,25 +815,24 @@ export const Dashboard = () => {
 
   return (
     <main className="mx-auto max-w-2xl space-y-3.5 px-1 pb-7 pt-1 font-sans">
-      <section className="relative overflow-hidden rounded-2xl border border-zinc-800/80 bg-[#0d0d0f]">
-        <div className="pointer-events-none absolute inset-0 opacity-80" style={{ background: "radial-gradient(ellipse 72% 60% at 95% 0%, rgba(251,191,36,0.11), transparent), radial-gradient(ellipse 50% 60% at 0% 100%, rgba(14,165,233,0.06), transparent)" }} />
+      <section className="relative overflow-hidden rounded-2xl border border-white/[0.08] border-t-2 border-t-[#ffa116] bg-[#282828]">
         <div className="relative px-4 pb-4 pt-4 sm:px-5 sm:pt-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[9px] font-bold font-mono uppercase tracking-[0.18em] text-amber-400/80">Today · {new Date().toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</p>
+            <p className="text-[9px] font-bold font-mono uppercase tracking-[0.18em] text-[#ffa116]">Today · {new Date().toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</p>
             <div className="flex items-center gap-2">
-              <span className={`inline-flex items-center gap-1 text-[8px] font-mono ${refreshing ? "text-sky-400" : isStale(lastSync ?? snapshotSavedAt) ? "text-amber-400" : "text-zinc-500"}`}>
+              <span className={`inline-flex items-center gap-1 text-[8px] font-mono ${refreshing ? "text-[#ffa116]" : isStale(lastSync ?? snapshotSavedAt) ? "text-[#ffc01e]" : "text-zinc-500"}`}>
                 {refreshing && <RefreshCw size={10} className="animate-spin" />}
                 {isStale(lastSync ?? snapshotSavedAt) && !refreshing && <Clock3 size={10} />}
                 {refreshing ? "Refreshing" : relativeTime(lastSync ?? snapshotSavedAt)}
               </span>
-              <button type="button" onClick={() => void refresh()} className="rounded-md p-1 text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-200" aria-label="Refresh Today"><RefreshCw size={13} /></button>
+              <button type="button" onClick={() => void refresh()} className="rounded-md p-1 text-zinc-400 transition hover:bg-[#333333] hover:text-zinc-200" aria-label="Refresh Today"><RefreshCw size={13} /></button>
             </div>
           </div>
 
           <div className="mt-5 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
             <div className="min-w-0 flex-1">
-              <p className="text-[9px] font-bold font-mono uppercase tracking-[0.18em] text-amber-400/80">{primaryAction.eyebrow}</p>
-              <h1 className="mt-1.5 text-[22px] font-semibold leading-tight tracking-tight text-zinc-50 sm:text-[24px]">{primaryAction.title}</h1>
+              <p className="text-[9px] font-bold font-mono uppercase tracking-[0.18em] text-[#ffa116]">{primaryAction.eyebrow}</p>
+              <h1 className="mt-1.5 text-[22px] font-semibold leading-tight tracking-tight text-zinc-100 sm:text-[24px]">{primaryAction.title}</h1>
               <p className="mt-2 max-w-xl text-[12px] leading-relaxed text-zinc-400">{primaryAction.explanation}</p>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {primaryAction.badges.map((badge) => <Badge key={badge.label} badge={badge} />)}
@@ -850,91 +848,91 @@ export const Dashboard = () => {
             )}
           </div>
 
-          <div className="mt-5 grid grid-cols-3 divide-x divide-zinc-800/60 border-t border-zinc-800/60 pt-3">
-            <div className="pr-3"><span className="block text-[18px] font-bold font-mono tabular-nums text-zinc-100">{data.todaySolves}</span><span className="text-[8px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-600">solved today</span></div>
-            <div className="px-3"><span className="block text-[18px] font-bold font-mono tabular-nums text-zinc-100">{formatCompactDuration(activity.todayActivity?.focusSeconds ?? 0)}</span><span className="text-[8px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-600">active time</span></div>
-            <div className="pl-3"><span className="block text-[18px] font-bold font-mono tabular-nums text-zinc-100">{data.currentStreak}d</span><span className="text-[8px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-600">solve streak</span></div>
+          <div className="mt-5 grid grid-cols-3 divide-x divide-white/[0.08] border-t border-white/[0.08] pt-3">
+            <div className="pr-3"><span className="block text-[18px] font-bold font-mono tabular-nums text-[#2bb673]">{data.todaySolves}</span><span className="text-[8px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-500">solved today</span></div>
+            <div className="px-3"><span className="block text-[18px] font-bold font-mono tabular-nums text-[#60a5fa]">{formatCompactDuration(activity.todayActivity?.focusSeconds ?? 0)}</span><span className="text-[8px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-500">active time</span></div>
+            <div className="pl-3"><span className="block text-[18px] font-bold font-mono tabular-nums text-[#f0b429]">{data.currentStreak}d</span><span className="text-[8px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-500">solve streak</span></div>
           </div>
         </div>
       </section>
 
-      <section className="relative flex flex-col rounded-2xl border border-zinc-800 bg-[#0d0d0d] font-mono shadow-sm">
+      <section className="relative flex flex-col rounded-2xl border border-white/[0.08] bg-[#282828] font-mono shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
           <div className="flex min-w-0 items-center gap-2">
-            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${clocks.isSolved ? "bg-emerald-400" : sessionIsRunning ? "bg-emerald-400 animate-pulse" : sessionIsPaused ? "bg-amber-400" : "bg-zinc-700"}`} />
+            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${clocks.isSolved ? "bg-[#00b8a3]" : sessionIsRunning ? "bg-[#00b8a3] animate-pulse" : sessionIsPaused ? "bg-[#ffa116]" : "bg-zinc-600"}`} />
             <div className="min-w-0">
               <p className="text-[10px] font-medium text-zinc-300">{apseSession ? `PROBLEM: ${apseSession.slug}` : "PRACTICE ENGINE IDLE"}</p>
-              <p className="text-[9px] text-zinc-600">{clocks.isSolved ? "SOLVED · Recorded in Logs" : sessionIsRunning ? "APSE v2 Active Focus" : sessionIsPaused ? `APSE v2 Paused (${apseSession?.pr || "MANUAL"})` : "Open a problem to auto-start"}</p>
+              <p className="text-[9px] text-zinc-500">{clocks.isSolved ? "SOLVED · Recorded in Logs" : sessionIsRunning ? "Active Focus" : sessionIsPaused ? `Paused (${apseSession?.pr || "MANUAL"})` : "Open a problem to auto-start"}</p>
             </div>
           </div>
           {apseSession ? (
             <div className="flex items-center gap-2">
-              <span className={`mr-1 font-mono text-sm font-bold tabular-nums ${clocks.isSolved ? "text-emerald-400" : sessionIsPaused ? "text-amber-300" : "text-emerald-400"}`}>{Math.floor(activeSeconds / 60).toString().padStart(2, "0")}:{(activeSeconds % 60).toString().padStart(2, "0")}</span>
+              <span className={`mr-1 font-mono text-sm font-bold tabular-nums ${clocks.isSolved ? "text-[#00b8a3]" : sessionIsPaused ? "text-[#ffc01e]" : "text-[#00b8a3]"}`}>{Math.floor(activeSeconds / 60).toString().padStart(2, "0")}:{(activeSeconds % 60).toString().padStart(2, "0")}</span>
               
               {!clocks.isSolved && (
                 <>
-                  <button type="button" onClick={() => sessionIsPaused ? resumeSession() : pauseSession("MANUAL")} className="inline-flex h-8 items-center gap-1 rounded-md border border-zinc-700/80 px-2 text-[9px] font-bold font-mono uppercase tracking-wide text-zinc-300 transition hover:border-zinc-500 hover:text-white" aria-label={sessionIsPaused ? "Resume focus session" : "Pause focus session"}>{sessionIsPaused ? <Play size={10} fill="currentColor" /> : <Pause size={10} fill="currentColor" />}{sessionIsPaused ? "Resume" : "Pause"}</button>
-                  <button type="button" onClick={() => logTimeSession()} className="inline-flex h-8 items-center gap-1 rounded-md border border-sky-500/30 bg-sky-500/10 px-2 text-[9px] font-bold font-mono uppercase tracking-wide text-sky-400 transition hover:bg-sky-500/20 hover:text-sky-300" title="Push current focus time to practice log"><Clock size={10} /> Log Time</button>
-                  <button type="button" onClick={() => finishSession()} className="inline-flex h-8 items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 text-[9px] font-bold font-mono uppercase tracking-wide text-emerald-400 transition hover:bg-emerald-500/20 hover:text-emerald-300" title="Mark as Solved & Log"><Check size={10} /> Finish</button>
+                  <button type="button" onClick={() => sessionIsPaused ? resumeSession() : pauseSession("MANUAL")} className="inline-flex h-8 items-center gap-1 rounded-md border border-white/[0.1] bg-[#333333] px-2 text-[9px] font-bold font-mono uppercase tracking-wide text-zinc-300 transition hover:bg-[#3d3d3d] hover:text-white" aria-label={sessionIsPaused ? "Resume focus session" : "Pause focus session"}>{sessionIsPaused ? <Play size={10} fill="currentColor" /> : <Pause size={10} fill="currentColor" />}{sessionIsPaused ? "Resume" : "Pause"}</button>
+                  <button type="button" onClick={() => logTimeSession()} className="inline-flex h-8 items-center gap-1 rounded-md border border-white/[0.1] bg-[#333333] px-2 text-[9px] font-bold font-mono uppercase tracking-wide text-zinc-300 transition hover:bg-[#3d3d3d] hover:text-white" title="Push current focus time to practice log"><Clock size={10} /> Log Time</button>
+                  <button type="button" onClick={() => finishSession()} className="inline-flex h-8 items-center gap-1 rounded-md border border-[#00b8a3]/40 bg-[#00b8a3]/15 px-2 text-[9px] font-bold font-mono uppercase tracking-wide text-[#00b8a3] transition hover:bg-[#00b8a3]/25" title="Mark as Solved & Log"><Check size={10} /> Finish</button>
                 </>
               )}
               
-              <button type="button" onClick={() => resetSession()} className="inline-flex h-8 items-center gap-1 rounded-md border border-rose-900/60 px-2 text-[9px] font-bold font-mono uppercase tracking-wide text-rose-300 transition hover:border-rose-700 hover:text-rose-200" aria-label="End focus session"><Square size={9} fill="currentColor" /> {clocks.isSolved ? "Clear" : "Reset"}</button>
+              <button type="button" onClick={() => resetSession()} className="inline-flex h-8 items-center gap-1 rounded-md border border-rose-800/40 bg-rose-950/20 px-2 text-[9px] font-bold font-mono uppercase tracking-wide text-rose-300 transition hover:bg-rose-900/40 hover:text-rose-200" aria-label="End focus session"><Square size={9} fill="currentColor" /> {clocks.isSolved ? "Clear" : "Reset"}</button>
             </div>
           ) : (
-            <span className="text-[9px] font-mono text-zinc-600">No live timer</span>
+            <span className="text-[9px] font-mono text-zinc-500">No live timer</span>
           )}
         </div>
-        <div className="flex items-center justify-between gap-3 border-t border-zinc-800/60 px-4 py-2.5 sm:px-5">
-          <p className="text-[9px] leading-relaxed text-zinc-600">Clears live, tab-paused, and completed timers across every tab. Saved practice logs stay intact.</p>
-          <button type="button" disabled={sessionActionPending} onClick={() => void stopAllTimers()} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-rose-900/60 bg-rose-950/20 px-2 text-[9px] font-bold font-mono uppercase tracking-wide text-rose-300 transition hover:border-rose-700 hover:bg-rose-950/40 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-50" title="Clear timers from every tab"><Square size={9} fill="currentColor" /> {sessionActionPending ? "Clearing" : "Clear all timers"}</button>
+        <div className="flex items-center justify-between gap-3 border-t border-white/[0.08] px-4 py-2.5 sm:px-5">
+          <p className="text-[9px] leading-relaxed text-zinc-500">Clears live, tab-paused, and completed timers across every tab. Saved practice logs stay intact.</p>
+          <button type="button" disabled={sessionActionPending} onClick={() => void stopAllTimers()} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-rose-800/40 bg-rose-950/20 px-2 text-[9px] font-bold font-mono uppercase tracking-wide text-rose-300 transition hover:bg-rose-900/40 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-50" title="Clear timers from every tab"><Square size={9} fill="currentColor" /> {sessionActionPending ? "Clearing" : "Clear all timers"}</button>
         </div>
-        {sessionNotice && <p className="border-t border-emerald-900/30 bg-emerald-950/10 px-4 py-2 text-[9px] font-mono text-emerald-300 sm:px-5">{sessionNotice}</p>}
+        {sessionNotice && <p className="border-t border-[#00b8a3]/30 bg-[#00b8a3]/10 px-4 py-2 text-[9px] font-mono text-[#00b8a3] sm:px-5">{sessionNotice}</p>}
       </section>
 
-      <section className="rounded-2xl border border-amber-400/20 bg-[#111008] p-4 sm:p-5">
+      <section className="rounded-2xl border border-white/[0.08] bg-[#282828] p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[9px] font-bold font-mono uppercase tracking-[0.16em] text-amber-300">Recall window</p>
-            <p className="mt-1 text-[10px] leading-relaxed text-zinc-500">Show due recalls from all time, or only problems accepted within your chosen number of days.</p>
+            <p className="text-[9px] font-bold font-mono uppercase tracking-[0.16em] text-[#ffa116]">Recall window</p>
+            <p className="mt-1 text-[10px] leading-relaxed text-zinc-400">Show due recalls from all time, or only problems accepted within your chosen number of days.</p>
           </div>
-          <span className="rounded-full border border-amber-400/20 bg-amber-400/[0.08] px-2 py-1 text-[8px] font-mono font-semibold text-amber-200">{recallWindowDays ? `Last ${recallWindowDays} days` : "All time"} · {queue.length} due</span>
+          <span className="rounded-full border border-white/[0.08] bg-[#333333] px-2 py-1 text-[8px] font-mono font-semibold text-zinc-300">{recallWindowDays ? `Last ${recallWindowDays} days` : "All time"} · {queue.length} due</span>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          {[10, 30, 50].map((days) => <button key={days} type="button" onClick={() => updateRecallWindow(days)} className={`rounded-md border px-2 py-1.5 text-[9px] font-mono font-semibold transition ${recallWindowDays === days ? "border-amber-300/60 bg-amber-400 text-zinc-950" : "border-zinc-700 bg-zinc-900/70 text-zinc-300 hover:border-amber-400/40 hover:text-amber-200"}`}>Last {days}d</button>)}
-          <button type="button" onClick={() => updateRecallWindow(null)} className={`rounded-md border px-2 py-1.5 text-[9px] font-mono font-semibold transition ${recallWindowDays === null ? "border-amber-300/60 bg-amber-400 text-zinc-950" : "border-zinc-700 bg-zinc-900/70 text-zinc-300 hover:border-amber-400/40 hover:text-amber-200"}`}>All time</button>
-          <div className="ml-1 flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-950/50 p-0.5">
+          {[10, 30, 50].map((days) => <button key={days} type="button" onClick={() => updateRecallWindow(days)} className={`rounded-md border px-2 py-1.5 text-[9px] font-mono font-semibold transition ${recallWindowDays === days ? "border-[#ffa116] bg-[#ffa116] text-black" : "border-white/[0.08] bg-[#333333] text-zinc-300 hover:bg-[#3d3d3d] hover:text-white"}`}>Last {days}d</button>)}
+          <button type="button" onClick={() => updateRecallWindow(null)} className={`rounded-md border px-2 py-1.5 text-[9px] font-mono font-semibold transition ${recallWindowDays === null ? "border-[#ffa116] bg-[#ffa116] text-black" : "border-white/[0.08] bg-[#333333] text-zinc-300 hover:bg-[#3d3d3d] hover:text-white"}`}>All time</button>
+          <div className="ml-1 flex items-center gap-1 rounded-md border border-white/[0.08] bg-[#1a1a1a] p-0.5">
             <input type="number" min="1" max="3650" value={recallDaysInput} onChange={(event) => setRecallDaysInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") applyCustomRecallWindow() }} className="w-16 bg-transparent px-1.5 py-1 text-[9px] font-mono text-zinc-200 outline-none" aria-label="Custom recall window in days" />
-            <button type="button" onClick={applyCustomRecallWindow} className="rounded bg-zinc-800 px-2 py-1 text-[9px] font-mono font-semibold text-zinc-200 transition hover:bg-zinc-700">Apply days</button>
+            <button type="button" onClick={applyCustomRecallWindow} className="rounded bg-[#333333] px-2 py-1 text-[9px] font-mono font-semibold text-zinc-200 transition hover:bg-[#3d3d3d]">Apply days</button>
           </div>
         </div>
       </section>
 
       {reviewOpen && activeReview && (
-        <section className="rounded-2xl border border-amber-400/25 bg-[#15120b] p-4 sm:p-5" aria-live="polite">
-          <div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-bold font-mono uppercase tracking-[0.16em] text-amber-300">Active recall</p><h2 className="mt-1 text-[15px] font-semibold text-zinc-100">Before opening {activeReview.title}</h2></div><button type="button" onClick={() => setReviewOpen(false)} className="rounded-md p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" aria-label="Close recall prompt">×</button></div>
+        <section className="rounded-2xl border border-[#ffa116]/30 bg-[#282828] p-4 sm:p-5" aria-live="polite">
+          <div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-bold font-mono uppercase tracking-[0.16em] text-[#ffa116]">Active recall</p><h2 className="mt-1 text-[15px] font-semibold text-zinc-100">Before opening {activeReview.title}</h2></div><button type="button" onClick={() => setReviewOpen(false)} className="rounded-md p-1 text-zinc-400 hover:bg-[#333333] hover:text-zinc-200" aria-label="Close recall prompt">×</button></div>
           <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">Name the pattern, state its invariant, and identify one boundary case. Then open the problem only to check your recall.</p>
           <div className="mt-4 flex flex-wrap items-center gap-2"><ActionButton href={`https://leetcode.com/problems/${activeReview.titleSlug}/`} tone="amber">Open for recall</ActionButton><span className="text-[9px] text-zinc-500">When you are ready, log the quality of your recall below.</span></div>
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {[[1, "Forgot"], [2, "Hard"], [4, "Good"], [5, "Easy"]].map(([quality, label]) => <button key={label as string} type="button" disabled={reviewSubmitting} onClick={() => void submitReview(quality as number)} className="rounded-lg border border-zinc-800 bg-black/30 px-2 py-2 text-[10px] font-mono font-semibold text-zinc-300 transition hover:border-amber-400/45 hover:text-amber-200 disabled:opacity-40">{label as string}</button>)}
+            {[[1, "Forgot"], [2, "Hard"], [4, "Good"], [5, "Easy"]].map(([quality, label]) => <button key={label as string} type="button" disabled={reviewSubmitting} onClick={() => void submitReview(quality as number)} className="rounded-lg border border-white/[0.08] bg-[#333333] px-2 py-2 text-[10px] font-mono font-semibold text-zinc-300 transition hover:border-[#ffa116]/50 hover:text-[#ffa116] disabled:opacity-40">{label as string}</button>)}
           </div>
         </section>
       )}
 
-      <section className="overflow-hidden rounded-2xl border border-zinc-800/70 bg-[#0d0d0f]">
-        <div className="flex items-center justify-between border-b border-zinc-800/60 px-4 py-3 sm:px-5"><div><p className="text-[9px] font-bold font-mono uppercase tracking-[0.18em] text-zinc-500">Today’s practice sequence</p><p className="mt-0.5 text-[10px] text-zinc-600">Two core actions, then an optional stretch.</p></div><span className="text-[10px] font-mono font-bold tabular-nums text-zinc-400">{coreAvailable ? `${coreComplete}/${coreAvailable}` : "Ready"}</span></div>
-        <div className="divide-y divide-zinc-800/50">
+      <section className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#282828]">
+        <div className="flex items-center justify-between border-b border-white/[0.08] px-4 py-3 sm:px-5"><div><p className="text-[9px] font-bold font-mono uppercase tracking-[0.18em] text-zinc-400">Today’s practice sequence</p><p className="mt-0.5 text-[10px] text-zinc-500">Two core actions, then an optional stretch.</p></div><span className="text-[10px] font-mono font-bold tabular-nums text-zinc-300">{coreAvailable ? `${coreComplete}/${coreAvailable}` : "Ready"}</span></div>
+        <div className="divide-y divide-white/[0.08]">
           {questSteps.map((step, index) => {
             const href = step.titleSlug ? `https://leetcode.com/problems/${step.titleSlug}/` : undefined
             const shuffleAvailable = step.id === "practice"
               ? (practiceRecommendations.length || getStudyCandidates(solved).length) > 1
               : step.id === "stretch" && (stretchProblem?.candidateCount ?? 0) > 1
-            return <article key={step.id} className={`flex gap-3 p-4 sm:p-5 ${step.status === "complete" ? "bg-emerald-500/[0.025]" : ""}`}>
-              <div className="flex flex-col items-center"><QuestIcon id={step.id} status={step.status} />{index < questSteps.length - 1 && <div className="mt-2 h-full min-h-5 w-px bg-zinc-800/70" />}</div>
-              <div className="min-w-0 flex-1 pb-1"><div className="flex flex-wrap items-center gap-2"><p className="text-[8px] font-bold font-mono uppercase tracking-[0.16em] text-zinc-500">{index + 1}. {step.id === "review" ? "Memory recall" : step.id === "practice" ? "Target practice" : "Optional stretch"}</p>{step.status === "complete" && <span className="text-[8px] font-mono font-bold uppercase text-emerald-400">complete</span>}</div><h2 className={`mt-1 text-[13px] font-semibold ${step.status === "unavailable" ? "text-zinc-500" : "text-zinc-100"}`}>{step.title}</h2><p className="mt-1 text-[10px] leading-relaxed text-zinc-500">{step.description}</p>{step.badges && <div className="mt-2 flex flex-wrap gap-1.5">{step.badges.map((badge) => <Badge key={badge.label} badge={badge} />)}</div>}</div>
+            return <article key={step.id} className={`flex gap-3 p-4 sm:p-5 ${step.status === "complete" ? "bg-[#00b8a3]/[0.05]" : ""}`}>
+              <div className="flex flex-col items-center"><QuestIcon id={step.id} status={step.status} />{index < questSteps.length - 1 && <div className="mt-2 h-full min-h-5 w-px bg-white/[0.08]" />}</div>
+              <div className="min-w-0 flex-1 pb-1"><div className="flex flex-wrap items-center gap-2"><p className="text-[8px] font-bold font-mono uppercase tracking-[0.16em] text-zinc-400">{index + 1}. {step.id === "review" ? "Memory recall" : step.id === "practice" ? "Target practice" : "Optional stretch"}</p>{step.status === "complete" && <span className="text-[8px] font-mono font-bold uppercase text-[#00b8a3]">complete</span>}</div><h2 className={`mt-1 text-[13px] font-semibold ${step.status === "unavailable" ? "text-zinc-500" : "text-zinc-100"}`}>{step.title}</h2><p className="mt-1 text-[10px] leading-relaxed text-zinc-400">{step.description}</p>{step.badges && <div className="mt-2 flex flex-wrap gap-1.5">{step.badges.map((badge) => <Badge key={badge.label} badge={badge} />)}</div>}</div>
               {step.status === "available" && (
                 step.id === "review" ? (
-                  <button type="button" onClick={() => setReviewOpen(true)} className="inline-flex h-8 shrink-0 items-center gap-1 self-center rounded-md border border-amber-400/40 bg-amber-400 px-2.5 text-[9px] font-bold text-zinc-950 hover:bg-amber-300">Recall <ChevronRight size={11} /></button>
+                  <button type="button" onClick={() => setReviewOpen(true)} className="inline-flex h-8 shrink-0 items-center gap-1 self-center rounded-md border border-[#ffa116] bg-[#ffa116] px-2.5 text-[9px] font-bold text-black hover:bg-[#e08e0b]">Recall <ChevronRight size={11} /></button>
                 ) : href ? (
                   <div className="flex flex-col items-end gap-1.5 self-center shrink-0">
                     <ActionButton href={href} tone={step.id === "practice" ? "blue" : "zinc"}>{step.actionLabel ?? "Open"}</ActionButton>
@@ -945,12 +943,11 @@ export const Dashboard = () => {
                         if (step.id === "practice") shufflePractice()
                         else if (step.id === "stretch") shuffleStretch()
                       }}
-                      className="group relative inline-flex items-center gap-1.5 overflow-hidden rounded-lg border border-sky-500/30 bg-gradient-to-r from-sky-950/70 via-zinc-900/90 to-blue-950/70 px-2.5 py-1 text-[9px] font-mono font-bold uppercase tracking-wider text-sky-300 shadow-[0_0_12px_rgba(56,189,248,0.15)] transition-all duration-200 hover:scale-[1.04] hover:border-sky-400/60 hover:text-white hover:shadow-[0_0_18px_rgba(56,189,248,0.35)] active:scale-95 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-900/40 disabled:text-zinc-600 disabled:shadow-none disabled:hover:scale-100"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-[#333333] px-2.5 py-1 text-[10px] font-medium text-zinc-300 transition hover:bg-[#3d3d3d] hover:text-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                       title={shuffleAvailable ? "Choose another recommendation. Your choice stays after refresh." : "No other calibrated recommendation is available yet."}
                     >
-                      <Shuffle size={10} className="text-sky-400 transition-transform duration-300 group-hover:rotate-180" />
+                      <Shuffle size={10} className="text-zinc-400" />
                       <span>Shuffle</span>
-                      <Sparkles size={9} className="text-amber-400 animate-pulse" />
                     </button>
                   </div>
                 ) : null
@@ -961,8 +958,8 @@ export const Dashboard = () => {
       </section>
 
       <section className="grid gap-3 md:grid-cols-[1.4fr_1fr]">
-        <div className="rounded-2xl border border-zinc-800/70 bg-[#0d0d0f] p-4 sm:p-5">
-          <div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-bold font-mono uppercase tracking-[0.18em] text-zinc-500">Your practice time</p><p className="mt-1 text-[11px] text-zinc-400">{formatDuration(activity.weekFocusSeconds)} active this week · {activity.weekSolves} solved</p></div><Activity size={16} className="text-amber-400/80" /></div>
+        <div className="rounded-2xl border border-white/[0.08] bg-[#282828] p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-bold font-mono uppercase tracking-[0.18em] text-zinc-400">Your practice time</p><p className="mt-1 text-[11px] text-zinc-300">{formatDuration(activity.weekFocusSeconds)} active this week · {activity.weekSolves} solved</p></div><Activity size={16} className="text-[#ffa116]" /></div>
           <div className="mt-5 flex h-[106px] items-end justify-between gap-1.5">
             {activity.days.map((day) => {
               const isToday = day.key === today
@@ -977,38 +974,38 @@ export const Dashboard = () => {
                 onMouseLeave={() => setHoveredActivityKey(null)}
                 onFocus={() => setHoveredActivityKey(day.key)}
                 onBlur={() => setHoveredActivityKey(null)}
-                className="group relative flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5 rounded-md outline-none focus-visible:ring-1 focus-visible:ring-amber-400/80"
+                className="group relative flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5 rounded-md outline-none focus-visible:ring-1 focus-visible:ring-[#ffa116]"
                 aria-label={label}
               >
                 {isHovered && (
-                  <div role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-44 -translate-x-1/2 rounded-lg border border-zinc-700/80 bg-[#17171b] p-2.5 text-left shadow-xl shadow-black/50">
+                  <div role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-44 -translate-x-1/2 rounded-lg border border-white/[0.12] bg-[#1e1e1e] p-2.5 text-left shadow-xl shadow-black/60">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[9px] font-mono font-bold text-zinc-100">{isToday ? "Today" : day.dateLabel}</span>
-                      {isBestDay && <span className="rounded bg-amber-400/10 px-1 py-0.5 text-[7px] font-mono font-bold uppercase tracking-wide text-amber-300">Best day</span>}
+                      {isBestDay && <span className="rounded bg-[#ffa116]/15 px-1 py-0.5 text-[7px] font-mono font-bold uppercase tracking-wide text-[#ffa116]">Best day</span>}
                     </div>
-                    <p className="mt-1.5 text-[12px] font-semibold tabular-nums text-zinc-100">{formatDuration(day.focusSeconds)} <span className="text-[9px] font-normal text-zinc-500">active practice</span></p>
-                    <div className="mt-2 grid grid-cols-2 gap-1.5 border-t border-zinc-800 pt-2 text-[8px] font-mono">
-                      <span className="text-zinc-400"><b className="text-emerald-400">{day.solves}</b> solved</span>
-                      <span className="text-zinc-400"><b className="text-sky-400">{day.sessions}</b> session{day.sessions === 1 ? "" : "s"}</span>
+                    <p className="mt-1.5 text-[12px] font-semibold tabular-nums text-zinc-100">{formatDuration(day.focusSeconds)} <span className="text-[9px] font-normal text-zinc-400">active practice</span></p>
+                    <div className="mt-2 grid grid-cols-2 gap-1.5 border-t border-white/[0.08] pt-2 text-[8px] font-mono">
+                      <span className="text-zinc-400"><b className="text-[#00b8a3]">{day.solves}</b> solved</span>
+                      <span className="text-zinc-400"><b className="text-[#ffa116]">{day.sessions}</b> session{day.sessions === 1 ? "" : "s"}</span>
                     </div>
                     {isToday && <p className="mt-2 text-[8px] leading-snug text-zinc-500">Includes live focused time while this problem is open.</p>}
                   </div>
                 )}
                 <span className={`text-[8px] font-mono tabular-nums transition-opacity ${day.focusSeconds ? "text-zinc-400" : "text-transparent"}`}>{formatCompactDuration(day.focusSeconds)}</span>
-                <div className={`w-full rounded-sm transition-all duration-300 group-hover:brightness-125 ${isToday ? "bg-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.22)]" : day.focusSeconds ? "bg-zinc-600" : "bg-zinc-800/60"}`} style={{ height: `${height}px`, maxWidth: 32 }} />
-                <span className={`text-[8px] font-mono ${isToday ? "font-bold text-amber-300" : "text-zinc-600"}`}>{day.label}</span>
+                <div className={`w-full rounded-sm transition-all duration-300 group-hover:brightness-125 ${isToday ? "bg-[#ffa116]" : day.focusSeconds ? "bg-zinc-500" : "bg-[#333333]"}`} style={{ height: `${height}px`, maxWidth: 32 }} />
+                <span className={`text-[8px] font-mono ${isToday ? "font-bold text-[#ffa116]" : "text-zinc-500"}`}>{day.label}</span>
               </button>
             })}
           </div>
-          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 border-t border-zinc-800/50 pt-3 text-[9px] font-mono text-zinc-500"><span>{activity.weekSessions} focused sessions</span><span>Best day: {activity.strongestDay?.focusSeconds ? `${activity.strongestDay.dateLabel} · ${formatCompactDuration(activity.strongestDay.focusSeconds)}` : "start your first"}</span></div>
+          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 border-t border-white/[0.08] pt-3 text-[9px] font-mono text-zinc-400"><span>{activity.weekSessions} focused sessions</span><span>Best day: {activity.strongestDay?.focusSeconds ? `${activity.strongestDay.dateLabel} · ${formatCompactDuration(activity.strongestDay.focusSeconds)}` : "start your first"}</span></div>
         </div>
 
-        <div className="rounded-2xl border border-zinc-800/70 bg-[#0d0d0f] p-4 sm:p-5">
-          <p className="text-[9px] font-bold font-mono uppercase tracking-[0.18em] text-zinc-500">What you did</p>
+        <div className="rounded-2xl border border-white/[0.08] bg-[#282828] p-4 sm:p-5">
+          <p className="text-[9px] font-bold font-mono uppercase tracking-[0.18em] text-zinc-400">What you did</p>
           <div className="mt-4 space-y-3">
-            <div className="flex items-center gap-2.5"><div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-400/10 text-emerald-400"><Check size={13} /></div><div><p className="text-[11px] font-medium text-zinc-200">{data.todaySolves} problem{data.todaySolves === 1 ? "" : "s"} solved today</p><p className="text-[9px] text-zinc-600">{data.todaySubmissions} submission{data.todaySubmissions === 1 ? "" : "s"} recorded</p></div></div>
-            <div className="flex items-center gap-2.5"><div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-400/10 text-amber-400"><Clock3 size={13} /></div><div><p className="text-[11px] font-medium text-zinc-200">{formatDuration(activity.todayActivity?.focusSeconds ?? 0)} active practice</p><p className="text-[9px] text-zinc-600">Only explicit focus sessions are counted</p></div></div>
-            <div className="flex items-center gap-2.5"><div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-400/10 text-sky-400"><Flame size={13} /></div><div><p className="text-[11px] font-medium text-zinc-200">{data.currentStreak}-day solve streak</p><p className="text-[9px] text-zinc-600">Progress is a record, not a requirement</p></div></div>
+            <div className="flex items-center gap-2.5"><div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#00b8a3]/10 text-[#00b8a3]"><Check size={13} /></div><div><p className="text-[11px] font-medium text-zinc-200">{data.todaySolves} problem{data.todaySolves === 1 ? "" : "s"} solved today</p><p className="text-[9px] text-zinc-500">{data.todaySubmissions} submission{data.todaySubmissions === 1 ? "" : "s"} recorded</p></div></div>
+            <div className="flex items-center gap-2.5"><div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#ffa116]/10 text-[#ffa116]"><Clock3 size={13} /></div><div><p className="text-[11px] font-medium text-zinc-200">{formatDuration(activity.todayActivity?.focusSeconds ?? 0)} active practice</p><p className="text-[9px] text-zinc-500">Only explicit focus sessions are counted</p></div></div>
+            <div className="flex items-center gap-2.5"><div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#00b8a3]/10 text-[#00b8a3]"><Flame size={13} /></div><div><p className="text-[11px] font-medium text-zinc-200">{data.currentStreak}-day solve streak</p><p className="text-[9px] text-zinc-500">Progress is a record, not a requirement</p></div></div>
           </div>
         </div>
       </section>
@@ -1018,16 +1015,16 @@ export const Dashboard = () => {
         <button
           type="button"
           onClick={() => setIsWeeklyReportOpen(true)}
-          className="w-full group flex items-center justify-between p-3.5 rounded-2xl border border-zinc-800/80 bg-[#0d0d0f] hover:border-[#dfa054]/40 hover:bg-zinc-900/50 transition-all duration-200 shadow-sm cursor-pointer"
+          className="w-full group flex items-center justify-between p-3.5 rounded-2xl border border-white/[0.08] bg-[#282828] hover:border-[#ffa116]/40 hover:bg-[#333333] transition-all duration-200 shadow-sm cursor-pointer"
         >
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#dfa054]/10 text-[#dfa054] border border-[#dfa054]/20 group-hover:bg-[#dfa054]/20 transition-colors">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#ffa116]/10 text-[#ffa116] border border-[#ffa116]/20 group-hover:bg-[#ffa116]/20 transition-colors">
               <TrendingUp size={15} />
             </div>
             <div className="text-left">
               <div className="text-xs font-bold text-zinc-200 group-hover:text-zinc-100 flex items-center gap-2 font-sans">
                 Weekly Performance Report
-                <span className="text-[8.5px] font-mono text-[#dfa054] bg-[#dfa054]/10 border border-[#dfa054]/20 px-1.5 py-0.5 rounded">
+                <span className="text-[8.5px] font-mono text-[#ffa116] bg-[#ffa116]/10 border border-[#ffa116]/20 px-1.5 py-0.5 rounded">
                   7 Days
                 </span>
               </div>
@@ -1036,7 +1033,7 @@ export const Dashboard = () => {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-1 text-[10px] font-mono text-zinc-400 group-hover:text-[#dfa054] transition-colors">
+          <div className="flex items-center gap-1 text-[10px] font-mono text-zinc-400 group-hover:text-[#ffa116] transition-colors">
             <span>View Debrief</span>
             <ChevronRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
           </div>

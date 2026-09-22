@@ -14,6 +14,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
@@ -86,8 +88,14 @@ public class AuthController {
             }
 
             return ResponseEntity.ok(authenticateGithubToken(githubToken));
+        } catch (HttpClientErrorException.Unauthorized exception) {
+            return ResponseEntity.status(401).body(Map.of("error", "GitHub authorization was rejected"));
+        } catch (HttpClientErrorException.Forbidden exception) {
+            return ResponseEntity.status(503).body(Map.of("error", "GitHub temporarily denied authorization; retry shortly"));
+        } catch (ResourceAccessException exception) {
+            return ResponseEntity.status(503).body(Map.of("error", "GitHub authorization is temporarily unavailable"));
         } catch (Exception exception) {
-            return ResponseEntity.status(401).body(Map.of("error", "GitHub authorization could not be verified"));
+            return ResponseEntity.status(502).body(Map.of("error", "GitHub authorization could not be verified"));
         }
     }
 
@@ -99,8 +107,16 @@ public class AuthController {
     public ResponseEntity<?> authenticateGithubToken(@Valid @RequestBody GithubTokenRequest request) {
         try {
             return ResponseEntity.ok(authenticateGithubToken(request.token()));
+        } catch (HttpClientErrorException.Unauthorized exception) {
+            // Only GitHub's 401 proves the credential is invalid. A 403 is
+            // commonly a rate limit or a missing fine-grained-token scope.
+            return ResponseEntity.status(401).body(Map.of("error", "GitHub token was rejected"));
+        } catch (HttpClientErrorException.Forbidden exception) {
+            return ResponseEntity.status(503).body(Map.of("error", "GitHub temporarily denied verification; retry shortly"));
+        } catch (ResourceAccessException exception) {
+            return ResponseEntity.status(503).body(Map.of("error", "GitHub verification is temporarily unavailable"));
         } catch (Exception exception) {
-            return ResponseEntity.status(401).body(Map.of("error", "GitHub token could not be verified"));
+            return ResponseEntity.status(502).body(Map.of("error", "GitHub token verification failed"));
         }
     }
 

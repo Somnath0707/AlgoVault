@@ -53,12 +53,14 @@ public class RedisConfig {
      * Redis is private, but cache values are still treated as untrusted input.
      * Never enable polymorphic deserialization for arbitrary Object subtypes.
      */
-    private ObjectMapper redisObjectMapper() {
+    public ObjectMapper redisObjectMapper() {
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
         com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator ptv =
             com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator.builder()
                 .allowIfSubType("com.algovault.")
+                .allowIfSubType("java.lang.")
+                .allowIfSubType("java.math.")
                 .allowIfSubType("java.time.")
                 .allowIfSubType("java.util.")
                 .allowIfSubTypeIsArray()

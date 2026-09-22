@@ -36,9 +36,34 @@ dirs.forEach(dir => {
       let modified = false;
       if (exactBackendPermission && Array.isArray(manifest.host_permissions)
           && !manifest.host_permissions.includes(exactBackendPermission)) {
+        // A production extension must not retain localhost permission after it
+        // has been configured for a public HTTPS API.
+        manifest.host_permissions = manifest.host_permissions.filter(
+          permission => permission !== 'http://localhost:8080/*'
+        );
         manifest.host_permissions.push(exactBackendPermission);
         modified = true;
         console.log(`Added exact backend host permission in ${manifestPath}`);
+      }
+      if (Array.isArray(manifest.host_permissions)) {
+        const uniquePermissions = [...new Set(manifest.host_permissions)];
+        if (uniquePermissions.length !== manifest.host_permissions.length) {
+          manifest.host_permissions = uniquePermissions;
+          modified = true;
+        }
+      }
+      if (Array.isArray(manifest.web_accessible_resources)) {
+        const seenResources = new Set();
+        const uniqueResources = manifest.web_accessible_resources.filter((resource) => {
+          const key = JSON.stringify(resource);
+          if (seenResources.has(key)) return false;
+          seenResources.add(key);
+          return true;
+        });
+        if (uniqueResources.length !== manifest.web_accessible_resources.length) {
+          manifest.web_accessible_resources = uniqueResources;
+          modified = true;
+        }
       }
       if (Array.isArray(manifest.content_scripts)) {
         manifest.content_scripts.forEach(cs => {
@@ -60,15 +85,4 @@ dirs.forEach(dir => {
     }
   }
 
-  // Copy interceptor.js to the build assets directory
-  const srcInterceptor = path.join(__dirname, '../assets/interceptor.js');
-  const destAssets = path.join(dir, 'assets');
-  const destInterceptor = path.join(destAssets, 'interceptor.js');
-  if (fs.existsSync(srcInterceptor)) {
-    if (!fs.existsSync(destAssets)) {
-      fs.mkdirSync(destAssets, { recursive: true });
-    }
-    fs.copyFileSync(srcInterceptor, destInterceptor);
-    console.log(`Copied interceptor.js to ${destInterceptor}`);
-  }
 });

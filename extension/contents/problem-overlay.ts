@@ -577,7 +577,7 @@ const injectAlgoVaultOverlay = () => {
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="font-size: 15px;">🏢</span>
           <span style="font-weight: 700; font-size: 13px; color: #f4f4f5;">Interview Companies</span>
-          <span style="font-size: 10px; font-family: monospace; font-weight: 700; background: rgba(223, 160, 84, 0.15); color: #dfa054; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(223, 160, 84, 0.3);">${evidences.length} Companies</span>
+          <span style="font-size: 10px; font-family: monospace; font-weight: 700; background: rgba(255, 161, 22, 0.15); color: #ffa116; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(255, 161, 22, 0.3);">${evidences.length} Companies</span>
         </div>
         <div style="font-size: 11px; color: #a1a1aa; margin-top: 2px;">Verified LeetCode candidate submissions</div>
       </div>
@@ -645,7 +645,7 @@ const injectAlgoVaultOverlay = () => {
           gap: "12px"
         })
 
-        const freqColor = ev.frequencyScore >= 75 ? "#10b981" : ev.frequencyScore >= 50 ? "#dfa054" : "#a1a1aa"
+        const freqColor = ev.frequencyScore >= 75 ? "#00b8a3" : ev.frequencyScore >= 50 ? "#ffa116" : "#a1a1aa"
 
         card.innerHTML = `
           <div style="min-width: 0; flex: 1;">
@@ -681,7 +681,7 @@ const injectAlgoVaultOverlay = () => {
     })
     footer.innerHTML = `
       <span>Source: LeetCode Verified Interview Records</span>
-      <span style="color: #dfa054; font-family: monospace; font-weight: 700;">AlgoVault</span>
+      <span style="color: #ffa116; font-family: monospace; font-weight: 700;">AlgoVault</span>
     `
 
     modal.appendChild(header)
@@ -798,15 +798,15 @@ const injectAlgoVaultOverlay = () => {
       justifyContent: 'center',
       padding: '4px 10px',
       borderRadius: '9999px',
-      backgroundColor: 'rgba(9, 9, 11, 0.85)',
-      color: '#dfa054',
+      backgroundColor: '#1a1a1a',
+      color: '#ffa116',
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
       fontSize: '11px',
       fontWeight: '700',
       letterSpacing: '0.8px',
       textTransform: 'uppercase',
-      border: '1px solid rgba(223, 160, 84, 0.3)',
-      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.5), 0 0 12px rgba(223, 160, 84, 0.15)',
+      border: '1px solid rgba(255, 161, 22, 0.3)',
+      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.5)',
       backdropFilter: 'blur(8px)',
       cursor: 'pointer',
       userSelect: 'none',

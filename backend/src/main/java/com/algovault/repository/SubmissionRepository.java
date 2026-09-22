@@ -58,6 +58,10 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     @EntityGraph(attributePaths = {"problem"})
     List<Submission> findTop100ByUserIdAndVerdictOrderBySubmittedAtDesc(Long userId, String verdict);
 
+    // The dashboard needs enough verified history to tell a useful Legacy
+    // story, but must never pull an unbounded submission table into memory.
+    List<Submission> findTop5000ByUserIdOrderBySubmittedAtDesc(Long userId);
+
     @Query("select count(s) > 0 from Submission s where s.user.id = :userId and s.problem.id = :problemId and s.verdict = :verdict and s.submittedAt = :submittedAt and " +
            "((:runtimeMs is null and s.runtimeMs is null) or s.runtimeMs = :runtimeMs)")
     boolean existsByTighterTuple(Long userId, Long problemId, String verdict, LocalDateTime submittedAt, Integer runtimeMs);

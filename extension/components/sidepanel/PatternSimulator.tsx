@@ -1086,13 +1086,13 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-[#08080a] p-4 font-sans text-zinc-100 shadow-xl space-y-4">
+    <div className="rounded-2xl border border-white/[0.08] bg-[#282828] p-4 font-sans text-zinc-100 space-y-4">
       {/* Top Header & Editable Parameters Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.08] pb-3">
         <div>
           <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] text-[#dfa054]">
+            <span className="flex h-2 w-2 rounded-full bg-[#00b8a3]" />
+            <span className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] text-[#ffa116]">
               Interactive Pattern VisuAlgo Simulator
             </span>
           </div>
@@ -1104,8 +1104,8 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
         <div className="flex flex-wrap items-center gap-2">
           {/* Main Array Input */}
           {simData.type !== "grid" && simData.type !== "tree" && (
-            <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1.5 font-mono text-xs">
-              <Edit3 size={12} className="text-[#dfa054]" />
+            <div className="flex items-center gap-1.5 bg-[#1a1a1a] border border-white/[0.08] rounded-xl px-2.5 py-1.5 font-mono text-xs">
+              <Edit3 size={12} className="text-[#ffa116]" />
               <span className="text-zinc-500 text-[10px] uppercase font-bold">Array:</span>
               <input
                 type="text"
@@ -1114,7 +1114,7 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
                   setCustomInputText(e.target.value)
                   setCurrentStep(0)
                 }}
-                className="bg-transparent border-none text-[#dfa054] font-bold focus:outline-none w-28 text-xs"
+                className="bg-transparent border-none text-[#ffa116] font-bold focus:outline-none w-28 text-xs"
                 placeholder="e.g. 3, 1, 4, 2, 5"
               />
             </div>
@@ -1122,7 +1122,7 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
 
           {/* Target / K Input */}
           {(patternId === "two-pointers" || patternId === "binary-search-range" || patternId === "difference-array") && (
-            <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1.5 font-mono text-xs">
+            <div className="flex items-center gap-1.5 bg-[#1a1a1a] border border-white/[0.08] rounded-xl px-2.5 py-1.5 font-mono text-xs">
               <span className="text-zinc-500 text-[10px] uppercase font-bold">Target:</span>
               <input
                 type="number"
@@ -1131,13 +1131,13 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
                   setTargetVal(parseInt(e.target.value) || 0)
                   setCurrentStep(0)
                 }}
-                className="bg-transparent border-none text-emerald-400 font-bold focus:outline-none w-12 text-xs"
+                className="bg-transparent border-none text-[#00b8a3] font-bold focus:outline-none w-12 text-xs"
               />
             </div>
           )}
 
           {(patternId === "sliding-window" || patternId === "top-k-elements" || patternId === "knapsack-dp") && (
-            <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1.5 font-mono text-xs">
+            <div className="flex items-center gap-1.5 bg-[#1a1a1a] border border-white/[0.08] rounded-xl px-2.5 py-1.5 font-mono text-xs">
               <span className="text-zinc-500 text-[10px] uppercase font-bold">K / Limit:</span>
               <input
                 type="number"
@@ -1146,7 +1146,7 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
                   setKVal(parseInt(e.target.value) || 1)
                   setCurrentStep(0)
                 }}
-                className="bg-transparent border-none text-amber-400 font-bold focus:outline-none w-12 text-xs"
+                className="bg-transparent border-none text-[#ffc01e] font-bold focus:outline-none w-12 text-xs"
               />
             </div>
           )}
@@ -1158,35 +1158,36 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
                 setHasCycle(!hasCycle)
                 setCurrentStep(0)
               }}
-              className={`flex items-center gap-1 rounded-xl border px-2.5 py-1.5 font-mono text-[10px] font-bold transition-all ${
+              className={`flex items-center gap-1 rounded-xl border px-2.5 py-1.5 font-mono text-[10px] font-bold transition-all cursor-pointer ${
                 hasCycle
-                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                  : "border-zinc-800 bg-zinc-950 text-zinc-400"
+                  ? "border-[#00b8a3]/40 bg-[#00b8a3]/10 text-[#00b8a3]"
+                  : "border-white/[0.08] bg-[#1a1a1a] text-zinc-400 hover:text-zinc-200"
               }`}
             >
               <Repeat size={12} />
               Cycle: {hasCycle ? "ON" : "OFF"}
             </button>
           )}
+
           {/* Grid Presets */}
           {simData.type === "grid" && (
             <div className="flex items-center gap-1 font-mono text-[10px]">
               <span className="text-zinc-500 font-bold uppercase mr-1">Grid Preset:</span>
               <button
                 onClick={() => { setGridMatrix([[1, 1, 0], [0, 1, 0], [1, 0, 1]]); setCurrentStep(0); }}
-                className="px-2 py-1 rounded border border-zinc-800 bg-zinc-950 text-zinc-300 hover:text-emerald-400"
+                className="px-2 py-1 rounded border border-white/[0.08] bg-[#1a1a1a] text-zinc-300 hover:text-[#00b8a3]"
               >
                 Multi-Island
               </button>
               <button
                 onClick={() => { setGridMatrix([[1, 1, 1], [1, 1, 1], [1, 1, 1]]); setCurrentStep(0); }}
-                className="px-2 py-1 rounded border border-zinc-800 bg-zinc-950 text-zinc-300 hover:text-emerald-400"
+                className="px-2 py-1 rounded border border-white/[0.08] bg-[#1a1a1a] text-zinc-300 hover:text-[#00b8a3]"
               >
                 All Land
               </button>
               <button
                 onClick={() => { setGridMatrix([[1, 0, 1], [0, 1, 0], [1, 0, 1]]); setCurrentStep(0); }}
-                className="px-2 py-1 rounded border border-zinc-800 bg-zinc-950 text-zinc-300 hover:text-emerald-400"
+                className="px-2 py-1 rounded border border-white/[0.08] bg-[#1a1a1a] text-zinc-300 hover:text-[#00b8a3]"
               >
                 Cross
               </button>
@@ -1203,7 +1204,7 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
                   setCustomInputText(chosen)
                   setCurrentStep(0)
                 }}
-                className="px-2 py-1 rounded border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+                className="px-2 py-1 rounded border border-white/[0.08] bg-[#1a1a1a] text-zinc-400 hover:text-zinc-200 cursor-pointer"
               >
                 🔀 Sample Data
               </button>
@@ -1213,11 +1214,11 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
       </div>
 
       {/* Control Buttons & Speed Controls */}
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-2.5">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-[#1a1a1a] p-2.5">
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => setIsPlaying(!isPlaying)}
-            className="flex items-center gap-1.5 rounded-lg bg-[#dfa054] hover:bg-[#eab308] px-3 py-1.5 text-[11px] font-bold text-zinc-950 transition-colors shadow-sm"
+            className="flex items-center gap-1.5 rounded-lg bg-[#ffa116] hover:bg-[#ffa116]/90 px-3 py-1.5 text-[11px] font-bold text-zinc-950 transition-colors shadow-sm"
           >
             {isPlaying ? <Pause size={13} /> : <Play size={13} />}
             {isPlaying ? "Pause" : "Play"}
@@ -1225,14 +1226,14 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
           <button
             onClick={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
             disabled={currentStep === 0}
-            className="rounded-lg border border-zinc-800 bg-zinc-900 p-1.5 text-zinc-300 hover:bg-zinc-800 disabled:opacity-30"
+            className="rounded-lg border border-white/[0.08] bg-[#282828] p-1.5 text-zinc-300 hover:bg-[#333333] disabled:opacity-30"
           >
             <ChevronLeft size={15} />
           </button>
           <button
             onClick={() => setCurrentStep((prev) => Math.min(simData.steps.length - 1, prev + 1))}
             disabled={currentStep === simData.steps.length - 1}
-            className="rounded-lg border border-zinc-800 bg-zinc-900 p-1.5 text-zinc-300 hover:bg-zinc-800 disabled:opacity-30"
+            className="rounded-lg border border-white/[0.08] bg-[#282828] p-1.5 text-zinc-300 hover:bg-[#333333] disabled:opacity-30"
           >
             <ChevronRight size={15} />
           </button>
@@ -1241,7 +1242,7 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
               setCurrentStep(0)
               setIsPlaying(false)
             }}
-            className="rounded-lg border border-zinc-800 bg-zinc-900 p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+            className="rounded-lg border border-white/[0.08] bg-[#282828] p-1.5 text-zinc-400 hover:bg-[#333333] hover:text-zinc-200"
             title="Reset Simulation"
           >
             <RotateCcw size={14} />
@@ -1250,8 +1251,8 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
 
         {/* Step Badge & Speed Selector */}
         <div className="flex items-center gap-3">
-          <div className="rounded-lg border border-zinc-800 bg-zinc-950 px-2.5 py-1 text-right font-mono text-xs">
-            <span className="font-bold text-[#dfa054]">Step {currentStep + 1}</span>
+          <div className="rounded-lg border border-white/[0.08] bg-[#282828] px-2.5 py-1 text-right font-mono text-xs">
+            <span className="font-bold text-[#ffa116]">Step {currentStep + 1}</span>
             <span className="text-zinc-500"> / {simData.steps.length}</span>
           </div>
 
@@ -1262,8 +1263,8 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
                 onClick={() => setSpeed(s)}
                 className={`px-2 py-0.5 rounded border transition-all ${
                   speed === s
-                    ? "border-[#dfa054]/40 bg-[#dfa054]/15 text-[#dfa054]"
-                    : "border-zinc-800 bg-zinc-900 text-zinc-500 hover:text-zinc-300"
+                    ? "border-[#ffa116]/40 bg-[#ffa116]/15 text-[#ffa116]"
+                    : "border-white/[0.08] bg-[#282828] text-zinc-400 hover:text-zinc-200"
                 }`}
               >
                 {s === 2500 ? "0.5x" : s === 1800 ? "1x" : "2x"}
@@ -1276,7 +1277,7 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
       {/* ─────────────────────────────────────────────────────────────────────────
           DYNAMIC VISUAL ARENA (CUSTOM VISUALIZERS FOR ALL PATTERNS)
          ───────────────────────────────────────────────────────────────────────── */}
-      <div className="rounded-xl border border-zinc-800 bg-black/90 p-5 min-h-[190px] flex flex-col justify-center items-center relative overflow-hidden">
+      <div className="rounded-xl border border-white/10 bg-[#1a1a1c] p-5 min-h-[190px] flex flex-col justify-center items-center relative overflow-hidden shadow-inner">
         
         {/* 1. LINKED LIST VISUALIZER */}
         {simData.type === "linked-list" && step.array && (
@@ -1309,9 +1310,9 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
                         layout
                         className={`w-12 h-12 rounded-full border-2 flex items-center justify-center font-mono font-bold text-sm transition-all duration-300 shadow-md ${
                           isCollision
-                            ? "bg-rose-500/20 border-rose-400 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.5)] scale-110"
+                            ? "bg-[#ef4743]/20 border-[#ef4743] text-[#ef4743] scale-110"
                             : isSlow || isFast
-                            ? "bg-[#dfa054]/20 border-[#dfa054] text-[#dfa054] scale-105"
+                            ? "bg-[#ffa116]/20 border-[#ffa116] text-[#ffa116] scale-105"
                             : "bg-zinc-900 border-zinc-700 text-zinc-300"
                         }`}
                       >
@@ -1333,7 +1334,7 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
 
             {/* Cycle Curve Line Indicator */}
             {hasCycle && (
-              <div className="mt-1 flex items-center gap-2 border border-emerald-500/30 bg-emerald-500/[0.06] px-3 py-1 rounded-full text-[10px] font-mono text-emerald-400">
+              <div className="mt-1 flex items-center gap-2 border border-[#00b8a3]/30 bg-[#00b8a3]/[0.06] px-3 py-1 rounded-full text-[10px] font-mono text-[#00b8a3]">
                 <Repeat size={12} /> Loopback: Tail (Node [{step.array.length - 1}]) connects back to Node [2]
               </div>
             )}
@@ -1370,13 +1371,13 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
                 let textCol = "#a1a1aa"
 
                 if (isActive) {
-                  fill = "#dfa054"
-                  stroke = "#eab308"
-                  textCol = "#09090b"
+                  fill = "#ffa116"
+                  stroke = "#ffa116"
+                  textCol = "#1a1a1a"
                 } else if (isVisited) {
                   fill = "#064e3b"
-                  stroke = "#10b981"
-                  textCol = "#a7f3d0"
+                  stroke = "#00b8a3"
+                  textCol = "#00b8a3"
                 }
 
                 return (
@@ -1400,10 +1401,10 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
 
             {/* BFS Queue Snapshot Buffer */}
             {step.queueState && (
-              <div className="mt-2 flex items-center gap-2 border border-zinc-800 bg-zinc-950 px-3 py-1 rounded-xl font-mono text-xs">
-                <GitBranch size={13} className="text-[#dfa054]" />
+              <div className="mt-2 flex items-center gap-2 border border-white/[0.08] bg-[#1a1a1a] px-3 py-1 rounded-xl font-mono text-xs">
+                <GitBranch size={13} className="text-[#ffa116]" />
                 <span className="text-zinc-500 font-bold uppercase text-[10px]">BFS Queue:</span>
-                <span className="text-[#dfa054] font-bold">[{step.queueState.join(", ")}]</span>
+                <span className="text-[#ffa116] font-bold">[{step.queueState.join(", ")}]</span>
               </div>
             )}
           </div>
@@ -1467,10 +1468,10 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
             </svg>
 
             {step.topoResult && (
-              <div className="mt-2 flex items-center gap-2 border border-zinc-800 bg-zinc-950 px-3 py-1 rounded-xl font-mono text-xs">
-                <Network size={13} className="text-[#dfa054]" />
+              <div className="mt-2 flex items-center gap-2 border border-white/[0.08] bg-[#1a1a1a] px-3 py-1 rounded-xl font-mono text-xs">
+                <Network size={13} className="text-[#ffa116]" />
                 <span className="text-zinc-500 font-bold uppercase text-[10px]">Topological Order:</span>
-                <span className="text-emerald-400 font-bold">[{step.topoResult.join(", ")}]</span>
+                <span className="text-[#00b8a3] font-bold">[{step.topoResult.join(", ")}]</span>
               </div>
             )}
           </div>
@@ -1482,7 +1483,7 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
             <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-wider mb-2">
               Interactive 3x3 Grid (Click cells to toggle Land/Water)
             </span>
-            <div className="grid grid-cols-3 gap-2.5 p-3 rounded-2xl border border-zinc-800 bg-zinc-950/80 shadow-inner">
+            <div className="grid grid-cols-3 gap-2.5 p-3 rounded-2xl border border-white/[0.08] bg-[#1a1a1a] shadow-inner">
               {step.gridState.map((row, r) =>
                 row.map((val, c) => {
                   const isActive = step.activeGridCell && step.activeGridCell[0] === r && step.activeGridCell[1] === c
@@ -1490,18 +1491,18 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
 
                   let bgClass = "bg-zinc-900 border-zinc-800 text-zinc-600"
                   if (isActive) {
-                    bgClass = "bg-[#dfa054] border-[#eab308] text-zinc-950 shadow-[0_0_15px_rgba(223,160,84,0.6)] scale-105"
+                    bgClass = "bg-[#ffa116] border-[#ffa116] text-zinc-950 scale-105"
                   } else if (val === 1) {
-                    bgClass = "bg-emerald-950/80 border-emerald-500/50 text-emerald-300 hover:border-emerald-400"
+                    bgClass = "bg-[#00b8a3]/20 border-[#00b8a3]/50 text-[#00b8a3] hover:border-[#00b8a3]"
                   } else if (isVisited) {
-                    bgClass = "bg-sky-950/50 border-sky-600/40 text-sky-40-[#dfa054]"
+                    bgClass = "bg-sky-950/50 border-sky-600/40 text-sky-400"
                   }
 
                   return (
                     <button
                       key={`${r}-${c}`}
                       onClick={() => toggleGridCell(r, c)}
-                      className={`w-14 h-14 rounded-xl border flex flex-col items-center justify-center font-mono transition-all duration-300 ${bgClass}`}
+                      className={`w-14 h-14 rounded-xl border flex flex-col items-center justify-center font-mono transition-all duration-300 cursor-pointer ${bgClass}`}
                     >
                       <span className="text-base font-extrabold">{val === 1 ? "🌴" : "🌊"}</span>
                       <span className="text-[8px] font-mono opacity-60">({r},{c})</span>
@@ -1519,11 +1520,11 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
             <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-wider mb-3">
               Timeline Scale (Merge Overlapping Blocks)
             </span>
-            <div className="w-full max-w-md space-y-2.5 bg-zinc-950 p-4 rounded-xl border border-zinc-800">
+            <div className="w-full max-w-md space-y-2.5 bg-[#1a1a1a] p-4 rounded-xl border border-white/[0.08]">
               {step.intervalsState.map((int, idx) => (
                 <div key={idx} className="flex items-center gap-3">
                   <span className="w-24 text-[10px] font-mono font-bold text-zinc-400 text-right">{int.label}</span>
-                  <div className="flex-1 h-7 bg-zinc-900 rounded-lg relative overflow-hidden border border-zinc-800">
+                  <div className="flex-1 h-7 bg-[#282828] rounded-lg relative overflow-hidden border border-white/[0.08]">
                     <motion.div
                       layout
                       style={{
@@ -1532,10 +1533,10 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
                       }}
                       className={`absolute top-1 bottom-1 rounded-md transition-all flex items-center justify-center font-mono text-[9px] font-bold ${
                         int.merged
-                          ? "bg-emerald-500 text-zinc-950 shadow-md"
+                          ? "bg-[#00b8a3] text-zinc-950 shadow-md"
                           : int.active
-                          ? "bg-[#dfa054] text-zinc-950"
-                          : "bg-amber-500/30 text-amber-300 border border-amber-500/40"
+                          ? "bg-[#ffa116] text-zinc-950"
+                          : "bg-[#ffc01e]/20 text-[#ffc01e] border border-[#ffc01e]/40"
                       }`}
                     >
                       [{int.start}..{int.end}]
@@ -1583,12 +1584,12 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
                     initial={{ opacity: 0, y: -15, scale: 0.9 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 15, scale: 0.9 }}
-                    className="w-52 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 font-mono text-xs font-bold text-center flex items-center justify-between px-3 shadow-md"
+                    className="w-52 py-1.5 rounded-lg border border-[#00b8a3]/40 bg-[#00b8a3]/15 text-[#00b8a3] font-mono text-xs font-bold text-center flex items-center justify-between px-3 shadow-md"
                   >
                     <span className="text-[10px] text-zinc-500">Item #{sIdx + 1}</span>
                     <span>Val: {idxVal}</span>
                     {sIdx === step.stack!.length - 1 && (
-                      <span className="text-[9px] bg-amber-400 text-zinc-950 font-extrabold px-1.5 rounded">TOP</span>
+                      <span className="text-[9px] bg-[#ffa116] text-zinc-950 font-extrabold px-1.5 rounded">TOP</span>
                     )}
                   </motion.div>
                 ))
@@ -1609,9 +1610,9 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
                 return (
                   <div key={idx} className="w-12 text-center h-5 flex items-center justify-center font-mono text-[10px] font-extrabold flex-shrink-0">
                     {isLeft && isRight ? (
-                      <span className="text-[#dfa054] bg-[#dfa054]/10 border border-[#dfa054]/30 px-1 rounded">L&R</span>
+                      <span className="text-[#ffa116] bg-[#ffa116]/10 border border-[#ffa116]/30 px-1 rounded">L&R</span>
                     ) : isLeft ? (
-                      <span className="text-[#dfa054]">L ↓</span>
+                      <span className="text-[#ffa116]">L ↓</span>
                     ) : isRight ? (
                       <span className="text-sky-400">R ↓</span>
                     ) : isMid ? (
@@ -1631,9 +1632,9 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
 
                 let bgClass = "bg-zinc-900/80 border-zinc-800 text-zinc-300"
                 if (isHighlighted) {
-                  bgClass = "bg-emerald-500/20 border-emerald-400 text-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.3)] scale-105"
+                  bgClass = "bg-[#00b8a3]/20 border-[#00b8a3] text-[#00b8a3] scale-105"
                 } else if (inWindow) {
-                  bgClass = "bg-[#dfa054]/15 border-[#dfa054]/50 text-[#dfa054]"
+                  bgClass = "bg-[#ffa116]/15 border-[#ffa116]/50 text-[#ffa116]"
                 }
 
                 return (
@@ -1656,9 +1657,9 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
       {/* Action Log Telemetry & Code Line Highlight Grid */}
       <div className="grid sm:grid-cols-2 gap-3">
         {/* Left: Action Log & Variables */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3.5 flex flex-col justify-between">
+        <div className="rounded-xl border border-white/[0.08] bg-[#1a1a1a] p-3.5 flex flex-col justify-between">
           <div>
-            <div className="flex items-center gap-1.5 text-[9.5px] font-mono font-bold uppercase tracking-[0.12em] text-[#dfa054]">
+            <div className="flex items-center gap-1.5 text-[9.5px] font-mono font-bold uppercase tracking-[0.12em] text-[#ffa116]">
               <Zap size={12} /> Execution Action Log
             </div>
             <p className="mt-2 text-xs text-zinc-200 leading-relaxed font-medium">
@@ -1666,14 +1667,14 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
             </p>
           </div>
 
-          <div className="mt-3 border-t border-zinc-800/80 pt-2.5">
+          <div className="mt-3 border-t border-white/[0.08] pt-2.5">
             <span className="text-[9px] font-mono uppercase text-zinc-500 font-bold block mb-1.5">
               Live State Variables
             </span>
             <div className="flex flex-wrap gap-2 font-mono text-[10px]">
               {Object.entries(step.variables).map(([k, v]) => (
-                <span key={k} className="rounded border border-zinc-800 bg-black/60 px-2 py-0.5 text-zinc-300">
-                  <span className="text-zinc-500">{k}:</span> <strong className="text-[#dfa054]">{v}</strong>
+                <span key={k} className="rounded border border-white/[0.08] bg-[#282828] px-2 py-0.5 text-zinc-300">
+                  <span className="text-zinc-500">{k}:</span> <strong className="text-[#ffa116]">{v}</strong>
                 </span>
               ))}
             </div>
@@ -1681,7 +1682,7 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
         </div>
 
         {/* Right: Code Synchronizer */}
-        <div className="rounded-xl border border-zinc-800 bg-[#060608] p-3.5 font-mono text-[10.5px]">
+        <div className="rounded-xl border border-white/[0.08] bg-[#1a1a1a] p-3.5 font-mono text-[10.5px]">
           <div className="text-[9.5px] font-bold uppercase tracking-[0.12em] text-zinc-500 mb-2">
             Synchronized Code Tracker
           </div>
@@ -1693,7 +1694,7 @@ export function PatternSimulator({ patternId }: { patternId: string }) {
                   key={idx}
                   className={`px-2 py-1 rounded transition-colors ${
                     isCurrent
-                      ? "bg-[#dfa054]/20 text-[#dfa054] font-bold border-l-2 border-[#dfa054]"
+                      ? "bg-[#ffa116]/20 text-[#ffa116] font-bold border-l-2 border-[#ffa116]"
                       : "text-zinc-500 opacity-60"
                   }`}
                 >

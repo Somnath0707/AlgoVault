@@ -15,7 +15,6 @@ import {
   ChevronDown,
   ChevronUp,
   HelpCircle,
-  Sparkles,
   Target,
   Activity
 } from "lucide-react"
@@ -29,6 +28,7 @@ import {
   type TimeWindow,
   calculateWindowDifficultyStats
 } from "../../lib/company-data"
+import { rankThemeForRating } from "../../lib/rank-theme"
 
 interface CompanyPrepViewProps {
   solvedSlugs: Set<string>
@@ -47,7 +47,7 @@ const CompanyLogo: React.FC<{ company: CompanySummary; className?: string; imgCl
   const initials = (company.name || "CO").slice(0, 2).toUpperCase()
 
   return (
-    <div className={`${className} rounded-lg bg-zinc-950 p-1.5 flex items-center justify-center border border-zinc-800 shrink-0 group-hover:border-[#dfa054]/40 transition-all shadow-inner overflow-hidden`}>
+    <div className={`${className} rounded-lg bg-[#1a1a1a] p-1.5 flex items-center justify-center border border-white/[0.08] shrink-0 group-hover:border-white/[0.16] transition-all overflow-hidden`}>
       {!useFallback ? (
         <img
           src={faviconUrl}
@@ -57,7 +57,7 @@ const CompanyLogo: React.FC<{ company: CompanySummary; className?: string; imgCl
           onError={() => setUseFallback(true)}
         />
       ) : (
-        <div className="w-full h-full flex items-center justify-center text-[10px] font-mono font-bold text-[#dfa054] select-none">
+        <div className="w-full h-full flex items-center justify-center text-[10px] font-mono font-bold text-[#ffa116] select-none">
           {initials}
         </div>
       )}
@@ -305,14 +305,14 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
       {!activeCompany ? (
         <div className="grid gap-3.5">
           {/* Header Banner */}
-          <div className="relative overflow-hidden rounded-xl border border-[#dfa054]/30 bg-gradient-to-br from-[#1c150e] via-zinc-950 to-zinc-950 p-4 shadow-lg">
+          <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-[#282828] p-4">
             <div className="flex items-center justify-between gap-3 relative z-10">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="panel-label text-[#dfa054] tracking-widest font-mono text-[10px] uppercase font-bold">
+                  <span className="panel-label text-[#ffa116] tracking-widest font-mono text-[10px] uppercase font-bold">
                     Company Practice Tracks
                   </span>
-                  <span className="text-[9px] bg-[#dfa054]/15 text-[#dfa054] border border-[#dfa054]/30 px-1.5 py-0.5 rounded font-mono font-bold">
+                  <span className="text-[9px] bg-[#ffa116]/10 text-[#ffa116] border border-[#ffa116]/20 px-1.5 py-0.5 rounded font-mono font-bold">
                     440+ Real Companies
                   </span>
                 </div>
@@ -320,12 +320,12 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                   Real interview questions curated from LeetCode. Explore ZeroTrac contest difficulty medians, historical frequency tiers, and personal coverage.
                 </p>
                 <div className="mt-2 flex items-center gap-2 text-[9px] font-mono text-zinc-500">
-                  <Calendar size={10} className="text-[#dfa054]" />
+                  <Calendar size={10} className="text-[#ffa116]" />
                   <span>Verified LeetCode Company Records · Updated: June 2025</span>
                 </div>
               </div>
               <div className="shrink-0 text-right font-mono">
-                <div className="text-sm font-extrabold text-[#dfa054] tabular-nums">{filteredCompanies.length}</div>
+                <div className="text-sm font-extrabold text-[#ffa116] tabular-nums">{filteredCompanies.length}</div>
                 <div className="text-[9px] text-zinc-500 uppercase tracking-wider">Available</div>
               </div>
             </div>
@@ -340,7 +340,7 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                 placeholder="Search by company (e.g. Google, Citadel) or topic (e.g. DP)..."
                 value={directorySearch}
                 onChange={(e) => setDirectorySearch(e.target.value)}
-                className="w-full bg-[#111] text-zinc-200 text-xs pl-8 pr-8 py-2.5 rounded-lg border border-zinc-800 focus:border-[#dfa054]/60 focus:outline-none placeholder:text-zinc-600 transition-colors font-mono shadow-inner"
+                className="w-full bg-[#1a1a1a] text-zinc-200 text-xs pl-8 pr-8 py-2.5 rounded-lg border border-white/[0.08] focus:border-[#ffa116] focus:outline-none placeholder:text-zinc-600 transition-colors font-mono"
               />
               {directorySearch && (
                 <button
@@ -363,12 +363,12 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                     onClick={() => setCategoryFilter(cat)}
                     className={`px-3 py-1 rounded-md transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
                       isSelected
-                        ? "bg-[#dfa054]/20 text-[#dfa054] border border-[#dfa054]/50 font-bold shadow-[0_0_12px_rgba(223,160,84,0.15)]"
-                        : "bg-zinc-900/80 text-zinc-400 hover:text-zinc-200 border border-zinc-800/80 hover:border-zinc-700"
+                        ? "bg-[#ffa116] text-[#1a1a1a] font-semibold"
+                        : "bg-[#282828] text-zinc-400 hover:text-zinc-200 border border-white/[0.08] hover:border-white/[0.16]"
                     }`}
                   >
                     <span>{categoryLabels[cat]}</span>
-                    <span className={`text-[8.5px] px-1 py-0.2 rounded ${isSelected ? "bg-[#dfa054]/30 text-amber-200" : "bg-zinc-800 text-zinc-500"}`}>
+                    <span className={`text-[8.5px] px-1 py-0.2 rounded ${isSelected ? "bg-[#1a1a1a]/20 text-[#1a1a1a] font-bold" : "bg-[#333333] text-zinc-400"}`}>
                       {count}
                     </span>
                   </button>
@@ -380,7 +380,7 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
           {/* Company Cards Grid */}
           <div className="grid grid-cols-1 gap-2">
             {paginatedCompanies.length === 0 ? (
-              <div className="p-8 text-center text-zinc-500 text-xs font-mono bg-zinc-950/60 rounded-xl border border-zinc-900">
+              <div className="p-8 text-center text-zinc-500 text-xs font-mono bg-[#282828] rounded-xl border border-white/[0.08]">
                 No companies found matching &ldquo;{directorySearch}&rdquo;.
               </div>
             ) : (
@@ -391,17 +391,17 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                     setSelectedCompanyId(comp.id)
                     window.scrollTo({ top: 0, behavior: "smooth" })
                   }}
-                  className="p-3 bg-[#121212] hover:bg-[#181818] border border-zinc-800/90 hover:border-[#dfa054]/50 rounded-xl transition-all cursor-pointer group shadow-sm flex items-center justify-between gap-3"
+                  className="p-3 bg-[#282828] hover:bg-[#333333] border border-white/[0.08] hover:border-white/[0.16] rounded-xl transition-all cursor-pointer group flex items-center justify-between gap-3"
                 >
                   {/* Left: Real Logo & Meta */}
                   <div className="flex items-center gap-3 min-w-0">
                     <CompanyLogo company={comp} className="w-8 h-8" imgClassName="w-5 h-5" />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs text-zinc-100 group-hover:text-[#dfa054] transition-colors truncate">
+                        <span className="font-bold text-xs text-zinc-100 group-hover:text-[#ffa116] transition-colors truncate">
                           {comp.name}
                         </span>
-                        <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-zinc-900/90 text-zinc-400 border border-zinc-800 shrink-0">
+                        <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-[#1a1a1a] text-zinc-400 border border-white/[0.08] shrink-0">
                           {comp.totalProblems.toLocaleString()} Qs
                         </span>
                       </div>
@@ -414,12 +414,12 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                   {/* Right: Solved Progress & CTA */}
                   <div className="flex flex-col items-end shrink-0 pl-2">
                     <div className="flex items-center gap-1.5 font-mono text-[10px]">
-                      <span className={comp.solvedCount > 0 ? "text-emerald-400 font-bold" : "text-zinc-500"}>
+                      <span className={comp.solvedCount > 0 ? "text-[#00b8a3] font-bold" : "text-zinc-500"}>
                         {comp.solvedCount}
                       </span>
                       <span className="text-zinc-600">/</span>
                       <span className="text-zinc-400">{comp.totalProblems}</span>
-                      <span className="text-[#dfa054] font-semibold ml-1">({comp.coveragePercent}%)</span>
+                      <span className="text-[#ffa116] font-semibold ml-1">({comp.coveragePercent}%)</span>
                     </div>
                     <div className="w-20 mt-1">
                       <ProgressBar progress={comp.coveragePercent} />
@@ -432,11 +432,11 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
 
           {/* Directory Pagination Bar */}
           {totalDirPages > 1 && (
-            <div className="flex items-center justify-between px-2 pt-2 border-t border-zinc-900 font-mono text-xs text-zinc-400">
+            <div className="flex items-center justify-between px-2 pt-2 border-t border-white/[0.08] font-mono text-xs text-zinc-400">
               <button
                 disabled={dirPage <= 1}
                 onClick={() => setDirPage((p) => Math.max(1, p - 1))}
-                className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-zinc-800 text-zinc-300 transition-colors flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1 rounded bg-[#282828] border border-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#333333] text-zinc-300 transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <ChevronLeft size={12} />
                 <span>Prev</span>
@@ -447,7 +447,7 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
               <button
                 disabled={dirPage >= totalDirPages}
                 onClick={() => setDirPage((p) => Math.min(totalDirPages, p + 1))}
-                className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-zinc-800 text-zinc-300 transition-colors flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1 rounded bg-[#282828] border border-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#333333] text-zinc-300 transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <span>Next</span>
                 <ChevronRight size={12} />
@@ -464,7 +464,7 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
           <div className="flex items-center justify-between px-1">
             <button
               onClick={() => setSelectedCompanyId(null)}
-              className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-[#dfa054] font-mono transition-colors cursor-pointer py-1"
+              className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-[#ffa116] font-mono transition-colors cursor-pointer py-1"
             >
               <ArrowLeft size={13} />
               <span>Back to 440+ Companies</span>
@@ -475,13 +475,13 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
           </div>
 
           {/* Company Profile Header */}
-          <Card className="p-4 bg-gradient-to-br from-[#181410] via-zinc-950 to-zinc-950 border border-[#dfa054]/30 shadow-md">
+          <Card className="p-4 bg-[#282828] border border-white/[0.08]">
             <div className="flex items-center gap-3.5 mb-3">
               <CompanyLogo company={activeCompany} className="w-12 h-12" imgClassName="w-7 h-7" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="text-base font-bold text-zinc-50 tracking-tight">{activeCompany.name}</h2>
-                  <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-zinc-900 text-[#dfa054] border border-[#dfa054]/20 uppercase font-semibold">
+                  <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-[#1a1a1a] text-[#ffa116] border border-white/[0.08] uppercase font-semibold">
                     {categoryLabels[activeCompany.category] || activeCompany.category}
                   </span>
                 </div>
@@ -492,14 +492,14 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
             </div>
 
             {/* Solved Progress Overview */}
-            <div className="pt-2.5 border-t border-zinc-800/80">
+            <div className="pt-2.5 border-t border-white/[0.08]">
               <div className="flex justify-between items-center text-xs font-mono mb-1.5">
                 <span className="text-zinc-400 font-medium">Coverage Progress</span>
                 <span className="font-bold text-zinc-200">
-                  <span className="text-emerald-400">{activeSolvedCount} solved</span>
+                  <span className="text-[#00b8a3]">{activeSolvedCount} solved</span>
                   <span className="text-zinc-600 mx-1.5">·</span>
                   <span className="text-zinc-400">{activeRemainingCount} remaining</span>
-                  <span className="text-[#dfa054] ml-2">({activeCoverage}%)</span>
+                  <span className="text-[#ffa116] ml-2">({activeCoverage}%)</span>
                 </span>
               </div>
               <ProgressBar progress={activeCoverage} />
@@ -507,17 +507,17 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
           </Card>
 
           {/* ─── ZEROTRAC PROBLEM DIFFICULTY ANALYTICS PANEL ─────────────── */}
-          <Card className="p-4 bg-[#111] border border-zinc-800 shadow-inner">
+          <Card className="p-4 bg-[#282828] border border-white/[0.08]">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-1.5">
-                <BarChart3 size={13} className="text-[#dfa054]" />
+                <BarChart3 size={13} className="text-[#ffa116]" />
                 <span className="text-xs font-bold uppercase tracking-wider text-zinc-200">ZeroTrac Problem Difficulty</span>
               </div>
               <button
                 onClick={() => setShowMetricGuide((prev) => !prev)}
-                className="flex items-center gap-1 text-[9.5px] font-mono text-zinc-400 hover:text-[#dfa054] transition-colors cursor-pointer"
+                className="flex items-center gap-1 text-[9.5px] font-mono text-zinc-400 hover:text-[#ffa116] transition-colors cursor-pointer"
               >
-                <HelpCircle size={11} className="text-[#dfa054]" />
+                <HelpCircle size={11} className="text-[#ffa116]" />
                 <span>What do these metrics mean?</span>
                 {showMetricGuide ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
               </button>
@@ -525,16 +525,16 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
 
             {/* Metric Guide Accordion */}
             {showMetricGuide && (
-              <div className="p-3 bg-[#0a0a0c] rounded-xl border border-zinc-800/90 mb-3 space-y-2 shadow-inner">
+              <div className="p-3 bg-[#1a1a1a] rounded-xl border border-white/[0.08] mb-3 space-y-2">
                 {/* ZeroTrac Rating Card */}
-                <div className="flex items-start gap-2.5 p-2 rounded-lg bg-zinc-900/50 border border-zinc-800/70">
-                  <div className="w-6 h-6 rounded-md bg-[#dfa054]/10 border border-[#dfa054]/30 flex items-center justify-center shrink-0 mt-0.5 text-[#dfa054]">
+                <div className="flex items-start gap-2.5 p-2 rounded-lg bg-[#282828] border border-white/[0.08]">
+                  <div className="w-6 h-6 rounded-md bg-[#ffa116]/10 border border-[#ffa116]/30 flex items-center justify-center shrink-0 mt-0.5 text-[#ffa116]">
                     <Target size={12} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-[11px] font-bold text-zinc-200 font-sans">ZeroTrac Elo Rating</span>
-                      <span className="text-[8.5px] font-mono px-1.5 py-0.2 rounded bg-zinc-800/80 text-[#dfa054] border border-zinc-700">Contest Elo</span>
+                      <span className="text-[8.5px] font-mono px-1.5 py-0.2 rounded bg-[#1a1a1a] text-[#ffa116] border border-white/[0.08]">Contest Elo</span>
                     </div>
                     <p className="text-[10px] text-zinc-400 leading-relaxed mt-0.5 font-sans">
                       Contest-calibrated difficulty. <strong className="text-zinc-300">&lt;1600</strong> = Foundational/Easy, <strong className="text-zinc-300">1600–1900</strong> = Standard Medium (sweet spot for real tech interviews), <strong className="text-zinc-300">&gt;2000</strong> = Advanced/Hard caliber.
@@ -543,14 +543,14 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                 </div>
 
                 {/* Middle 50% Typical Range Card */}
-                <div className="flex items-start gap-2.5 p-2 rounded-lg bg-zinc-900/50 border border-zinc-800/70">
-                  <div className="w-6 h-6 rounded-md bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5 text-emerald-400">
+                <div className="flex items-start gap-2.5 p-2 rounded-lg bg-[#282828] border border-white/[0.08]">
+                  <div className="w-6 h-6 rounded-md bg-[#00b8a3]/10 border border-[#00b8a3]/30 flex items-center justify-center shrink-0 mt-0.5 text-[#00b8a3]">
                     <Activity size={12} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-[11px] font-bold text-zinc-200 font-sans">Middle 50% Typical Range</span>
-                      <span className="text-[8.5px] font-mono px-1.5 py-0.2 rounded bg-zinc-800/80 text-emerald-400 border border-zinc-700">P25 – P75 (IQR)</span>
+                      <span className="text-[8.5px] font-mono px-1.5 py-0.2 rounded bg-[#1a1a1a] text-[#00b8a3] border border-white/[0.08]">P25 – P75 (IQR)</span>
                     </div>
                     <p className="text-[10px] text-zinc-400 leading-relaxed mt-0.5 font-sans">
                       The interquartile range where 50% of this company&apos;s interview questions concentrate. Mastering problems within this band provides the highest practice ROI.
@@ -559,14 +559,14 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                 </div>
 
                 {/* Frequency Score Card */}
-                <div className="flex items-start gap-2.5 p-2 rounded-lg bg-zinc-900/50 border border-zinc-800/70">
-                  <div className="w-6 h-6 rounded-md bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0 mt-0.5 text-amber-400">
+                <div className="flex items-start gap-2.5 p-2 rounded-lg bg-[#282828] border border-white/[0.08]">
+                  <div className="w-6 h-6 rounded-md bg-[#ffc01e]/10 border border-[#ffc01e]/30 flex items-center justify-center shrink-0 mt-0.5 text-[#ffc01e]">
                     <Flame size={12} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-[11px] font-bold text-zinc-200 font-sans">Reported Frequency</span>
-                      <span className="text-[8.5px] font-mono px-1.5 py-0.2 rounded bg-zinc-800/80 text-amber-400 border border-zinc-700">0 – 100% Score</span>
+                      <span className="text-[8.5px] font-mono px-1.5 py-0.2 rounded bg-[#1a1a1a] text-[#ffc01e] border border-white/[0.08]">0 – 100% Score</span>
                     </div>
                     <p className="text-[10px] text-zinc-400 leading-relaxed mt-0.5 font-sans">
                       Normalized popularity based on verified candidate debriefs. Higher scores indicate questions asked repeatedly across recent candidate interview panels.
@@ -577,35 +577,35 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
             )}
 
             {/* 4-Window Difficulty Matrix */}
-            <div className="grid grid-cols-4 gap-1.5 p-2.5 bg-zinc-950/70 rounded-lg border border-zinc-800/80 mb-3 text-center">
+            <div className="grid grid-cols-4 gap-1.5 p-2.5 bg-[#1a1a1a] rounded-lg border border-white/[0.08] mb-3 text-center">
               <div>
                 <div className="text-[8.5px] font-mono text-zinc-500 uppercase">30 Days</div>
-                <div className="text-sm font-bold font-mono text-[#dfa054] mt-0.5">
+                <div className="text-sm font-bold font-mono text-[#ffa116] mt-0.5">
                   {stats30D?.median ? Math.round(stats30D.median) : "--"}
                 </div>
                 <div className="text-[8px] font-mono text-zinc-500">
                   {stats30D?.sampleSize ? `n=${stats30D.sampleSize}` : "No rated Qs"}
                 </div>
               </div>
-              <div className="border-l border-zinc-800/80 pl-1">
+              <div className="border-l border-white/[0.08] pl-1">
                 <div className="text-[8.5px] font-mono text-zinc-400 uppercase">3 Months</div>
-                <div className="text-sm font-bold font-mono text-amber-300 mt-0.5">
+                <div className="text-sm font-bold font-mono text-[#ffc01e] mt-0.5">
                   {stats3M?.median ? Math.round(stats3M.median) : "--"}
                 </div>
                 <div className="text-[8px] font-mono text-zinc-500">
                   {stats3M?.sampleSize ? `n=${stats3M.sampleSize}` : "No rated Qs"}
                 </div>
               </div>
-              <div className="border-l border-zinc-800/80 pl-1">
+              <div className="border-l border-white/[0.08] pl-1">
                 <div className="text-[8.5px] font-mono text-zinc-400 uppercase font-semibold">6 Months</div>
-                <div className="text-sm font-extrabold font-mono text-emerald-400 mt-0.5">
+                <div className="text-sm font-extrabold font-mono text-[#00b8a3] mt-0.5">
                   {stats6M?.median ? Math.round(stats6M.median) : "--"}
                 </div>
                 <div className="text-[8px] font-mono text-zinc-400">
                   {stats6M?.sampleSize ? `n=${stats6M.sampleSize}` : "No rated Qs"}
                 </div>
               </div>
-              <div className="border-l border-zinc-800/80 pl-1">
+              <div className="border-l border-white/[0.08] pl-1">
                 <div className="text-[8.5px] font-mono text-zinc-500 uppercase">All Time</div>
                 <div className="text-sm font-bold font-mono text-zinc-200 mt-0.5">
                   {statsAll?.median ? Math.round(statsAll.median) : "--"}
@@ -618,23 +618,23 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
 
             {/* Middle 50% Range Indicator */}
             {statsAll && !statsAll.insufficientData && statsAll.p25 && statsAll.p75 && (
-              <div className="p-3 bg-zinc-950/40 rounded-lg border border-zinc-900 mb-3">
+              <div className="p-3 bg-[#1a1a1a] rounded-lg border border-white/[0.08] mb-3">
                 <div className="flex justify-between items-center text-[10px] font-mono text-zinc-400 mb-1.5">
                   <span>Middle 50% Typical Range (All Time)</span>
                   <span className="text-zinc-200 font-semibold">{statsAll.p25} — {statsAll.p75}</span>
                 </div>
-                <div className="relative h-2 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800 flex items-center">
+                <div className="relative h-2 bg-[#282828] rounded-full overflow-hidden border border-white/[0.08] flex items-center">
                   <div
-                    className="h-full bg-gradient-to-r from-emerald-500/40 via-[#dfa054] to-emerald-500/40 rounded-full"
+                    className="h-full bg-[#ffa116] rounded-full"
                     style={{
                       marginLeft: `${Math.max(0, Math.min(80, ((statsAll.p25 - 1200) / 1400) * 100))}%`,
                       width: `${Math.max(15, Math.min(100, ((statsAll.p75 - statsAll.p25) / 1400) * 100))}%`
                     }}
                   />
                 </div>
-                <div className="flex justify-between text-[8px] font-mono text-zinc-600 mt-1">
+                <div className="flex justify-between text-[8px] font-mono text-zinc-500 mt-1">
                   <span>Rating 1200</span>
-                  <span className="text-[#dfa054]">Median {statsAll.median}</span>
+                  <span className="text-[#ffa116]">Median {statsAll.median}</span>
                   <span>Rating 2600</span>
                 </div>
               </div>
@@ -642,26 +642,26 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
 
             {/* Rating Bands Histogram */}
             {statsAll && statsAll.sampleSize > 0 && (
-              <div className="grid grid-cols-5 gap-1 text-center font-mono text-[9px] pt-2 border-t border-zinc-900">
-                <div className="p-1 bg-zinc-950 rounded border border-zinc-900">
+              <div className="grid grid-cols-5 gap-1 text-center font-mono text-[9px] pt-2 border-t border-white/[0.08]">
+                <div className="p-1 bg-[#1a1a1a] rounded border border-white/[0.08]">
                   <div className="text-zinc-500">&lt;1600</div>
                   <div className="font-bold text-zinc-300 mt-0.5">{statsAll.ratingBands.under1600}</div>
                 </div>
-                <div className="p-1 bg-zinc-950 rounded border border-zinc-900">
+                <div className="p-1 bg-[#1a1a1a] rounded border border-white/[0.08]">
                   <div className="text-zinc-500">1600-1800</div>
                   <div className="font-bold text-zinc-300 mt-0.5">{statsAll.ratingBands.band1600_1800}</div>
                 </div>
-                <div className="p-1 bg-zinc-950 rounded border border-zinc-900">
-                  <div className="text-emerald-400 font-semibold">1800-2000</div>
-                  <div className="font-bold text-emerald-400 mt-0.5">{statsAll.ratingBands.band1800_2000}</div>
+                <div className="p-1 bg-[#1a1a1a] rounded border border-white/[0.08]">
+                  <div className="text-[#00b8a3] font-semibold">1800-2000</div>
+                  <div className="font-bold text-[#00b8a3] mt-0.5">{statsAll.ratingBands.band1800_2000}</div>
                 </div>
-                <div className="p-1 bg-zinc-950 rounded border border-zinc-900">
+                <div className="p-1 bg-[#1a1a1a] rounded border border-white/[0.08]">
                   <div className="text-zinc-500">2000-2200</div>
                   <div className="font-bold text-zinc-300 mt-0.5">{statsAll.ratingBands.band2000_2200}</div>
                 </div>
-                <div className="p-1 bg-zinc-950 rounded border border-zinc-900">
-                  <div className="text-red-400 font-semibold">2200+</div>
-                  <div className="font-bold text-red-400 mt-0.5">{statsAll.ratingBands.above2200}</div>
+                <div className="p-1 bg-[#1a1a1a] rounded border border-white/[0.08]">
+                  <div className="text-[#ef4743] font-semibold">2200+</div>
+                  <div className="font-bold text-[#ef4743] mt-0.5">{statsAll.ratingBands.above2200}</div>
                 </div>
               </div>
             )}
@@ -670,7 +670,7 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
           {/* ─── TOPICS & DIFFICULTY COVERAGE MATRICES ───────────────────── */}
           <div className="grid grid-cols-2 gap-2.5">
             {/* Topic Coverage */}
-            <Card className="p-3 bg-[#111] border border-zinc-800">
+            <Card className="p-3 bg-[#282828] border border-white/[0.08]">
               <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-300 mb-2 font-mono flex items-center justify-between">
                 <span>Top Topics</span>
                 <span className="text-[8px] text-zinc-500">Click to filter</span>
@@ -682,13 +682,13 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                     onClick={() => setSelectedTopic(selectedTopic === t.topic ? "all" : t.topic)}
                     className={`flex items-center justify-between p-1.5 rounded text-[10px] font-mono transition-colors text-left cursor-pointer ${
                       selectedTopic === t.topic
-                        ? "bg-[#dfa054]/20 text-[#dfa054] border border-[#dfa054]/40 font-bold"
-                        : "bg-zinc-950 hover:bg-zinc-900 text-zinc-400 border border-zinc-900"
+                        ? "bg-[#333333] text-[#ffa116] border border-[#ffa116]/40 font-bold"
+                        : "bg-[#1a1a1a] hover:bg-[#333333] text-zinc-400 border border-white/[0.08]"
                     }`}
                   >
                     <span className="truncate">{t.topic}</span>
                     <span className="shrink-0 font-bold ml-1">
-                      <span className={t.solved > 0 ? "text-emerald-400" : "text-zinc-600"}>{t.solved}</span>
+                      <span className={t.solved > 0 ? "text-[#00b8a3]" : "text-zinc-600"}>{t.solved}</span>
                       <span className="text-zinc-600">/</span>
                       <span>{t.total}</span>
                     </span>
@@ -698,7 +698,7 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
             </Card>
 
             {/* Difficulty Coverage */}
-            <Card className="p-3 bg-[#111] border border-zinc-800">
+            <Card className="p-3 bg-[#282828] border border-white/[0.08]">
               <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-300 mb-2 font-mono flex items-center justify-between">
                 <span>Difficulty</span>
                 <span className="text-[8px] text-zinc-500">Click to filter</span>
@@ -707,23 +707,23 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                 {difficultyBreakdown.map((d) => {
                   const colorClass =
                     d.difficulty === "Easy"
-                      ? "text-emerald-400"
+                      ? "text-[#00b8a3]"
                       : d.difficulty === "Medium"
-                      ? "text-amber-400"
-                      : "text-red-400"
+                      ? "text-[#ffc01e]"
+                      : "text-[#ef4743]"
                   return (
                     <button
                       key={d.difficulty}
                       onClick={() => setDiffFilter(diffFilter === d.difficulty ? "all" : d.difficulty)}
                       className={`flex items-center justify-between p-1.5 rounded text-[10px] font-mono transition-colors text-left cursor-pointer ${
                         diffFilter === d.difficulty
-                          ? "bg-[#dfa054]/20 text-[#dfa054] border border-[#dfa054]/40 font-bold"
-                          : "bg-zinc-950 hover:bg-zinc-900 text-zinc-400 border border-zinc-900"
+                          ? "bg-[#333333] text-[#ffa116] border border-[#ffa116]/40 font-bold"
+                          : "bg-[#1a1a1a] hover:bg-[#333333] text-zinc-400 border border-white/[0.08]"
                       }`}
                     >
                       <span className={colorClass}>{d.difficulty}</span>
                       <span className="shrink-0 font-bold">
-                        <span className={d.solved > 0 ? "text-emerald-400" : "text-zinc-600"}>{d.solved}</span>
+                        <span className={d.solved > 0 ? "text-[#00b8a3]" : "text-zinc-600"}>{d.solved}</span>
                         <span className="text-zinc-600">/</span>
                         <span>{d.total}</span>
                       </span>
@@ -735,9 +735,9 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
           </div>
 
           {/* ─── MOST FREQUENT QUESTIONS SHELF ──────────────────────────── */}
-          <Card className="p-3 bg-gradient-to-r from-zinc-950 to-[#141210] border border-zinc-800">
+          <Card className="p-3 bg-[#282828] border border-white/[0.08]">
             <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-300 uppercase tracking-wider font-mono mb-2">
-              <Flame size={12} className="text-amber-500" />
+              <Flame size={12} className="text-[#ffa116]" />
               <span>Highest Reported Frequency</span>
             </div>
             <div className="flex flex-col gap-1.5">
@@ -747,11 +747,11 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                 return (
                   <div
                     key={p.slug}
-                    className="flex items-center justify-between p-2 rounded-lg bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 transition-colors gap-2"
+                    className="flex items-center justify-between p-2 rounded-lg bg-[#1a1a1a] border border-white/[0.08] hover:border-white/[0.16] transition-colors gap-2"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       {isSolved ? (
-                        <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                        <CheckCircle2 size={13} className="text-[#00b8a3] shrink-0" />
                       ) : (
                         <Circle size={13} className="text-zinc-600 shrink-0" />
                       )}
@@ -759,7 +759,7 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                         href={`https://leetcode.com/problems/${p.slug}/`}
                         target="_blank"
                         rel="noreferrer"
-                        className={`text-xs truncate font-medium hover:text-[#dfa054] transition-colors ${
+                        className={`text-xs truncate font-medium hover:text-[#ffa116] transition-colors ${
                           isSolved ? "text-zinc-400 line-through" : "text-zinc-200"
                         }`}
                       >
@@ -768,18 +768,18 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                     </div>
                     <div className="flex items-center gap-2 shrink-0 font-mono text-[9px]">
                       {typeof rating === "number" && rating > 0 && (
-                        <span className="px-1.5 py-0.5 rounded bg-zinc-950 text-zinc-300 border border-zinc-800 font-bold">
-                          ★ {Math.round(rating)}
+                        <span className="px-1.5 py-0.5 rounded bg-[#282828] text-zinc-300 border border-white/[0.08] font-bold">
+                          Elo {Math.round(rating)}
                         </span>
                       )}
-                      <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold">
+                      <span className="px-1.5 py-0.5 rounded bg-[#ffa116]/10 text-[#ffa116] border border-[#ffa116]/20 font-bold">
                         {p.frequencyScore}% Freq
                       </span>
                       <a
                         href={`https://leetcode.com/problems/${p.slug}/`}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-zinc-500 hover:text-[#dfa054] p-1"
+                        className="text-zinc-500 hover:text-[#ffa116] p-1"
                       >
                         <ExternalLink size={11} />
                       </a>
@@ -791,7 +791,7 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
           </Card>
 
           {/* ─── FULL INTERACTIVE QUESTION EXPLORER ─────────────────────── */}
-          <div className="flex flex-col gap-2.5 pt-2 border-t border-zinc-800/80">
+          <div className="flex flex-col gap-2.5 pt-2 border-t border-white/[0.08]">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-zinc-200 uppercase font-mono tracking-wider">
                 Question Explorer ({filteredProblems.length})
@@ -806,7 +806,7 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                     setProblemSearch("")
                     setSortBy("freq")
                   }}
-                  className="text-[9px] font-mono text-zinc-500 hover:text-[#dfa054] transition-colors cursor-pointer"
+                  className="text-[9px] font-mono text-zinc-500 hover:text-[#ffa116] transition-colors cursor-pointer"
                 >
                   Reset Filters
                 </button>
@@ -820,13 +820,13 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                 placeholder="Filter problem title..."
                 value={problemSearch}
                 onChange={(e) => setProblemSearch(e.target.value)}
-                className="bg-[#111] text-zinc-200 text-xs px-2.5 py-1.5 rounded-lg border border-zinc-800 focus:border-[#dfa054]/50 focus:outline-none placeholder:text-zinc-600 font-mono"
+                className="bg-[#1a1a1a] text-zinc-200 text-xs px-2.5 py-1.5 rounded-lg border border-white/[0.08] focus:border-[#ffa116] focus:outline-none placeholder:text-zinc-600 font-mono"
               />
 
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
-                className="bg-[#111] text-zinc-300 text-xs px-2 py-1.5 rounded-lg border border-zinc-800 font-mono focus:outline-none cursor-pointer"
+                className="bg-[#1a1a1a] text-zinc-300 text-xs px-2 py-1.5 rounded-lg border border-white/[0.08] font-mono focus:border-[#ffa116] focus:outline-none cursor-pointer"
               >
                 <option value="freq">Sort: Frequency (High → Low)</option>
                 <option value="rating_desc">Sort: ZeroTrac Rating (Hard → Easy)</option>
@@ -852,8 +852,8 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                   onClick={() => setTimeframeFilter(t.id as any)}
                   className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                     timeframeFilter === t.id
-                      ? "bg-[#dfa054] text-zinc-950 font-extrabold shadow-[0_0_10px_rgba(223,160,84,0.3)]"
-                      : "bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800"
+                      ? "bg-[#ffa116] text-[#1a1a1a] font-bold"
+                      : "bg-[#282828] text-zinc-400 hover:text-zinc-200 border border-white/[0.08]"
                   }`}
                 >
                   {t.label}
@@ -869,8 +869,8 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                   onClick={() => setStatusFilter(s)}
                   className={`px-2 py-0.5 rounded transition-all capitalize cursor-pointer ${
                     statusFilter === s
-                      ? "bg-zinc-200 text-zinc-950 font-bold"
-                      : "bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800"
+                      ? "bg-[#333333] text-zinc-100 font-bold border border-white/[0.16]"
+                      : "bg-[#282828] text-zinc-400 hover:text-zinc-200 border border-white/[0.08]"
                   }`}
                 >
                   {s === "all" ? "All Status" : s}
@@ -878,7 +878,7 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
               ))}
 
               {selectedTopic !== "all" && (
-                <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#dfa054]/20 text-[#dfa054] border border-[#dfa054]/40 font-bold">
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#ffa116]/10 text-[#ffa116] border border-[#ffa116]/30 font-bold">
                   <span>{selectedTopic}</span>
                   <button onClick={() => setSelectedTopic("all")} className="cursor-pointer">
                     <X size={10} />
@@ -890,7 +890,7 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
             {/* Question Rows List */}
             <div className="flex flex-col gap-1.5 mt-1">
               {paginatedProblems.length === 0 ? (
-                <div className="p-8 text-center text-zinc-500 text-xs font-mono bg-zinc-950/40 rounded-xl border border-zinc-900">
+                <div className="p-8 text-center text-zinc-500 text-xs font-mono bg-[#282828] rounded-xl border border-white/[0.08]">
                   No questions match the current explorer filters.
                 </div>
               ) : (
@@ -902,31 +902,26 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
 
                   const diffColor =
                     prob.difficulty === "Easy"
-                      ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                      ? "text-[#00b8a3] bg-[#00b8a3]/10 border-[#00b8a3]/20"
                       : prob.difficulty === "Medium"
-                      ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
-                      : "text-red-400 bg-red-500/10 border-red-500/20"
+                      ? "text-[#ffc01e] bg-[#ffc01e]/10 border-[#ffc01e]/20"
+                      : "text-[#ef4743] bg-[#ef4743]/10 border-[#ef4743]/20"
 
-                  const ratingColor =
-                    rating && rating >= 2000
-                      ? "text-rose-400 bg-rose-500/10 border-rose-500/30"
-                      : rating && rating >= 1700
-                      ? "text-amber-300 bg-amber-500/10 border-amber-500/20"
-                      : "text-emerald-300 bg-emerald-500/10 border-emerald-500/20"
+                  const ratingTheme = rating ? rankThemeForRating(rating) : null
 
                   return (
                     <div
                       key={prob.slug}
                       className={`p-2.5 rounded-lg border transition-all flex items-center justify-between gap-3 ${
                         isSolved
-                          ? "bg-zinc-950/50 border-zinc-900 text-zinc-400"
-                          : "bg-[#141414] hover:bg-[#181818] border-zinc-800 text-zinc-200"
+                          ? "bg-[#1a1a1a]/60 border-white/[0.04] text-zinc-400"
+                          : "bg-[#282828] hover:bg-[#333333] border-white/[0.08] text-zinc-200"
                       }`}
                     >
                       {/* Left: Status, Title, Topic & Recency */}
                       <div className="flex items-center gap-2.5 min-w-0">
                         {isSolved ? (
-                          <CheckCircle2 size={15} className="text-emerald-500 shrink-0" />
+                          <CheckCircle2 size={15} className="text-[#00b8a3] shrink-0" />
                         ) : (
                           <Circle size={15} className="text-zinc-600 shrink-0" />
                         )}
@@ -935,7 +930,7 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                             href={`https://leetcode.com/problems/${prob.slug}/`}
                             target="_blank"
                             rel="noreferrer"
-                            className={`text-xs font-semibold hover:text-[#dfa054] transition-colors truncate block ${
+                            className={`text-xs font-semibold hover:text-[#ffa116] transition-colors truncate block ${
                               isSolved ? "line-through text-zinc-500" : "text-zinc-100"
                             }`}
                           >
@@ -944,7 +939,7 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                           <div className="flex items-center gap-1.5 text-[9px] font-mono text-zinc-500 mt-0.5">
                             <span>{prob.topic}</span>
                             <span>·</span>
-                            <span className="text-[#dfa054] font-medium">{prob.timeframeLabel}</span>
+                            <span className="text-[#ffa116] font-medium">{prob.timeframeLabel}</span>
                             <span>·</span>
                             <span className="text-zinc-400">{prob.frequencyScore}% Freq</span>
                           </div>
@@ -956,14 +951,15 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                         {rating ? (
                           <span
                             title={`ZeroTrac Contest Rating: ${rating}`}
-                            className={`px-1.5 py-0.5 rounded border font-bold ${ratingColor}`}
+                            className="px-1.5 py-0.5 rounded border font-bold"
+                            style={{ color: ratingTheme?.color, borderColor: ratingTheme?.border, backgroundColor: ratingTheme?.soft }}
                           >
-                            ★ {rating}
+                            Elo {rating}
                           </span>
                         ) : (
                           <span
                             title="Standard LeetCode Interview Problem (Not from a contest)"
-                            className="px-1.5 py-0.5 rounded bg-zinc-900/60 text-zinc-600 border border-zinc-800/60"
+                            className="px-1.5 py-0.5 rounded bg-[#1a1a1a] text-zinc-500 border border-white/[0.08]"
                           >
                             Standard
                           </span>
@@ -975,7 +971,7 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                           href={`https://leetcode.com/problems/${prob.slug}/`}
                           target="_blank"
                           rel="noreferrer"
-                          className="px-2 py-1 rounded bg-[#dfa054]/10 hover:bg-[#dfa054]/20 text-[#dfa054] border border-[#dfa054]/30 font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                          className="px-2 py-1 rounded bg-[#ffa116]/10 hover:bg-[#ffa116]/20 text-[#ffa116] border border-[#ffa116]/30 font-bold transition-colors flex items-center gap-1 cursor-pointer"
                         >
                           <span>Solve</span>
                           <ExternalLink size={9} />
@@ -989,11 +985,11 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
 
             {/* Problem Pagination Controls */}
             {totalProblemPages > 1 && (
-              <div className="flex items-center justify-between px-2 pt-2 border-t border-zinc-900 font-mono text-xs text-zinc-400">
+              <div className="flex items-center justify-between px-2 pt-2 border-t border-white/[0.08] font-mono text-xs text-zinc-400">
                 <button
                   disabled={problemPage <= 1}
                   onClick={() => setProblemPage((p) => Math.max(1, p - 1))}
-                  className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-zinc-800 text-zinc-300 transition-colors flex items-center gap-1 cursor-pointer"
+                  className="px-2.5 py-1 rounded bg-[#282828] border border-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#333333] text-zinc-300 transition-colors flex items-center gap-1 cursor-pointer"
                 >
                   <ChevronLeft size={12} />
                   <span>Prev</span>
@@ -1004,7 +1000,7 @@ export const CompanyPrepView: React.FC<CompanyPrepViewProps> = ({
                 <button
                   disabled={problemPage >= totalProblemPages}
                   onClick={() => setProblemPage((p) => Math.min(totalProblemPages, p + 1))}
-                  className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-zinc-800 text-zinc-300 transition-colors flex items-center gap-1 cursor-pointer"
+                  className="px-2.5 py-1 rounded bg-[#282828] border border-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#333333] text-zinc-300 transition-colors flex items-center gap-1 cursor-pointer"
                 >
                   <span>Next</span>
                   <ChevronRight size={12} />

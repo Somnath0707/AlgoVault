@@ -17,6 +17,7 @@ public class IntelligenceControllers {
 
     private final PotdService potdService;
     private final ContestAnalyzerService contestService;
+    private final EntrantHubService entrantHubService;
     private final UserContextService userContextService;
 
     @GetMapping("/potd")
@@ -29,5 +30,16 @@ public class IntelligenceControllers {
     public ResponseEntity<List<ContestAnalysisResponse>> getContests(HttpServletRequest request) {
         User user = userContextService.resolveUser(request);
         return ResponseEntity.ok(contestService.getContestHistory(user.getId()));
+    }
+
+    @PostMapping("/contests/predict")
+    public ResponseEntity<ContestPredictionResponse> predictContest(
+            @RequestBody ContestPredictionRequest req,
+            HttpServletRequest request) {
+        User user = userContextService.resolveUser(request);
+        if (req.getUsername() == null || req.getUsername().isBlank()) {
+            req.setUsername(user.getLcUsername());
+        }
+        return ResponseEntity.ok(entrantHubService.predictContest(req));
     }
 }

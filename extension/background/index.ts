@@ -1,4 +1,4 @@
-import { fetchUserProfile, fetchSolvedProblems, fetchAllSubmissions, fetchContestHistory, fetchProblemMetadata, fetchUserStatus, fetchContestQuestions, fetchReplayEvents, fetchUpcomingContests, fetchPastContests } from "../lib/api/leetcode"
+import { fetchUserProfile, fetchSolvedProblems, fetchAllSubmissions, fetchContestHistory, fetchProblemMetadata, fetchUserStatus, fetchContestQuestions, fetchReplayEvents, fetchUpcomingContests, fetchPastContests, fetchLatestAttendedContest } from "../lib/api/leetcode"
 import { getUserSettings, getUsername, setLastSync, setUsername, storage, getGithubPat, getGithubRepo, getGithubBranch, getGithubAutoSync, setGithubAutoSync, getZerotracData, getZerotracLastFetched, setZerotracData, clearGithubAuth } from "../lib/storage"
 import { commitToGithub, batchCommitToGithub, getExtensionForLanguage, fetchUserGithubProfile } from "../lib/api/github"
 import { type LeetCodeRegion } from "../lib/api/entranthub"
@@ -8,7 +8,7 @@ import {
   sendSubmissionResult,
   fetchContests,
   syncLeetcode,
-
+  predictContestBackend,
   fetchZerotracRatingsBackend,
   addToVault
 } from "../lib/api/backend"
@@ -511,6 +511,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
 
+  if (message.action === "get_latest_attended_contest") {
+    fetchLatestAttendedContest()
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }))
+    return true
+  }
+
+  if (message.action === "predict_contest_backend") {
+    predictContestBackend(message.payload)
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }))
+    return true
+  }
+
   if (message.action === "get_contest_questions") {
     fetchContestQuestions(message.payload.contestSlug)
       .then((data) => sendResponse({ ok: true, data }))
@@ -559,22 +573,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true
   }
 
-  if (message.action === "sync_history") {
+  if (message.action === "sync_history" || message.type === "START_SYNC") {
     if (isSyncing) {
       sendResponse({ ok: false, error: "A sync operation is already in progress." })
       return true
     }
     isSyncing = true
     syncAbortController = new AbortController()
-    runSync(message.username, message.startOffset || 0, syncAbortController.signal, Boolean(message.forceFullSync))
-      .then((res) => {
-        isSyncing = false
-        sendResponse(res)
-      })
-      .catch((error) => {
-        isSyncing = false
-        sendResponse({ ok: false, error: error.message })
-      })
+    const targetUserPromise = message.username
+      ? Promise.resolve(message.username)
+      : getUsername()
+
+    targetUserPromise.then((user) => {
+      return runSync(user || undefined, message.startOffset || 0, syncAbortController?.signal, Boolean(message.forceFullSync))
+    }).then((res) => {
+      isSyncing = false
+      sendResponse(res)
+    }).catch((error) => {
+      isSyncing = false
+      sendResponse({ ok: false, error: error.message })
+    })
     return true
   }
 
@@ -713,15 +731,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }).catch(() => {});
         }
 
-        getGithubAutoSync().then((isAutoSync) => {
-          if (isAutoSync) {
-            syncAcceptedSubmissionToGithub(payload, helpType).catch((gitErr) => {
-              console.error("Error during GitHub sync operation:", gitErr);
-            });
-          } else {
-            console.log("[AlgoVault] GitHub Auto-Sync is disabled; skipping automatic solution commit.");
-          }
-        });
+        // GitHub work is optional and must not compete with LeetCode's own
+        // accepted-result rendering or the timer/overlay messages.
+        setTimeout(() => {
+          getGithubAutoSync().then((isAutoSync) => {
+            if (isAutoSync) {
+              syncAcceptedSubmissionToGithub(payload, helpType).catch((gitErr) => {
+                console.error("Error during GitHub sync operation:", gitErr);
+              });
+            }
+          });
+        }, 1_500);
       }
 
       // 4. Send enriched payload to backend
@@ -892,7 +912,15 @@ async function syncAcceptedSubmissionToGithub(payload: any, helpType = "PENDING_
   if (!isAutoSyncEnabled) return
 
   const artifact = await buildGithubArtifact(payload, helpType, sessionData)
-  await storage.set(`algovault.gitSolve.${payload.titleSlug}`, artifact)
+  // Keep only what is needed to rebuild after the optional self-report. The
+  // full artifact includes code and problem HTML, which causes large storage
+  // writes and broadcasts to every open LeetCode tab.
+  await storage.set(`algovault.gitSolve.${payload.titleSlug}`, {
+    payload,
+    sessionData,
+    focusSeconds: artifact.metadata.focusSeconds,
+    savedAt: Date.now()
+  })
 
   let pat = await getGithubPat()
   let repo = await getGithubRepo()
@@ -964,26 +992,11 @@ async function updateGithubHelpReport(report: any) {
   const artifact = await storage.get<any>(`algovault.gitSolve.${report.titleSlug}`)
   if (!artifact?.payload) return
   await syncAcceptedSubmissionToGithub(artifact.payload, report.helpType, {
-    focusSeconds: artifact.metadata?.focusSeconds
+    focusSeconds: artifact.sessionData?.focusSeconds ?? artifact.focusSeconds ?? artifact.metadata?.focusSeconds
   })
 }
 
-async function runSync(username: string, startOffset = 0, signal?: AbortSignal, forceFullSync = false) {
-  if (!username || !username.trim()) {
-    throw new Error("LeetCode username is required")
-  }
-  const normalizedUsername = username.trim()
-  await setUsername(normalizedUsername)
-
-  if (forceFullSync) {
-    syncProblemsCache = null
-    await storage.remove("algovault.latestSyncedSubmissionTimestamp")
-    await storage.remove("algovault.solvedSlugs")
-    await storage.remove("algovault.problem_tags")
-    await storage.remove("algovault.syncHasMore")
-    startOffset = 0
-  }
-
+async function runSync(username?: string, startOffset = 0, signal?: AbortSignal, forceFullSync = false) {
   const updateStatus = (status: string, msg: string, count = 0, subCount = 0) => {
     chrome.storage.local.set({ syncStatus: { status, message: msg, count, subCount } })
   }
@@ -992,10 +1005,24 @@ async function runSync(username: string, startOffset = 0, signal?: AbortSignal, 
     if (signal?.aborted) throw new Error("Sync stopped by user");
     const isHistoryBackfill = startOffset > 0 && !forceFullSync
     updateStatus("RUNNING", isHistoryBackfill ? `Syncing older history from submission ${startOffset + 1}...` : "Verifying LeetCode session...")
+    
+    // Auto-detect currently logged in LeetCode user
     const statusRes = await fetchUserStatus()
     const sessionUser = statusRes.data?.userStatus?.username
-    if (!sessionUser || sessionUser.toLowerCase() !== normalizedUsername.toLowerCase()) {
-      throw new Error(`You can only sync the account currently logged into LeetCode.com (Logged in as: ${sessionUser || 'Guest'})`)
+    if (!sessionUser) {
+      throw new Error("Please log in to LeetCode in your browser before syncing.")
+    }
+
+    const normalizedUsername = sessionUser.trim()
+    await setUsername(normalizedUsername)
+
+    if (forceFullSync) {
+      syncProblemsCache = null
+      await storage.remove("algovault.latestSyncedSubmissionTimestamp")
+      await storage.remove("algovault.solvedSlugs")
+      await storage.remove("algovault.problem_tags")
+      await storage.remove("algovault.syncHasMore")
+      startOffset = 0
     }
 
     updateStatus("RUNNING", "Fetching user profile...")
@@ -1029,40 +1056,63 @@ async function runSync(username: string, startOffset = 0, signal?: AbortSignal, 
 
       const slugs = problems.map((problem: any) => problem.titleSlug).filter(Boolean)
       const tagsMap: Record<string, string[]> = {}
+      const metaMap: Record<string, any> = {}
       for (const p of problems) {
-        if (p?.titleSlug && Array.isArray(p.topicTags)) {
+        if (p?.titleSlug) {
           const clean = String(p.titleSlug).toLowerCase().trim()
-          const tags = p.topicTags
-            .map((t: any) => (typeof t === "string" ? t : t?.name))
-            .filter(Boolean)
+          const tags = Array.isArray(p.topicTags)
+            ? p.topicTags.map((t: any) => (typeof t === "string" ? t : t?.slug || t?.name)).filter(Boolean)
+            : []
           if (tags.length > 0) tagsMap[clean] = tags
+          metaMap[clean] = {
+            slug: p.titleSlug,
+            difficulty: p.difficulty || "Medium",
+            topics: tags
+          }
         }
       }
 
-      // Store lightweight slug array (~30KB) and compact tag dictionary (~40KB) - NEVER store full rawProblems!
+      // Store lightweight slug array (~30KB), tag dictionary, and problem metadata
       await Promise.all([
         storage.set("algovault.solvedSlugs", {
           fetchedAt: Date.now(),
           slugs
         }),
-        storage.set("algovault.problem_tags", tagsMap)
+        storage.set("algovault.problem_tags", tagsMap),
+        storage.set("algovault.problem_metadata", metaMap),
+        chrome.storage.local.set({ problemMetadata: metaMap, "algovault.problem_metadata": metaMap })
       ])
       syncProblemsCache = { fetchedAt: Date.now(), problems }
     }
 
-    updateStatus("RUNNING", "Fetching submissions...", problems.length, 0)
+    // First check if leetStats or AlgoVault already cached submissions in this browser
+    let existingStorageSubs: any[] = []
+    try {
+      const storageData = await chrome.storage.local.get(["leetStatsUserData", "algovault.submissions", "problemMetadata", "algovault.problem_metadata"])
+      const lsSubs = storageData?.["leetStatsUserData"]?.[normalizedUsername]?.submissions
+      const agSubs = storageData?.["algovault.submissions"]
+      if (Array.isArray(agSubs) && agSubs.length > 0) {
+        existingStorageSubs = agSubs
+      } else if (Array.isArray(lsSubs) && lsSubs.length > 0) {
+        existingStorageSubs = lsSubs
+      }
+      if (storageData?.problemMetadata || storageData?.["algovault.problem_metadata"]) {
+        const mergedMeta = { ...(storageData?.problemMetadata || {}), ...(storageData?.["algovault.problem_metadata"] || {}) }
+        await storage.set("algovault.problem_metadata", mergedMeta)
+      }
+    } catch {}
+
+    updateStatus("RUNNING", "Fetching submissions from LeetCode...", problems.length, 0)
 
     const rawSubs: any[] = []
     let offset = startOffset
     const limit = 20
     let hasNext = true
-    // LeetCode exposes submission pages in small chunks. We deliberately
-    // collect at most 400 records before one backend upload so history syncs
-    // are rate-friendly and resumable without losing the pagination cursor.
-    const maxSubmissionsToSync = 400
+    const maxSubmissionsToSync = 5000 // Allow full history crawl up to 5000 records
 
-    // Read the timestamp of the last successfully synced submission
-    const latestSyncedTs = forceFullSync ? 0 : ((await storage.get<number>("algovault.latestSyncedSubmissionTimestamp")) || 0)
+    // CRITICAL FIX: If existingStorageSubs is empty, mustFetchAll is TRUE so we don't bail out prematurely
+    const mustFetchAll = forceFullSync || isHistoryBackfill || existingStorageSubs.length === 0
+    const latestSyncedTs = mustFetchAll ? 0 : ((await storage.get<number>("algovault.latestSyncedSubmissionTimestamp")) || 0)
     let foundAlreadySynced = false
 
     while (hasNext && rawSubs.length < maxSubmissionsToSync && !foundAlreadySynced) {
@@ -1070,16 +1120,11 @@ async function runSync(username: string, startOffset = 0, signal?: AbortSignal, 
       const subsRes = await fetchSubmissionPage(offset, limit)
       const pageSubs = subsRes.submissions_dump || []
       if (pageSubs.length === 0) {
-        if (subsRes.has_next) throw new Error("LeetCode returned an empty submission page before history ended")
         break
       }
       
       for (const sub of pageSubs) {
         const subTs = Number(sub.timestamp) || 0
-        // The timestamp checkpoint belongs only to a normal incremental
-        // refresh. Applying it when resuming older pages makes every older
-        // submission look "already synced" and stops a full history backfill
-        // after its first 400-record batch.
         if (!isHistoryBackfill && latestSyncedTs > 0 && subTs <= latestSyncedTs) {
           foundAlreadySynced = true
           break
@@ -1095,10 +1140,29 @@ async function runSync(username: string, startOffset = 0, signal?: AbortSignal, 
       hasNext = Boolean(subsRes.has_next)
       offset += pageSubs.length
       
-      updateStatus("RUNNING", "Fetching submissions...", problems.length, startOffset + rawSubs.length)
+      updateStatus("RUNNING", `Fetching submissions (${startOffset + rawSubs.length} retrieved)...`, problems.length, startOffset + rawSubs.length)
       
-      await new Promise((resolve) => setTimeout(resolve, 300))
+      await new Promise((resolve) => setTimeout(resolve, 150))
     }
+
+    // Merge new fetched submissions with existing ones
+    const combinedSubsMap = new Map<string, any>()
+    for (const s of existingStorageSubs) {
+      if (s?.id) combinedSubsMap.set(String(s.id), s)
+    }
+    for (const s of rawSubs) {
+      if (s?.id) combinedSubsMap.set(String(s.id), s)
+    }
+    const allStoredSubs = Array.from(combinedSubsMap.values())
+    
+    // Persist all submissions into algovault.submissions and also leetStats format
+    await storage.set("algovault.submissions", allStoredSubs)
+    await chrome.storage.local.set({
+      "algovault.submissions": allStoredSubs,
+      leetStatsUserData: {
+        [normalizedUsername]: { submissions: allStoredSubs }
+      }
+    })
 
     // Save status to chrome storage for settings view
     const hasMoreHistory = hasNext && !foundAlreadySynced
@@ -1108,17 +1172,15 @@ async function runSync(username: string, startOffset = 0, signal?: AbortSignal, 
       username: normalizedUsername
     })
 
-    const uniqueRawSubs = Array.from(new Map(rawSubs.map(s => [s.id, s])).values())
-
-    const submissions = uniqueRawSubs.map((s: any) => ({
+    const submissions = allStoredSubs.map((s: any) => ({
       id: String(s.id),
       title: s.title,
-      titleSlug: s.title_slug,
-      statusDisplay: s.status_display,
+      titleSlug: s.title_slug || s.titleSlug,
+      statusDisplay: s.status_display || s.statusDisplay,
       lang: s.lang,
       timestamp: String(s.timestamp),
-      runtime: s.runtime,
-      memory: s.memory
+      runtime: s.runtime || "",
+      memory: s.memory || ""
     }))
 
     const knownSlugs = new Set(problems.map((problem) => problem.titleSlug))
@@ -1135,6 +1197,23 @@ async function runSync(username: string, startOffset = 0, signal?: AbortSignal, 
       await new Promise((resolve) => setTimeout(resolve, 150))
     }
 
+    const currentMetaMap: Record<string, any> = (await storage.get("algovault.problem_metadata")) || {}
+    for (const p of problems) {
+      if (p?.titleSlug) {
+        const clean = String(p.titleSlug).toLowerCase().trim()
+        const topics = Array.isArray(p.topicTags)
+          ? p.topicTags.map((t: any) => (typeof t === "string" ? t : t?.slug || t?.name)).filter(Boolean)
+          : []
+        currentMetaMap[clean] = {
+          slug: clean,
+          difficulty: p.difficulty || "Medium",
+          topics
+        }
+      }
+    }
+    await storage.set("algovault.problem_metadata", currentMetaMap)
+    await chrome.storage.local.set({ problemMetadata: currentMetaMap, "algovault.problem_metadata": currentMetaMap })
+
     updateStatus("RUNNING", "Fetching contest history...", problems.length, startOffset + submissions.length)
     const contestRes = await fetchContestHistory(normalizedUsername)
     const contestHistory = contestRes.data?.userContestRankingHistory || []
@@ -1145,8 +1224,8 @@ async function runSync(username: string, startOffset = 0, signal?: AbortSignal, 
     await syncLeetcode({
       username: normalizedUsername,
       profile: profile.profile,
-      solvedProblems: problems,
-      submissions,
+      solvedProblems: problems.slice(0, 10000),
+      submissions: submissions.slice(0, 20000),
       contestHistory,
       contestRanking
     })

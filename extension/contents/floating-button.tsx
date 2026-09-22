@@ -107,16 +107,16 @@ const FloatingButton = () => {
         // Collapsed Pill Button
         <button
           onClick={handleOpenPanel}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-full elevated-card text-xs text-zinc-300 font-mono font-medium hover:border-zinc-700 transition-all border ${
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs text-zinc-300 font-mono font-medium hover:border-white/[0.2] transition-all border ${
             clocks.isPaused
-              ? "border-amber-500/60 bg-amber-500/10 text-amber-300"
+              ? "border-[#ffc01e]/60 bg-[#ffc01e]/10 text-[#ffc01e]"
               : isZenith 
-                ? (activeMinutes >= 25 ? 'border-amber-500/80 shadow-[0_0_20px_rgba(245,158,11,0.6)] animate-pulse' : 'border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.35)]')
-                : 'border-zinc-800 bg-zinc-950/90'
+                ? (activeMinutes >= 25 ? 'border-[#ef4743]/80 text-[#ef4743]' : 'border-[#00b8a3]/50 text-[#00b8a3]')
+                : 'border-white/[0.12] bg-[#282828] hover:bg-[#333333]'
           } shadow-lg cursor-pointer`}
           title={session ? `Active: ${activeMinutes}m ${activeRem}s | Elapsed: ${elapsedMinutes}m ${elapsedRem}s` : "AlgoVault Practice Engine"}
         >
-          <span className={`${clocks.isPaused ? 'text-amber-400' : isZenith ? (activeMinutes >= 25 ? 'text-amber-400' : 'text-cyan-400') : 'text-[#dfa054]'} text-xs`}>
+          <span className={`${clocks.isPaused ? 'text-[#ffc01e]' : isZenith ? (activeMinutes >= 25 ? 'text-[#ef4743]' : 'text-[#00b8a3]') : 'text-[#ffa116]'} text-xs`}>
             {clocks.isPaused ? '⏸️' : isZenith ? `⚔️ ${formattedGrade}` : '⚡'}
           </span>
           {session ? (
@@ -130,26 +130,25 @@ const FloatingButton = () => {
         </button>
       ) : (
         // Expanded Command Surface Layout
-        <div className={`w-[210px] rounded-xl border bg-zinc-950/95 backdrop-blur-xl p-3 shadow-2xl transition-all duration-200 ${
-          isZenith ? 'border-cyan-500/35 shadow-[0_0_15px_rgba(6,182,212,0.2)]' : 'border-zinc-800/80'
+        <div className={`w-[210px] rounded-xl border bg-[#282828] p-3 shadow-2xl transition-all duration-200 ${
+          isZenith ? 'border-[#00b8a3]/40' : 'border-white/[0.12]'
         }`}>
-          <div className="flex items-center justify-between border-b border-zinc-900 pb-2 mb-2">
+          <div className="flex items-center justify-between border-b border-white/[0.08] pb-2 mb-2">
             <div className="flex items-center gap-1.5">
-              <span className="relative flex h-1.5 w-1.5 shrink-0">
-                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${clocks.isPaused ? 'bg-amber-400' : isZenith ? 'bg-cyan-400' : session ? 'bg-[#dfa054]' : 'bg-zinc-600'} opacity-75`}></span>
-                <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${clocks.isPaused ? 'bg-amber-500' : isZenith ? 'bg-cyan-500' : session ? 'bg-[#dfa054]' : 'bg-zinc-700'}`}></span>
+              <span className="relative flex h-1.5 w-1.5 shrink-0 items-center justify-center">
+                <span className={`inline-flex rounded-full h-1.5 w-1.5 ${clocks.isPaused ? 'bg-[#ffc01e]' : isZenith ? 'bg-[#00b8a3]' : session ? 'bg-[#ffa116]' : 'bg-zinc-600'}`}></span>
               </span>
               <span className="font-bold text-[10px] text-zinc-300 tracking-wider font-mono">
                 {clocks.isPaused ? "AV:PAUSED" : isZenith ? "AV:ZENITH" : "AV:SOLVING"}
               </span>
             </div>
             <div className="flex items-center gap-1">
-              <span className={`text-xs font-mono font-semibold tabular-nums ${clocks.isPaused ? 'text-amber-400' : isZenith ? 'text-cyan-400' : 'text-[#dfa054]'}`}>
+              <span className={`text-xs font-mono font-semibold tabular-nums ${clocks.isPaused ? 'text-[#ffc01e]' : isZenith ? 'text-[#00b8a3]' : 'text-[#ffa116]'}`}>
                 {activeMinutes}:{activeRem}
               </span>
               <button
                 onClick={togglePauseTimer}
-                className="ml-1 px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-900 text-[9px] font-mono font-bold text-zinc-300 hover:text-white cursor-pointer"
+                className="ml-1 px-1.5 py-0.5 rounded border border-white/[0.08] bg-[#1a1a1a] text-[9px] font-mono font-bold text-zinc-300 hover:text-white cursor-pointer"
                 title={clocks.isPaused ? "Resume Timer" : "Pause Timer"}
               >
                 {clocks.isPaused ? "▶️" : "⏸️"}
@@ -158,15 +157,15 @@ const FloatingButton = () => {
           </div>
 
           <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono text-zinc-400 mb-2">
-            <div className="flex flex-col items-center bg-zinc-900/40 border border-zinc-900 py-1.5 rounded">
+            <div className="flex flex-col items-center bg-[#1a1a1a] border border-white/[0.08] py-1.5 rounded">
               <span className="text-zinc-500 text-[8px] uppercase tracking-wider font-semibold">
                 Active time
               </span>
-              <span className="font-bold text-emerald-400 mt-0.5 tabular-nums">
+              <span className="font-bold text-[#00b8a3] mt-0.5 tabular-nums">
                 {activeMinutes}m {activeRem}s
               </span>
             </div>
-            <div className="flex flex-col items-center bg-zinc-900/40 border border-zinc-900 py-1.5 rounded">
+            <div className="flex flex-col items-center bg-[#1a1a1a] border border-white/[0.08] py-1.5 rounded">
               <span className="text-zinc-500 text-[8px] uppercase tracking-wider font-semibold">
                 {clocks.isSolved ? "Elapsed to AC" : "Elapsed time"}
               </span>
@@ -177,15 +176,15 @@ const FloatingButton = () => {
           </div>
 
           <div className="grid grid-cols-3 gap-1.5 text-[10px] font-mono text-zinc-400 mb-2.5">
-            <div className="flex flex-col items-center bg-zinc-900/30 border border-zinc-900 py-1 rounded">
+            <div className="flex flex-col items-center bg-[#1a1a1a] border border-white/[0.08] py-1 rounded">
               <span className="text-zinc-500 text-[8px] uppercase tracking-wider font-semibold">
                 {isZenith ? "Grade" : "Focus"}
               </span>
-              <span className={`font-bold mt-0.5 ${isZenith ? 'text-cyan-400' : 'text-zinc-200'}`}>
+              <span className={`font-bold mt-0.5 ${isZenith ? 'text-[#00b8a3]' : 'text-zinc-200'}`}>
                 {isZenith ? formattedGrade : `${clocks.focusScore}%`}
               </span>
             </div>
-            <div className="flex flex-col items-center bg-zinc-900/30 border border-zinc-900 py-1 rounded">
+            <div className="flex flex-col items-center bg-[#1a1a1a] border border-white/[0.08] py-1 rounded">
               <span className="text-zinc-500 text-[8px] uppercase tracking-wider font-semibold">
                 Tabs
               </span>
@@ -193,7 +192,7 @@ const FloatingButton = () => {
                 {session?.tabs ?? 0}
               </span>
             </div>
-            <div className="flex flex-col items-center bg-zinc-900/30 border border-zinc-900 py-1 rounded">
+            <div className="flex flex-col items-center bg-[#1a1a1a] border border-white/[0.08] py-1 rounded">
               <span className="text-zinc-500 text-[8px] uppercase tracking-wider font-semibold">
                 Paste
               </span>
@@ -215,7 +214,7 @@ const FloatingButton = () => {
           {session && !clocks.isSolved && (
             <button
               onClick={handleMarkSolved}
-              className="w-full mb-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold text-[10px] py-1.5 rounded transition-all text-center tracking-wider uppercase shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
+              className="w-full mb-1.5 bg-[#00b8a3]/20 hover:bg-[#00b8a3]/30 text-[#00b8a3] border border-[#00b8a3]/40 font-bold text-[10px] py-1.5 rounded transition-all text-center tracking-wider uppercase shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
             >
               <span>✓</span> Mark Solved & Log Time
             </button>
@@ -224,14 +223,14 @@ const FloatingButton = () => {
           {isZenith ? (
             <button
               onClick={handleAbandonZenith}
-              className="w-full bg-red-950/80 hover:bg-red-900/80 text-red-400 border border-red-800/40 font-bold text-[10px] py-1.5 rounded transition-all text-center tracking-wider uppercase shadow-sm cursor-pointer"
+              className="w-full bg-[#ef4743]/20 hover:bg-[#ef4743]/30 text-[#ef4743] border border-[#ef4743]/40 font-bold text-[10px] py-1.5 rounded transition-all text-center tracking-wider uppercase shadow-sm cursor-pointer"
             >
               Abandon Quest
             </button>
           ) : (
             <button
               onClick={handleOpenPanel}
-              className="w-full bg-[#dfa054] hover:bg-[#eab308] text-zinc-950 font-bold text-[10px] py-1.5 rounded transition-all text-center tracking-wider uppercase shadow-sm cursor-pointer"
+              className="w-full bg-[#ffa116] hover:bg-[#ffa116]/90 text-zinc-950 font-bold text-[10px] py-1.5 rounded transition-all text-center tracking-wider uppercase shadow-sm cursor-pointer"
             >
               Open Dashboard
             </button>

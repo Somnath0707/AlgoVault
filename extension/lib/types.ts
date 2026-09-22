@@ -40,6 +40,29 @@ export interface DashboardData {
     difficulty?: string;
     solvedAt: string;
   }>;
+  legacy?: {
+    milestones: Array<{
+      id: string;
+      type: "submission" | "problem" | "easy" | "medium" | "hard";
+      label: string;
+      date: string;
+      detail: string;
+      slug?: string;
+    }>;
+    records: {
+      oneShotSolves: number;
+      longestStreakDays: number;
+      longestBreakDays: number;
+      busiestDaySubmissions: number;
+      busiestDay?: string;
+      bestDaySolves: number;
+      bestDay?: string;
+      bestMonthSolves: number;
+      bestMonth?: string;
+      bestYearSolves: number;
+      bestYear?: string;
+    };
+  };
 }
 
 export interface HeatmapBucket {

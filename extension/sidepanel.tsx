@@ -1,6 +1,6 @@
 import "~style.css"
 import { useEffect, useState, useMemo } from "react"
-import { Bolt, CircleX, Settings2, Star, Bug, Github } from "lucide-react"
+import { CircleX, Settings2, Star } from "lucide-react"
 import { TabBar, type Tab } from "./components/ui/TabBar"
 import { Dashboard } from "./components/sidepanel/Dashboard"
 import { Heatmap } from "./components/sidepanel/Heatmap"
@@ -57,59 +57,49 @@ export default function SidePanel() {
   }
 
   return (
-    <div className="min-h-screen bg-av-bg-primary text-zinc-300 p-4 flex flex-col justify-between overflow-y-auto overflow-x-hidden font-sans selection:bg-amber-400/20">
+    <div className="min-h-screen bg-[#1a1a1a] text-zinc-200 p-4 overflow-y-auto overflow-x-hidden font-sans selection:bg-white/10">
       <div>
-        {/* ─── CLEAN HEADER ──────────────────────────────────── */}
-        <header className="flex items-center justify-between mb-4 pb-3 border-b border-zinc-800/60">
+        {/* ─── LEETCODE-NATIVE HEADER ────────────────────────── */}
+        <header className="flex items-center justify-between mb-3 pb-3 border-b border-white/[0.08]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[#dfa054] shadow-sm">
-              <Bolt size={15} fill="currentColor" />
+            <div className="w-8 h-8 overflow-hidden rounded-lg border border-emerald-400/20 bg-[#202020] shadow-sm">
+              <img src={chrome.runtime.getURL("assets/logo.png")} alt="AlgoVault" className="h-full w-full object-cover" />
             </div>
             <div>
-              <div className="flex items-center gap-1.5">
-                <h1 className="text-sm font-semibold leading-none text-zinc-100 font-sans">
-                  AlgoVault
-                </h1>
-                <span className="text-[8px] font-mono text-zinc-500">v0.1</span>
-              </div>
-              <p className="text-[10px] text-zinc-500 font-mono mt-0.5">@{username || "Guest"}</p>
+              <h1 className="text-sm font-semibold leading-none text-white font-sans">AlgoVault</h1>
+              <p className="text-[10px] text-zinc-500 font-mono mt-0.5">LeetCode workspace · @{username || "Guest"}</p>
             </div>
           </div>
           
           <div className="flex items-center gap-1.5">
-            {/* Minimal Subtle Star Icon */}
+            {/* Minimal Star Icon */}
             <a
               href={COMMUNITY_CONFIG.STAR_URL}
               target="_blank"
               rel="noreferrer"
               title="Star on GitHub"
-              className="p-1.5 text-zinc-500 hover:text-amber-400 hover:bg-zinc-900 rounded-md transition-colors"
+              className="p-1.5 text-zinc-400 hover:text-[#ffa116] hover:bg-[#282828] rounded-md transition-colors"
             >
               <Star size={14} />
             </a>
 
             {/* Session Indicator */}
             {session ? (
-              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-emerald-500/20 bg-emerald-500/[0.05] text-[9px] text-emerald-400 font-mono">
-                {session.st === "RUNNING" && (
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
-                  </span>
-                )}
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-white/[0.08] bg-[#282828] text-[10px] text-zinc-300 font-mono">
+                <span className={`h-1.5 w-1.5 rounded-full ${session.st === "RUNNING" ? "bg-[#00b8a3]" : "bg-zinc-500"}`} />
                 <span>{session.st === "RUNNING" ? "ACTIVE" : session.st}</span>
-                <span className="text-emerald-500/40">|</span>
-                <span className="tabular-nums">{clocks.focusScore ?? 100}%</span>
+                <span className="text-zinc-600">|</span>
+                <span className="tabular-nums text-white font-medium">{clocks.focusScore ?? 100}%</span>
               </div>
             ) : (
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-zinc-800 bg-zinc-900/40 text-[9px] text-zinc-500 font-mono">
-                <Settings2 size={9} /> Ready
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-white/[0.08] bg-[#282828] text-[10px] text-zinc-400 font-mono">
+                <Settings2 size={11} className="text-zinc-500" /> Ready
               </div>
             )}
             
             <button 
               onClick={() => window.close()} 
-              className="p-1.5 hover:bg-zinc-900 rounded-md transition-colors text-zinc-500 hover:text-zinc-300 ml-0.5"
+              className="p-1.5 hover:bg-[#282828] rounded-md transition-colors text-zinc-400 hover:text-white ml-0.5"
               title="Close Sidebar"
             >
               <CircleX size={15} />
@@ -145,48 +135,6 @@ export default function SidePanel() {
         </div>
       </div>
 
-      {/* ─── SUBTLE & QUIET FOOTER ──────────────────────────── */}
-      <footer className="mt-8 pt-3.5 border-t border-zinc-900/90 flex items-center justify-between text-[10px] text-zinc-600 font-mono select-none">
-        <div>
-          <span>Made with joy by </span>
-          <a
-            href={COMMUNITY_CONFIG.AUTHOR_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="text-zinc-500 hover:text-zinc-300 transition-colors"
-          >
-            {COMMUNITY_CONFIG.AUTHOR_HANDLE}
-          </a>
-        </div>
-        <div className="flex items-center gap-2.5 text-zinc-600">
-          <a
-            href={COMMUNITY_CONFIG.STAR_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="hover:text-amber-400 transition-colors flex items-center gap-1"
-          >
-            <Star size={10} /> Star
-          </a>
-          <span>•</span>
-          <a
-            href={COMMUNITY_CONFIG.ISSUES_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="hover:text-zinc-400 transition-colors"
-          >
-            Issues
-          </a>
-          <span>•</span>
-          <a
-            href={COMMUNITY_CONFIG.REPO_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="hover:text-zinc-400 transition-colors"
-          >
-            GitHub
-          </a>
-        </div>
-      </footer>
     </div>
   )
 }

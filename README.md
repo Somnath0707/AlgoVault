@@ -388,7 +388,7 @@ Key backend environment variables configured in `.env`:
 | `JWT_SECRET` | Secret key for signing backend JWTs | *(required, min 32 chars)* |
 | `GITHUB_CLIENT_ID` | GitHub OAuth App Client ID | *(optional, for OAuth flow)* |
 | `GITHUB_CLIENT_SECRET` | GitHub OAuth App Client Secret | *(optional, for OAuth flow)* |
-| `CORS_ALLOWED_ORIGINS` | Extension origin allowed to call backend | `chrome-extension://*` |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated extension origins allowed to call backend | `chrome-extension://nglebofiomebgndkkdecnmolafjdphhf` |
 
 ---
 

@@ -14,9 +14,9 @@ public class SyncLeetcodeRequest {
     @Valid
     private ProfileInfo profile;
 
-    @Size(max = 5000)
+    @Size(max = 10000)
     private List<@jakarta.validation.Valid ProblemInfo> solvedProblems;
-    @Size(max = 500)
+    @Size(max = 20000)
     private List<@jakarta.validation.Valid SubmissionInfo> submissions;
 
     @Valid

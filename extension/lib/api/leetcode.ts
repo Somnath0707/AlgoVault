@@ -1,13 +1,26 @@
 import { LEETCODE_GRAPHQL_URL } from "../constants"
 
 export const fetchGraphQL = async (query: string, variables: any = {}) => {
+  let csrfToken = ""
+  try {
+    if (typeof chrome !== "undefined" && chrome?.cookies) {
+      const cookie = await chrome.cookies.get({ url: "https://leetcode.com", name: "csrftoken" })
+      if (cookie?.value) csrfToken = cookie.value
+    }
+  } catch {}
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Origin': 'https://leetcode.com',
+    'Referer': 'https://leetcode.com/',
+  }
+  if (csrfToken) {
+    headers['x-csrftoken'] = csrfToken
+  }
+
   const response = await fetch(LEETCODE_GRAPHQL_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Origin': 'https://leetcode.com',
-      'Referer': 'https://leetcode.com/',
-    },
+    headers,
     credentials: 'include',
     body: JSON.stringify({ query, variables }),
   });
@@ -105,26 +118,95 @@ export const fetchProblemMetadata = async (titleSlugs: string[]) => {
   return Object.values(response.data || {}).filter(Boolean);
 };
 
-export const fetchAllSubmissions = async (offset: number, limit: number) => {
-  // LeetCode REST API requires CSRF token in headers (unlike GraphQL which is more lenient)
-  const cookie = await chrome.cookies.get({ url: "https://leetcode.com", name: "csrftoken" });
-  const csrfToken = cookie?.value || "";
-  const url = `https://leetcode.com/api/submissions/?offset=${offset}&limit=${limit}`;
-  const response = await fetch(url, {
-    method: 'GET',
-    credentials: 'include',
-    headers: {
-      'X-CSRFToken': csrfToken,
-      'Referer': 'https://leetcode.com/',
-    },
-  });
-  
-  if (!response.ok) {
-    throw new Error(`LeetCode API error: ${response.status} ${response.statusText}`);
+export const getStatusDisplay = (statusCode: number): string => {
+  switch (statusCode) {
+    case 10: return "Accepted"
+    case 11: return "Wrong Answer"
+    case 12: return "Memory Limit Exceeded"
+    case 14: return "Time Limit Exceeded"
+    case 20: return "Compile Error"
+    default: return "Runtime Error"
   }
-  
-  return response.json();
-};
+}
+
+export const fetchTotalAcceptedSubmissions = async (username: string): Promise<number> => {
+  const query = `
+    query userSubmissions($username: String!) {
+      matchedUser(username: $username) {
+        submitStatsGlobal {
+          acSubmissionNum {
+            difficulty
+            submissions
+          }
+        }
+      }
+    }
+  `
+  try {
+    const res = await fetchGraphQL(query, { username })
+    const allStats = res.data?.matchedUser?.submitStatsGlobal?.acSubmissionNum?.find(
+      (s: any) => s.difficulty === "All"
+    )
+    return allStats ? allStats.submissions : 0
+  } catch {
+    return 0
+  }
+}
+
+export const fetchSubmissionsGraphQL = async (offset: number, limit: number = 20) => {
+  const query = `
+    query submissionList($offset: Int!, $limit: Int!) {
+      submissionList(offset: $offset, limit: $limit) {
+        hasNext
+        submissions {
+          id
+          title
+          titleSlug
+          status
+          lang
+          timestamp
+        }
+      }
+    }
+  `
+  const res = await fetchGraphQL(query, { offset, limit })
+  return res.data?.submissionList || { hasNext: false, submissions: [] }
+}
+
+export const fetchAllSubmissions = async (offset: number, limit: number) => {
+  try {
+    const data = await fetchSubmissionsGraphQL(offset, limit)
+    const submissions_dump = (data.submissions || []).map((s: any) => ({
+      id: s.id,
+      title: s.title,
+      title_slug: s.titleSlug,
+      status_display: getStatusDisplay(s.status),
+      lang: s.lang,
+      timestamp: s.timestamp
+    }))
+    return {
+      has_next: Boolean(data.hasNext),
+      submissions_dump
+    }
+  } catch (err) {
+    // Fallback to REST endpoint if GraphQL fails
+    try {
+      const cookie = await chrome.cookies.get({ url: "https://leetcode.com", name: "csrftoken" })
+      const csrfToken = cookie?.value || ""
+      const url = `https://leetcode.com/api/submissions/?offset=${offset}&limit=${limit}`
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'X-CSRFToken': csrfToken,
+          'Referer': 'https://leetcode.com/',
+        },
+      })
+      if (response.ok) return await response.json()
+    } catch {}
+    throw err
+  }
+}
 
 export const fetchContestHistory = async (username: string) => {
   const query = `
@@ -344,3 +426,42 @@ export const fetchPastContests = async (pageNo = 1, numPerPage = 20) => {
     url: `https://leetcode.com/contest/${c.titleSlug}`
   }));
 };
+
+export interface LatestAttendedContest {
+  titleSlug: string
+  title: string
+  startTime: number
+  finishTime: number
+  solved: number
+  ranking: number
+  totalQuestions: number
+}
+
+export const fetchLatestAttendedContest = async (): Promise<LatestAttendedContest | null> => {
+  const query = `
+    query contestV2MyContests($skip: Int!, $limit: Int!, $isVirtual: Boolean) {
+      contestV2MyContests(skip: $skip, limit: $limit, isVirtual: $isVirtual) {
+        contests {
+          titleSlug
+          title
+          startTime
+          finishTime
+          solved
+          ranking
+          totalQuestions
+        }
+      }
+    }
+  `;
+  try {
+    const res = await fetchGraphQL(query, { skip: 0, limit: 1, isVirtual: false });
+    const list = res.data?.contestV2MyContests?.contests || [];
+    if (list.length > 0 && list[0]?.titleSlug) {
+      return list[0] as LatestAttendedContest;
+    }
+  } catch (err) {
+    console.warn("Failed to fetch latest attended contest from LeetCode GraphQL:", err);
+  }
+  return null;
+};
+

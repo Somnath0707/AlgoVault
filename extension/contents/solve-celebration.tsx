@@ -73,7 +73,7 @@ const THEMES: Record<string, ThemeAssets> = {
       defeat: "YOU DIED"
     },
     titleColor: {
-      victory: "text-[#dfa054] drop-shadow-[0_2px_10px_rgba(223,160,84,0.4)]",
+      victory: "text-[#ffa116]",
       defeat: "text-red-500 drop-shadow-[0_2px_10px_rgba(220,38,38,0.4)]"
     },
     subColor: {
@@ -363,20 +363,20 @@ export default function SolveCelebration() {
                   isShowingRef.current = false
                 }, 300)
               }}
-              className="text-[9px] text-zinc-500 font-mono hover:text-[#dfa054] transition-colors uppercase tracking-widest outline-none cursor-pointer"
+              className="text-[9px] text-zinc-500 font-mono hover:text-[#ffa116] transition-colors uppercase tracking-widest outline-none cursor-pointer"
             >
               [ Click anywhere or press ESC to dismiss ]
             </button>
           </>
         ) : (
-          <div className="bg-zinc-950 border border-[#dfa054]/50 shadow-[0_0_40px_rgba(223,160,84,0.2)] p-7 rounded-xl w-[440px]">
-            <h1 className="text-2xl text-[#dfa054] font-serif font-bold mb-3 tracking-widest uppercase">Zenith Quest Complete</h1>
+          <div className="bg-[#282828] border border-white/[0.08] p-7 rounded-xl w-[440px] shadow-2xl">
+            <h1 className="text-2xl text-[#ffa116] font-serif font-bold mb-3 tracking-widest uppercase">Zenith Quest Complete</h1>
             <p className="text-zinc-300 text-xs mb-5 font-mono leading-relaxed">What was the key insight that unlocked this problem? Formulate it clearly to encode it into your long-term memory.</p>
             <textarea 
               autoFocus
               value={insightText}
               onChange={(e) => setInsightText(e.target.value)}
-              className="w-full h-24 bg-zinc-900 border border-zinc-700 rounded-lg p-3 text-zinc-200 focus:outline-none focus:border-[#dfa054] transition-all mb-4 text-xs font-mono resize-none"
+              className="w-full h-24 bg-[#1a1a1a] border border-white/[0.08] rounded-lg p-3 text-zinc-200 focus:outline-none focus:border-[#ffa116] transition-all mb-4 text-xs font-mono resize-none"
               placeholder="The key trick was realizing that..."
             />
             <button 
@@ -396,7 +396,7 @@ export default function SolveCelebration() {
                   }, 300);
                 });
               }}
-              className="w-full bg-[#dfa054]/15 hover:bg-[#dfa054]/25 text-[#dfa054] border border-[#dfa054]/40 py-2.5 rounded-lg font-bold tracking-widest text-xs uppercase transition-all shadow-md cursor-pointer"
+              className="w-full bg-[#ffa116] hover:bg-[#ffa116]/90 text-zinc-950 py-2.5 rounded-lg font-bold tracking-widest text-xs uppercase transition-all shadow-md cursor-pointer"
             >
               Commit Insight & Exit Zenith
             </button>

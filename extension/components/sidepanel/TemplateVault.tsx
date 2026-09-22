@@ -59,7 +59,7 @@ const CATEGORY_META: Record<string, { dot: string; border: string; bg: string; t
   "Disjoint Set":         { dot: "#818cf8", border: "border-l-indigo-500",   bg: "bg-indigo-500/10", text: "text-indigo-400" },
   "Monotonic Stack":      { dot: "#facc15", border: "border-l-yellow-500",   bg: "bg-yellow-500/10", text: "text-yellow-400" },
   "Intervals":            { dot: "#f87171", border: "border-l-red-500",      bg: "bg-red-500/10",    text: "text-red-400" },
-  "Custom":               { dot: "#dfa054", border: "border-l-[#dfa054]",   bg: "bg-[#dfa054]/10",  text: "text-[#dfa054]" }
+  "Custom":               { dot: "#ffa116", border: "border-l-[#ffa116]",   bg: "bg-[#ffa116]/10",  text: "text-[#ffa116]" }
 }
 
 const CATEGORY_ORDER = [
@@ -266,9 +266,9 @@ export const TemplateVault = () => {
     <div className="w-full max-w-full overflow-x-hidden space-y-3 pb-6 font-sans animate-fadeIn min-w-0">
       {/* ── RESTORE DEFAULTS HEADER (If customized) ── */}
       {(modifiedCount > 0 || deletedCount > 0) && (
-        <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-zinc-300">
+        <div className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-[#282828] border border-white/[0.08] text-[10px] font-mono text-zinc-300">
           <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#dfa054]" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#ffa116]" />
             <span>
               {modifiedCount > 0 && `${modifiedCount} modified`}
               {modifiedCount > 0 && deletedCount > 0 && " · "}
@@ -282,7 +282,7 @@ export const TemplateVault = () => {
                 restoreAllDefaults()
               }
             }}
-            className="flex items-center gap-1 font-bold text-[#dfa054] hover:underline cursor-pointer"
+            className="flex items-center gap-1 font-bold text-[#ffa116] hover:underline cursor-pointer"
           >
             <RotateCcw size={10} /> Restore Defaults
           </button>
@@ -290,7 +290,7 @@ export const TemplateVault = () => {
       )}
 
       {/* ── COMMAND HEADER ── */}
-      <Card className="p-3 border border-zinc-800/80 bg-zinc-950/85 shadow-md w-full max-w-full min-w-0">
+      <Card className="p-3 border border-white/[0.08] bg-[#282828] shadow-sm w-full max-w-full min-w-0">
         {/* Search row with integrated action buttons */}
         <div className="flex items-center gap-1.5 w-full">
           <div className="relative flex-1 min-w-0">
@@ -300,7 +300,7 @@ export const TemplateVault = () => {
               placeholder="Search lower bound, dijkstra, memoization..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-zinc-800/90 bg-zinc-900/80 pl-8 pr-7 py-1.5 text-xs text-zinc-100 placeholder-zinc-500 focus:border-[#dfa054]/60 focus:bg-zinc-900 focus:outline-none font-sans transition-all"
+              className="w-full rounded-lg border border-white/[0.08] bg-[#1a1a1a] pl-8 pr-7 py-1.5 text-xs text-zinc-100 placeholder-zinc-500 focus:border-[#ffa116] focus:bg-[#1a1a1a] focus:outline-none font-sans transition-all"
             />
             {search && (
               <button
@@ -314,14 +314,14 @@ export const TemplateVault = () => {
           </div>
 
           {/* Dual View Mode Toggle */}
-          <div className="flex items-center bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 shrink-0">
+          <div className="flex items-center bg-[#1a1a1a] p-0.5 rounded-lg border border-white/[0.08] shrink-0">
             <button
               type="button"
               onClick={() => setViewMode("tree")}
               className={`flex items-center gap-1 px-2 py-1 text-[10px] font-mono font-bold rounded transition-all cursor-pointer ${
                 viewMode === "tree"
-                  ? "bg-zinc-800 text-[#dfa054] shadow-sm border border-zinc-700"
-                  : "text-zinc-500 hover:text-zinc-300"
+                  ? "bg-[#333333] text-[#ffa116] shadow-sm border border-white/[0.12]"
+                  : "text-zinc-400 hover:text-zinc-200 border border-transparent"
               }`}
               title="Hierarchical Pattern Tree View"
             >
@@ -332,8 +332,8 @@ export const TemplateVault = () => {
               onClick={() => setViewMode("cards")}
               className={`flex items-center gap-1 px-2 py-1 text-[10px] font-mono font-bold rounded transition-all cursor-pointer ${
                 viewMode === "cards"
-                  ? "bg-zinc-800 text-[#dfa054] shadow-sm border border-zinc-700"
-                  : "text-zinc-500 hover:text-zinc-300"
+                  ? "bg-[#333333] text-[#ffa116] shadow-sm border border-white/[0.12]"
+                  : "text-zinc-400 hover:text-zinc-200 border border-transparent"
               }`}
               title="Syntax Cards Grid View"
             >
@@ -345,7 +345,7 @@ export const TemplateVault = () => {
           <button
             type="button"
             onClick={openCreateModal}
-            className="inline-flex items-center justify-center gap-1 rounded-lg border border-[#dfa054]/40 bg-[#dfa054]/10 hover:bg-[#dfa054]/20 px-2.5 py-1 text-xs font-mono font-bold text-[#dfa054] transition-all cursor-pointer shrink-0 shadow-sm"
+            className="inline-flex items-center justify-center gap-1 rounded-lg border border-white/[0.08] bg-[#333333] hover:bg-[#3a3a3a] px-2.5 py-1 text-xs font-mono font-bold text-[#ffa116] transition-all cursor-pointer shrink-0 shadow-sm"
             title="Create Custom Template"
           >
             <Plus size={12} /> Add
@@ -353,16 +353,16 @@ export const TemplateVault = () => {
         </div>
 
         {/* Global Default Language Selector - 5 Column Grid */}
-        <div className="mt-2.5 pt-2 border-t border-zinc-800/70">
+        <div className="mt-2.5 pt-2 border-t border-white/[0.06]">
           <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400 mb-1">
             <div className="flex items-center gap-1">
-              <Cpu size={10} className="text-[#dfa054]" />
+              <Cpu size={10} className="text-[#ffa116]" />
               <span className="font-semibold uppercase tracking-wider text-zinc-400">Language View</span>
             </div>
             <span className="text-zinc-500">{filteredTemplates.length} patterns</span>
           </div>
 
-          <div className="grid grid-cols-5 gap-1 w-full bg-zinc-900/90 p-0.5 rounded-lg border border-zinc-800">
+          <div className="grid grid-cols-5 gap-1 w-full bg-[#1a1a1a] p-0.5 rounded-lg border border-white/[0.08]">
             {(["python", "java", "cpp", "typescript", "go"] as SupportedLang[]).map((lang) => {
               const meta = LANG_CONFIG[lang]
               const isSelected = preferredLang === lang
@@ -373,7 +373,7 @@ export const TemplateVault = () => {
                   onClick={() => setPreferredLang(lang)}
                   className={`py-0.5 text-center rounded text-[10px] font-mono font-bold transition-all truncate cursor-pointer ${
                     isSelected
-                      ? "bg-zinc-800 text-zinc-100 shadow-sm border border-zinc-700"
+                      ? "bg-[#333333] text-zinc-100 shadow-sm border border-white/[0.12]"
                       : "text-zinc-400 hover:text-zinc-200"
                   }`}
                   style={isSelected ? { color: meta.color } : {}}
@@ -393,8 +393,8 @@ export const TemplateVault = () => {
             onClick={() => setSelectedCategory("All")}
             className={`rounded px-2 py-0.5 text-[9.5px] font-mono font-medium transition-all shrink-0 whitespace-nowrap cursor-pointer ${
               selectedCategory === "All"
-                ? "bg-[#dfa054]/15 text-[#dfa054] border border-[#dfa054]/40 font-bold shadow-sm"
-                : "text-zinc-400 bg-zinc-900/60 border border-zinc-800/80 hover:bg-zinc-900 hover:text-zinc-200"
+                ? "bg-[#ffa116]/15 text-[#ffa116] border border-[#ffa116]/40 font-bold shadow-sm"
+                : "text-zinc-400 bg-[#1a1a1a] border border-white/[0.08] hover:bg-[#333333] hover:text-zinc-200"
             }`}
           >
             All ({allTemplates.length})
@@ -416,13 +416,13 @@ export const TemplateVault = () => {
                 onClick={() => setSelectedCategory(cat)}
                 className={`rounded px-2 py-0.5 text-[9.5px] font-mono font-medium transition-all shrink-0 whitespace-nowrap cursor-pointer inline-flex items-center gap-1.5 ${
                   isSelected
-                    ? "bg-[#dfa054]/15 text-[#dfa054] border border-[#dfa054]/40 font-bold shadow-sm"
-                    : "text-zinc-400 bg-zinc-900/60 border border-zinc-800/80 hover:bg-zinc-900 hover:text-zinc-200"
+                    ? "bg-[#ffa116]/15 text-[#ffa116] border border-[#ffa116]/40 font-bold shadow-sm"
+                    : "text-zinc-400 bg-[#1a1a1a] border border-white/[0.08] hover:bg-[#333333] hover:text-zinc-200"
                 }`}
               >
                 <span
                   className="w-1.5 h-1.5 rounded-full shrink-0"
-                  style={{ backgroundColor: meta?.dot || "#dfa054" }}
+                  style={{ backgroundColor: meta?.dot || "#ffa116" }}
                 />
                 <span>{cat}</span>
                 <span className="opacity-60 text-[8.5px]">({count})</span>
@@ -434,7 +434,7 @@ export const TemplateVault = () => {
 
       {/* ── MAIN CONTENT: TREE VIEW VS CARDS VIEW ── */}
       {filteredTemplates.length === 0 ? (
-        <Card className="p-8 text-center border border-zinc-800/80 bg-zinc-950/60 w-full rounded-xl">
+        <Card className="p-8 text-center border border-white/10 bg-[#222224] w-full rounded-xl">
           <FileCode size={24} className="mx-auto text-zinc-600 mb-2" />
           <h3 className="text-xs font-bold text-zinc-300">No code templates found</h3>
           <p className="mt-1 text-[10.5px] text-zinc-500">
@@ -453,7 +453,7 @@ export const TemplateVault = () => {
             return (
               <Card
                 key={categoryName}
-                className={`p-2.5 border border-zinc-800/80 bg-zinc-950/80 shadow-sm w-full max-w-full min-w-0 overflow-hidden rounded-xl border-l-[3px] ${meta.border}`}
+                className={`p-2.5 border border-white/10 bg-[#222224] shadow-sm w-full max-w-full min-w-0 overflow-hidden rounded-xl border-l-[3px] ${meta.border}`}
               >
                 {/* Category Header */}
                 <div
@@ -465,10 +465,10 @@ export const TemplateVault = () => {
                       className="w-2 h-2 rounded-full shrink-0"
                       style={{ backgroundColor: meta.dot }}
                     />
-                    <h3 className="text-xs font-bold text-zinc-200 group-hover:text-[#dfa054] transition-colors font-mono truncate">
+                    <h3 className="text-xs font-bold text-zinc-200 group-hover:text-[#ffa116] transition-colors font-mono truncate">
                       {categoryName}
                     </h3>
-                    <span className="text-[9px] font-mono text-zinc-500 bg-zinc-900 border border-zinc-800 px-1 py-0.2 rounded">
+                    <span className="text-[9px] font-mono text-zinc-500 bg-[#1a1a1a] border border-white/[0.08] px-1 py-0.2 rounded">
                       {templates.length}
                     </span>
                   </div>
@@ -488,7 +488,7 @@ export const TemplateVault = () => {
 
                 {/* Tree Branches */}
                 {!isCollapsed && (
-                  <div className="mt-1.5 pt-1.5 border-t border-zinc-900/80 space-y-1">
+                  <div className="mt-1.5 pt-1.5 border-t border-white/[0.06] space-y-1">
                     {templates.map((t, idx) => {
                       const isLast = idx === templates.length - 1
                       const activeLang = cardLangOverrides[t.id] || preferredLang
@@ -499,7 +499,7 @@ export const TemplateVault = () => {
                         <div
                           key={t.id}
                           onClick={() => openBigScreen(t)}
-                          className="flex items-center justify-between p-1.5 rounded-lg bg-zinc-900/40 border border-zinc-800/60 hover:border-zinc-700 hover:bg-zinc-900/90 transition-all cursor-pointer group min-w-0 w-full"
+                          className="flex items-center justify-between p-1.5 rounded-lg bg-[#1a1a1a] border border-white/[0.08] hover:border-white/[0.16] hover:bg-[#333333] transition-all cursor-pointer group min-w-0 w-full"
                         >
                           {/* ASCII Tree Branch: ├── or └── */}
                           <div className="flex items-center gap-1.5 min-w-0 flex-1 pr-1.5">
@@ -507,7 +507,7 @@ export const TemplateVault = () => {
                               {isLast ? "└──" : "├──"}
                             </span>
                             <div className="min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
-                              <span className="text-xs font-semibold text-zinc-200 group-hover:text-[#dfa054] transition-colors truncate">
+                              <span className="text-xs font-semibold text-zinc-200 group-hover:text-[#ffa116] transition-colors truncate">
                                 {t.title}
                               </span>
                               {t.complexity && (
@@ -605,7 +605,7 @@ export const TemplateVault = () => {
               <Card
                 key={t.id}
                 onClick={() => openBigScreen(t)}
-                className={`p-3 border border-zinc-800/80 bg-zinc-950/80 hover:border-zinc-700 transition-all shadow-sm flex flex-col justify-between cursor-pointer group hover:shadow-xl w-full max-w-full overflow-hidden rounded-xl border-l-[3px] ${catMeta.border}`}
+                className={`p-3 border border-white/10 bg-[#222224] hover:border-white/20 transition-all shadow-sm flex flex-col justify-between cursor-pointer group hover:shadow-xl w-full max-w-full overflow-hidden rounded-xl border-l-[3px] ${catMeta.border}`}
               >
                 <div className="w-full max-w-full min-w-0">
                   {/* Card Header: Category, Title, Actions */}
@@ -619,7 +619,7 @@ export const TemplateVault = () => {
                           />
                           {t.category}
                         </span>
-                        <h3 className="text-xs font-bold text-zinc-100 group-hover:text-[#dfa054] transition-colors break-words">
+                        <h3 className="text-xs font-bold text-zinc-100 group-hover:text-[#ffa116] transition-colors break-words">
                           {t.title}
                         </h3>
                         {t.isModified && (
@@ -638,20 +638,21 @@ export const TemplateVault = () => {
                         onClick={(e) => handleCopy(t.id, activeCode, e)}
                         className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[9.5px] font-mono font-bold transition-all cursor-pointer shadow-sm ${
                           isCopied
-                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                            : "bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/80"
+                            ? "bg-[#00b8a3]/20 text-[#00b8a3] border border-[#00b8a3]/40"
+                            : "bg-[#333333] hover:bg-[#3a3a3a] text-zinc-300 border border-white/[0.08]"
                         }`}
-                        title={`Copy ${langMeta.label} code`}
+                        title="Copy code to clipboard"
                       >
                         {isCopied ? <Check size={10} /> : <Copy size={10} />}
-                        <span>{isCopied ? "Copied" : langMeta.short}</span>
+                        <span>{isCopied ? "Copied" : "Copy"}</span>
                       </button>
 
+                      {/* Edit Button */}
                       <button
                         type="button"
                         onClick={(e) => openEditModal(t, e)}
-                        className="rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
-                        title="Edit / Change this template"
+                        className="rounded p-1 text-zinc-500 hover:bg-[#333333] hover:text-zinc-200 transition-colors"
+                        title="Edit template code or metadata"
                       >
                         <Edit3 size={11} />
                       </button>
@@ -742,13 +743,13 @@ export const TemplateVault = () => {
                       })}
                     </div>
 
-                    <span className="text-[9px] font-mono text-zinc-500 group-hover:text-[#dfa054] transition-colors">
+                    <span className="text-[9px] font-mono text-zinc-500 group-hover:text-[#ffa116] transition-colors">
                       Full Studio ↗
                     </span>
                   </div>
 
                   {/* Code Preview */}
-                  <div className="mt-2 relative rounded-lg border border-zinc-800/90 bg-[#08080a] p-2 font-mono text-[10px] leading-relaxed overflow-x-auto max-h-32 scrollbar-thin max-w-full">
+                  <div className="mt-2 relative rounded-lg border border-white/[0.08] bg-[#1a1a1a] p-2 font-mono text-[10px] leading-relaxed overflow-x-auto max-h-32 scrollbar-thin max-w-full">
                     <CodeHighlighter code={activeCode} language={resolvedLang} showLineNumbers={false} />
                   </div>
                 </div>
@@ -776,11 +777,11 @@ export const TemplateVault = () => {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-2xl border border-zinc-800 bg-[#0d0d0f] p-4.5 shadow-2xl space-y-3.5 font-sans"
+              className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-xl border border-white/[0.08] bg-[#282828] p-4.5 shadow-xl space-y-3.5 font-sans"
             >
-              <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
+              <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
                 <div className="flex items-center gap-2">
-                  <Code2 size={16} className="text-[#dfa054]" />
+                  <Code2 size={16} className="text-[#ffa116]" />
                   <h3 className="text-sm font-bold text-zinc-100">
                     {editingTarget ? `Edit "${editingTarget.title}"` : "Create New Template"}
                   </h3>
@@ -788,7 +789,7 @@ export const TemplateVault = () => {
                 <button
                   type="button"
                   onClick={() => setIsFormOpen(false)}
-                  className="rounded-lg p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200 cursor-pointer"
+                  className="rounded-lg p-1 text-zinc-500 hover:bg-[#333333] hover:text-zinc-200 cursor-pointer"
                 >
                   <X size={14} />
                 </button>
@@ -805,7 +806,7 @@ export const TemplateVault = () => {
                     placeholder="e.g. 0-1 BFS, Top-Down Memo DP"
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-1.5 text-xs text-zinc-100 focus:border-[#dfa054]/50 focus:outline-none"
+                    className="w-full rounded-lg border border-white/[0.08] bg-[#1a1a1a] px-3 py-1.5 text-xs text-zinc-100 focus:border-[#ffa116] focus:outline-none"
                   />
                 </div>
 
@@ -817,7 +818,7 @@ export const TemplateVault = () => {
                     <select
                       value={formCategory}
                       onChange={(e) => setFormCategory(e.target.value)}
-                      className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-2.5 py-1.5 text-xs text-zinc-200 focus:border-[#dfa054]/50 focus:outline-none"
+                      className="w-full rounded-lg border border-white/[0.08] bg-[#1a1a1a] px-2.5 py-1.5 text-xs text-zinc-200 focus:border-[#ffa116] focus:outline-none"
                     >
                       {CATEGORY_ORDER.map((c) => (
                         <option key={c} value={c}>
@@ -837,7 +838,7 @@ export const TemplateVault = () => {
                         placeholder="O(N)"
                         value={formTimeComp}
                         onChange={(e) => setFormTimeComp(e.target.value)}
-                        className="w-1/2 rounded-xl border border-zinc-800 bg-zinc-900/80 px-2 py-1.5 text-[11px] text-zinc-100 focus:border-[#dfa054]/50 focus:outline-none font-mono"
+                        className="w-1/2 rounded-lg border border-white/[0.08] bg-[#1a1a1a] px-2 py-1.5 text-[11px] text-zinc-100 focus:border-[#ffa116] focus:outline-none font-mono"
                         title="Time complexity (e.g. O(N log N))"
                       />
                       <input
@@ -845,7 +846,7 @@ export const TemplateVault = () => {
                         placeholder="O(1)"
                         value={formSpaceComp}
                         onChange={(e) => setFormSpaceComp(e.target.value)}
-                        className="w-1/2 rounded-xl border border-zinc-800 bg-zinc-900/80 px-2 py-1.5 text-[11px] text-zinc-100 focus:border-[#dfa054]/50 focus:outline-none font-mono"
+                        className="w-1/2 rounded-lg border border-white/[0.08] bg-[#1a1a1a] px-2 py-1.5 text-[11px] text-zinc-100 focus:border-[#ffa116] focus:outline-none font-mono"
                         title="Space complexity (e.g. O(N))"
                       />
                     </div>
@@ -861,7 +862,7 @@ export const TemplateVault = () => {
                     placeholder="e.g. Binary Search, Range Query, DP"
                     value={formTags}
                     onChange={(e) => setFormTags(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-1.5 text-xs text-zinc-100 focus:border-[#dfa054]/50 focus:outline-none"
+                    className="w-full rounded-lg border border-white/[0.08] bg-[#1a1a1a] px-3 py-1.5 text-xs text-zinc-100 focus:border-[#ffa116] focus:outline-none"
                   />
                 </div>
 
@@ -874,7 +875,7 @@ export const TemplateVault = () => {
                     placeholder="Briefly describe when and how to apply this pattern"
                     value={formDesc}
                     onChange={(e) => setFormDesc(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-1.5 text-xs text-zinc-100 focus:border-[#dfa054]/50 focus:outline-none"
+                    className="w-full rounded-lg border border-white/[0.08] bg-[#1a1a1a] px-3 py-1.5 text-xs text-zinc-100 focus:border-[#ffa116] focus:outline-none"
                   />
                 </div>
 
@@ -890,7 +891,7 @@ export const TemplateVault = () => {
                   </div>
 
                   {/* Language switch tabs inside editor */}
-                  <div className="grid grid-cols-5 gap-1 mb-2 bg-zinc-900 p-0.5 rounded-lg border border-zinc-800">
+                  <div className="grid grid-cols-5 gap-1 mb-2 bg-[#1a1a1a] p-0.5 rounded-lg border border-white/[0.08]">
                     {(["python", "java", "cpp", "typescript", "go"] as SupportedLang[]).map((lang) => {
                       const meta = LANG_CONFIG[lang]
                       const isSelected = formActiveLang === lang
@@ -903,14 +904,14 @@ export const TemplateVault = () => {
                           onClick={() => setFormActiveLang(lang)}
                           className={`py-1 text-center rounded text-[10px] font-mono font-bold transition-all cursor-pointer relative ${
                             isSelected
-                              ? "bg-zinc-800 text-zinc-100 shadow-sm border border-zinc-700"
+                              ? "bg-[#333333] text-zinc-100 shadow-sm border border-white/[0.12]"
                               : "text-zinc-500 hover:text-zinc-300"
                           }`}
                           style={isSelected ? { color: meta.color } : {}}
                         >
                           {meta.short}
                           {hasCode && (
-                            <span className="absolute top-0.5 right-1 w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                            <span className="absolute top-0.5 right-1 w-1.5 h-1.5 rounded-full bg-[#00b8a3]" />
                           )}
                         </button>
                       )
@@ -927,21 +928,21 @@ export const TemplateVault = () => {
                         [formActiveLang]: e.target.value
                       }))
                     }
-                    className="w-full rounded-xl border border-zinc-800 bg-zinc-900/90 p-3 font-mono text-[10.5px] text-zinc-100 focus:border-[#dfa054]/60 focus:outline-none resize-y leading-relaxed"
+                    className="w-full rounded-lg border border-white/[0.08] bg-[#1a1a1a] p-3 font-mono text-[10.5px] text-zinc-100 focus:border-[#ffa116] focus:outline-none resize-y leading-relaxed"
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-2 border-t border-zinc-800/80 pt-3">
+                <div className="flex items-center justify-end gap-2 border-t border-white/[0.06] pt-3">
                   <button
                     type="button"
                     onClick={() => setIsFormOpen(false)}
-                    className="rounded-xl px-3.5 py-1.5 text-xs font-semibold text-zinc-400 hover:text-zinc-200 cursor-pointer"
+                    className="rounded-lg px-3.5 py-1.5 text-xs font-semibold text-zinc-400 hover:text-zinc-200 cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="rounded-xl bg-[#dfa054] px-4 py-1.5 text-xs font-mono font-bold text-zinc-950 transition-all hover:bg-[#eab308] cursor-pointer shadow-md"
+                    className="rounded-lg bg-[#ffa116] px-4 py-1.5 text-xs font-mono font-bold text-[#1a1a1a] transition-all hover:bg-[#ffa116]/90 cursor-pointer shadow-sm"
                   >
                     {editingTarget ? "Save Changes" : "Create Template"}
                   </button>

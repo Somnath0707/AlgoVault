@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react"
-import { ArrowUpRight, CircleCheck, Filter, Gauge, RefreshCw, Sparkles, Target, TrendingUp, Zap, ChevronDown, ChevronUp } from "lucide-react"
+import { ArrowUpRight, CircleCheck, Filter, Gauge, RefreshCw, ListChecks, Target, TrendingUp, Zap, ChevronDown, ChevronUp } from "lucide-react"
+import { rankThemeForRating } from "../../lib/rank-theme"
 import { Card } from "../ui/Card"
 import { fetchWeakness } from "../../lib/api/backend"
 import { getCachedWeakness, setCachedWeakness } from "../../lib/storage"
@@ -26,21 +27,17 @@ interface WeaknessData {
 
 /* ── Mastery tiers (competitive-programming style) ── */
 const getTier = (score: number) => {
-  if (score >= 2200) return { name: "Grandmaster", color: "#ef4444", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.3)" }
-  if (score >= 1900) return { name: "Master", color: "#f59e0b", bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.3)" }
-  if (score >= 1600) return { name: "Expert", color: "#a855f7", bg: "rgba(168,85,247,0.12)", border: "rgba(168,85,247,0.3)" }
-  if (score >= 1400) return { name: "Specialist", color: "#38bdf8", bg: "rgba(56,189,248,0.12)", border: "rgba(56,189,248,0.3)" }
-  if (score >= 1200) return { name: "Pupil", color: "#34d399", bg: "rgba(52,211,153,0.12)", border: "rgba(52,211,153,0.3)" }
-  return { name: "Newbie", color: "#a1a1aa", bg: "rgba(161,161,170,0.08)", border: "rgba(161,161,170,0.2)" }
+  const tier = rankThemeForRating(score)
+  return { ...tier, bg: tier.soft }
 }
 
 const difficultyMeta = (rating?: number, difficulty?: string) => {
-  if (rating && rating < 1300) return { text: String(Math.round(rating)), color: "#34d399", bg: "rgba(52,211,153,0.1)", border: "rgba(52,211,153,0.25)", label: "Easy" }
-  if (rating && rating < 1800) return { text: String(Math.round(rating)), color: "#fbbf24", bg: "rgba(251,191,36,0.1)", border: "rgba(251,191,36,0.25)", label: "Medium" }
-  if (rating) return { text: String(Math.round(rating)), color: "#f87171", bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.25)", label: "Hard" }
-  if (difficulty === "Easy") return { text: "Easy", color: "#34d399", bg: "rgba(52,211,153,0.1)", border: "rgba(52,211,153,0.25)", label: "Easy" }
-  if (difficulty === "Medium") return { text: "Medium", color: "#fbbf24", bg: "rgba(251,191,36,0.1)", border: "rgba(251,191,36,0.25)", label: "Medium" }
-  if (difficulty === "Hard") return { text: "Hard", color: "#f87171", bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.25)", label: "Hard" }
+  if (rating && rating < 1300) return { text: String(Math.round(rating)), color: "#00b8a3", bg: "rgba(0,184,163,0.1)", border: "rgba(0,184,163,0.25)", label: "Easy" }
+  if (rating && rating < 1800) return { text: String(Math.round(rating)), color: "#ffc01e", bg: "rgba(255,192,30,0.1)", border: "rgba(255,192,30,0.25)", label: "Medium" }
+  if (rating) return { text: String(Math.round(rating)), color: "#ef4743", bg: "rgba(239,71,67,0.1)", border: "rgba(239,71,67,0.25)", label: "Hard" }
+  if (difficulty === "Easy") return { text: "Easy", color: "#00b8a3", bg: "rgba(0,184,163,0.1)", border: "rgba(0,184,163,0.25)", label: "Easy" }
+  if (difficulty === "Medium") return { text: "Medium", color: "#ffc01e", bg: "rgba(255,192,30,0.1)", border: "rgba(255,192,30,0.25)", label: "Medium" }
+  if (difficulty === "Hard") return { text: "Hard", color: "#ef4743", bg: "rgba(239,71,67,0.1)", border: "rgba(239,71,67,0.25)", label: "Hard" }
   return { text: difficulty || "?", color: "#a1a1aa", bg: "rgba(161,161,170,0.08)", border: "rgba(161,161,170,0.2)", label: "Unknown" }
 }
 
@@ -148,7 +145,7 @@ export const Weakness = () => {
   if (loading) return <div className="grid h-48 place-items-center"><div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500"><RefreshCw size={14} className="animate-spin" /> Reading your training history</div></div>
 
   if (!data?.weakTags?.length) {
-    return <Card className="grid min-h-56 place-items-center border-dashed border-zinc-800 bg-zinc-950/40 p-7 text-center"><div><Target className="mx-auto h-7 w-7 text-zinc-600" /><h2 className="mt-3 text-sm font-semibold text-zinc-200">Your training room is waiting.</h2><p className="mx-auto mt-1 max-w-xs text-[11px] leading-relaxed text-zinc-500">Sync a few attempts and accepted submissions to build a recommendation queue from your actual patterns.</p></div></Card>
+    return <Card className="grid min-h-56 place-items-center border-dashed border-white/10 bg-[#222224] p-7 text-center"><div><Target className="mx-auto h-7 w-7 text-zinc-500" /><h2 className="mt-3 text-sm font-semibold text-zinc-200">Your training room is waiting.</h2><p className="mx-auto mt-1 max-w-xs text-[11px] leading-relaxed text-zinc-400">Sync a few attempts and accepted submissions to build a recommendation queue from your actual patterns.</p></div></Card>
   }
 
   const focus = data.weakTags.find((tag) => tag.tag === selectedTag) || data.weakTags[0]
@@ -172,23 +169,21 @@ export const Weakness = () => {
   ]
 
   return (
-    <div className="grid gap-4 pb-6">
+    <div className="grid gap-4 pb-6 font-sans">
 
       {/* ═══════════ HERO: Focus Card with Ring Gauge ═══════════ */}
-      <section className="relative overflow-hidden rounded-xl border border-teal-400/15 bg-gradient-to-br from-[#07191b] to-[#0a1a1f] px-4 py-4 shadow-[0_14px_34px_rgba(0,0,0,.24)]">
-        <div className="absolute inset-0 opacity-70 [background-image:radial-gradient(circle_at_8%_5%,rgba(45,212,191,.14),transparent_30%),radial-gradient(circle_at_95%_100%,rgba(251,191,36,.12),transparent_30%)]" />
-
+      <section className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#282828] p-4 shadow-sm">
         <div className="relative flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-teal-300">
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#ffa116]">
               <Target size={13} /> Training room
             </div>
-            <h2 className="mt-1.5 text-base font-semibold text-zinc-50 leading-tight">
+            <h2 className="mt-1.5 text-base font-semibold text-zinc-100 leading-tight">
               {getMotivation(focus.masteryScore)}
             </h2>
           </div>
-          <button type="button" onClick={refresh} disabled={refreshing} className="group flex items-center gap-1.5 shrink-0 rounded-full border border-teal-400/20 bg-teal-400/10 px-3 py-1.5 text-[10px] font-mono font-bold text-teal-300 transition hover:bg-teal-400/20 hover:border-teal-400/40 disabled:opacity-50" aria-label="Shuffle recommendations">
-            <RefreshCw size={12} className={refreshing ? "animate-spin text-teal-200" : "text-teal-400/70 group-hover:text-teal-300"} />
+          <button type="button" onClick={refresh} disabled={refreshing} className="flex items-center gap-1.5 shrink-0 rounded-lg border border-white/[0.1] bg-[#333333] px-2.5 py-1 text-[10px] font-medium text-zinc-300 transition hover:bg-[#3d3d3d] hover:text-white disabled:opacity-50" aria-label="Shuffle recommendations">
+            <RefreshCw size={12} className={refreshing ? "animate-spin text-[#ffa116]" : "text-zinc-400"} />
             SHUFFLE
           </button>
         </div>
@@ -197,13 +192,13 @@ export const Weakness = () => {
         <div className="relative mt-4 flex items-center gap-4">
           <RingGauge score={focus.masteryScore} />
           <div className="min-w-0 flex-1">
-            <div className="text-[9px] font-semibold uppercase tracking-[0.13em] text-teal-300/70">Focus now</div>
-            <div className="mt-0.5 text-lg font-semibold text-zinc-50 truncate">{focus.tag}</div>
+            <div className="text-[9px] font-semibold uppercase tracking-[0.13em] text-zinc-400">Focus now</div>
+            <div className="mt-0.5 text-lg font-semibold text-zinc-100 truncate">{focus.tag}</div>
             <div className="mt-1.5 flex items-center gap-2">
               <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold" style={{ backgroundColor: focusTier.bg, color: focusTier.color, border: `1px solid ${focusTier.border}` }}>
                 <Zap size={9} /> {focusTier.name}
               </span>
-              <span className="text-[9px] text-zinc-500 font-mono tabular-nums">
+              <span className="text-[9px] text-zinc-400 font-mono tabular-nums">
                 {recommendations.length} drill{recommendations.length !== 1 ? "s" : ""} queued
               </span>
             </div>
@@ -214,11 +209,11 @@ export const Weakness = () => {
       {/* ═══════════ SKILL SIGNALS ═══════════ */}
       <section>
         <div className="mb-2.5 flex items-center justify-between px-1">
-          <div className="flex items-center gap-2 panel-label"><Gauge size={13} className="text-[#e7ba68]" /> Skill signals</div>
-          <span className="text-[9px] font-mono text-zinc-600">{data.weakTags.length} topics</span>
+          <div className="flex items-center gap-2 panel-label"><Gauge size={13} className="text-[#ffa116]" /> Skill signals</div>
+          <span className="text-[9px] font-mono text-zinc-400">{data.weakTags.length} topics</span>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-950/35">
+        <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-[#282828]">
           {visibleTags.map((tag, index) => {
             const active = tag.tag === selectedTag
             const percent = masteryPercent(tag.masteryScore)
@@ -229,11 +224,11 @@ export const Weakness = () => {
                 key={tag.tag}
                 type="button"
                 onClick={() => setSelectedTag(tag.tag)}
-                className={`group flex w-full items-center gap-3 border-b border-zinc-800/60 px-3.5 py-2.5 text-left last:border-b-0 transition-all duration-200 ${active ? "bg-[#d9a441]/[.07]" : "hover:bg-zinc-900/60"}`}
+                className={`group flex w-full items-center gap-3 border-b border-white/[0.08] px-3.5 py-2.5 text-left last:border-b-0 transition-colors ${active ? "bg-[#ffa116]/10 text-white" : "hover:bg-[#333333]"}`}
                 aria-pressed={active}
               >
-                {/* Rank number or active dot */}
-                <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-mono font-bold transition-all ${active ? "bg-[#d9a441]/20 text-[#f8d791] border border-[#d9a441]/40" : "bg-zinc-900 text-zinc-600 border border-zinc-700"}`}>
+                {/* Rank number */}
+                <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-mono font-bold transition-all ${active ? "bg-[#ffa116] text-black" : "bg-[#1a1a1a] text-zinc-400 border border-white/[0.08]"}`}>
                   {index + 1}
                 </span>
 
@@ -250,8 +245,8 @@ export const Weakness = () => {
                   </span>
 
                   {/* Progress bar */}
-                  <span className="mt-1.5 block h-[3px] overflow-hidden rounded-full bg-black/40">
-                    <span className="block h-full rounded-full transition-all duration-500" style={{ width: `${percent}%`, backgroundColor: active ? "#e7ba68" : tier.color }} />
+                  <span className="mt-1.5 block h-[3px] overflow-hidden rounded-full bg-[#1a1a1a]">
+                    <span className="block h-full rounded-full transition-all duration-500" style={{ width: `${percent}%`, backgroundColor: active ? "#ffa116" : tier.color }} />
                   </span>
                 </span>
               </button>
@@ -263,7 +258,7 @@ export const Weakness = () => {
             <button
               type="button"
               onClick={() => setShowAllTags(!showAllTags)}
-              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-[9px] font-mono uppercase tracking-wide text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/40 transition border-t border-zinc-800/60"
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-[9px] font-mono uppercase tracking-wide text-zinc-400 hover:text-zinc-200 hover:bg-[#333333] transition border-t border-white/[0.08]"
             >
               {showAllTags ? <><ChevronUp size={11} /> Show less</> : <><ChevronDown size={11} /> Show all {data.weakTags.length} topics</>}
             </button>
@@ -274,8 +269,8 @@ export const Weakness = () => {
       {/* ═══════════ DRILL DECK ═══════════ */}
       <section>
         <div className="mb-2 flex items-center justify-between px-1">
-          <div className="flex items-center gap-2 panel-label"><Sparkles size={13} className="text-emerald-400" /> Drill deck</div>
-          <button type="button" onClick={() => setSelectedTag(null)} className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[9px] transition ${selectedTag ? "text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300" : "bg-zinc-900 text-zinc-300"}`}><Filter size={10} /> All</button>
+          <div className="flex items-center gap-2 panel-label"><ListChecks size={13} className="text-[#ffa116]" /> Drill deck</div>
+          <button type="button" onClick={() => setSelectedTag(null)} className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[9px] transition ${selectedTag ? "text-zinc-400 hover:bg-[#333333] hover:text-zinc-200" : "bg-[#333333] text-zinc-100"}`}><Filter size={10} /> All</button>
         </div>
 
         {/* Difficulty filter pills */}
@@ -285,8 +280,7 @@ export const Weakness = () => {
               key={f.key}
               type="button"
               onClick={() => setDiffFilter(f.key)}
-              className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-semibold transition-all duration-200 ${diffFilter === f.key ? "shadow-sm" : "opacity-60 hover:opacity-100"}`}
-              style={diffFilter === f.key ? { backgroundColor: `${f.color}15`, color: f.color, border: `1px solid ${f.color}40` } : { backgroundColor: "transparent", color: "#71717a", border: "1px solid #27272a" }}
+              className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-semibold transition-all duration-200 ${diffFilter === f.key ? "bg-[#333333] border border-white/[0.16] text-white" : "border border-white/[0.08] bg-[#282828] text-zinc-400 hover:text-zinc-200"}`}
             >
               {f.key !== "all" && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: f.color }} />}
               {f.label}
@@ -304,7 +298,7 @@ export const Weakness = () => {
                 href={`https://leetcode.com/problems/${problem.titleSlug}/`}
                 target="_blank"
                 rel="noreferrer"
-                className="group relative flex items-center gap-3 rounded-lg border border-zinc-800/80 bg-zinc-950/40 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-zinc-900/70 overflow-hidden"
+                className="group relative flex items-center gap-3 rounded-xl border border-white/[0.08] bg-[#282828] p-3 transition-colors hover:bg-[#333333] hover:border-white/[0.16] overflow-hidden"
               >
                 {/* Left color accent bar */}
                 <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg" style={{ backgroundColor: meta.color }} />
@@ -323,7 +317,7 @@ export const Weakness = () => {
                     <span className="uppercase tracking-[0.08em]">{problem.tag || focus.tag}</span>
                     {problem.acceptanceRate != null && (
                       <>
-                        <span className="text-zinc-700">•</span>
+                        <span className="text-zinc-600">•</span>
                         <span className="tabular-nums">{Math.round(problem.acceptanceRate)}% acc</span>
                       </>
                     )}
@@ -335,11 +329,11 @@ export const Weakness = () => {
                   {meta.text}
                 </span>
 
-                <ArrowUpRight size={13} className="shrink-0 text-zinc-700 transition group-hover:text-zinc-300" />
+                <ArrowUpRight size={13} className="shrink-0 text-zinc-600 transition group-hover:text-zinc-200" />
               </a>
             )
           }) : (
-            <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/35 px-4 py-8 text-center">
+            <div className="rounded-xl border border-dashed border-white/[0.08] bg-[#282828] px-4 py-8 text-center">
               <Target className="mx-auto h-6 w-6 text-zinc-600 mb-2" />
               <p className="text-[11px] text-zinc-500">
                 {diffFilter !== "all"
