@@ -1,6 +1,7 @@
 server:
   port: ${PORT:8080}
   forward-headers-strategy: framework
+  shutdown: graceful
   tomcat:
     max-http-form-post-size: 2MB
     max-swallow-size: 2MB
@@ -9,7 +10,14 @@ app:
   auth:
     mode: oauth
 
+db:
+  pool:
+    max-size: ${DB_POOL_SIZE:10}
+    min-idle: ${DB_POOL_MIN_IDLE:2}
+
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
   jackson:
     serialization:
       write-dates-as-timestamps: false
@@ -21,12 +29,6 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/algovault}
     username: ${SPRING_DATASOURCE_USERNAME:algovault}
     password: ${SPRING_DATASOURCE_PASSWORD}
-    hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
-      idle-timeout: 30000
-      max-lifetime: 1800000
-      connection-timeout: 5000
   jpa:
     hibernate:
       ddl-auto: none
@@ -34,10 +36,18 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+    baseline-on-migrate: true
+    out-of-order: true
   data:
     redis:
+      url: ${REDIS_URL:}
       host: ${SPRING_REDIS_HOST:localhost}
-      port: 6379
+      port: ${SPRING_REDIS_PORT:6379}
+      password: ${SPRING_REDIS_PASSWORD:}
+      ssl:
+        enabled: ${SPRING_REDIS_SSL:false}
+      timeout: 3000ms
+
 jwt:
   secret: ${JWT_SECRET}
   issuer: ${JWT_ISSUER:algovault-api}
@@ -56,3 +66,4 @@ logging:
   level:
     root: INFO
     com.algovault: INFO
+

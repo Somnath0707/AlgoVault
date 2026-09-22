@@ -11,6 +11,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.time.Duration;
 
@@ -18,6 +19,7 @@ import java.time.Duration;
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RequiredArgsConstructor
+@Slf4j
 public class RateLimitFilter extends OncePerRequestFilter {
     private final RedisTemplate<String, Object> redisTemplate;
 
@@ -46,15 +48,16 @@ public class RateLimitFilter extends OncePerRequestFilter {
             windowSeconds = 60;
         }
         String key = "ratelimit:" + path + ":" + request.getRemoteAddr() + ":" + (System.currentTimeMillis() / (windowSeconds * 1000));
-        Long count;
+        Long count = null;
         try {
             count = redisTemplate.opsForValue().increment(key);
             if (count != null && count == 1) redisTemplate.expire(key, Duration.ofSeconds(windowSeconds + 5));
         } catch (Exception unavailable) {
-            response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, "Rate-limit service unavailable");
+            log.warn("Redis unavailable for rate limiting ({}). Allowing request through.", unavailable.getMessage());
+            chain.doFilter(request, response);
             return;
         }
-        if (count == null || count > limit) {
+        if (count != null && count > limit) {
             response.setHeader("Retry-After", String.valueOf(windowSeconds));
             response.sendError(429, "Too many requests");
             return;

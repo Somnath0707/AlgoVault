@@ -1,0 +1,54 @@
+# Render Blueprint specification for AlgoVault (https://render.com)
+# Deploy with: Render Dashboard -> Blueprints -> New Blueprint Instance
+version: "1"
+
+services:
+  - type: web
+    name: algovault-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Automatically linked to the managed Postgres database
+      - key: DATABASE_URL
+        fromDatabase:
+          name: algovault-db
+          property: connectionString
+
+      # Secure 256-bit JWT secret auto-generated on initial deploy
+      - key: JWT_SECRET
+        generateValue: true
+
+      - key: JWT_ISSUER
+        value: algovault-api
+
+      - key: JWT_AUDIENCE
+        value: algovault-extension
+
+      - key: JWT_EXPIRATION_MS
+        value: "86400000"
+
+      # GitHub OAuth Application credentials (set in Render Dashboard)
+      - key: GITHUB_CLIENT_ID
+        sync: false
+
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+
+      # Chrome Extension ID origin for CORS
+      - key: CORS_ALLOWED_ORIGINS
+        value: chrome-extension://nglebofiomebgndkkdecnmolafjdphhf
+
+      # Optional Redis URL (e.g. from Upstash or Render Redis)
+      - key: REDIS_URL
+        sync: false
+
+databases:
+  - name: algovault-db
+    databaseName: algovault
+    user: algovault
+    plan: starter
+    postgresMajorVersion: "16"
