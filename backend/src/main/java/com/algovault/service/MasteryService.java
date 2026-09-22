@@ -228,8 +228,9 @@ public class MasteryService {
 
             double opponentRD = computeOpponentRD(first.getProblem());
 
-            // Group by month of first submission
-            YearMonth month = YearMonth.from(first.getSubmittedAt());
+            // Group by month of solve if accepted, otherwise month of attempt
+            LocalDateTime matchTime = (accepted != null) ? accepted.getSubmittedAt() : first.getSubmittedAt();
+            YearMonth month = YearMonth.from(matchTime);
             monthBatches
                 .computeIfAbsent(month, k -> new ArrayList<>())
                 .add(new Glicko2MasteryEngine.MatchResult(opponentRating, opponentRD, score));
@@ -254,8 +255,18 @@ public class MasteryService {
         }
 
         // ── Step 3: Apply trailing time decay for inactivity ──
-        if (lastSolvedAt != null) {
-            long monthsSince = java.time.Duration.between(lastSolvedAt, LocalDateTime.now()).toDays() / 30;
+        LocalDateTime latestActivityAt = lastSolvedAt;
+        if (latestActivityAt == null && !sortedAttempts.isEmpty()) {
+            for (List<Submission> attemptsList : sortedAttempts) {
+                for (Submission sub : attemptsList) {
+                    if (sub.getSubmittedAt() != null && (latestActivityAt == null || sub.getSubmittedAt().isAfter(latestActivityAt))) {
+                        latestActivityAt = sub.getSubmittedAt();
+                    }
+                }
+            }
+        }
+        if (latestActivityAt != null) {
+            long monthsSince = java.time.Duration.between(latestActivityAt, LocalDateTime.now()).toDays() / 30;
             if (monthsSince > 0) {
                 currentRating = glickoEngine.applyTimeDecay(currentRating, (int) Math.min(monthsSince, 6));
             }

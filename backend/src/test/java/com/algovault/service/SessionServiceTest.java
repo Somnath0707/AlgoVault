@@ -238,4 +238,25 @@ class SessionServiceTest {
         verify(spacedRepetitionEngine, times(1)).updateCard(eq(existingCard), eq(4), eq(1.0), eq(false));
         verify(revisionCardRepository, times(1)).save(existingCard);
     }
+
+    @Test
+    void recordSubmission_contradictoryVerdict_prioritizesStatusCodeOverDisplay() {
+        User user = User.builder().id(1L).build();
+        Problem problem = Problem.builder().id(10L).titleSlug("two-sum").title("Two Sum").build();
+        when(problemService.getOrCreate("two-sum", "Two Sum")).thenReturn(problem);
+
+        SessionRequests.SubmissionResultRequest request = new SessionRequests.SubmissionResultRequest();
+        request.setTitleSlug("two-sum");
+        request.setTitle("Two Sum");
+        request.setStatusCode(11); // Wrong Answer
+        request.setStatusDisplay("Accepted"); // Contradictory client display
+
+        when(problemOpenEventRepository.findFirstByUserIdAndProblemIdAndClosedAtIsNullOrderByOpenedAtDesc(1L, 10L))
+                .thenReturn(Optional.of(ProblemOpenEvent.builder().user(user).problem(problem).build()));
+
+        sessionService.recordSubmission(user, request);
+
+        // Should not advance revision card for Wrong Answer
+        verify(revisionCardRepository, never()).save(any(RevisionCard.class));
+    }
 }

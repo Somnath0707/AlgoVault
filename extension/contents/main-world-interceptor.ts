@@ -13,10 +13,19 @@ export const config: PlasmoCSConfig = {
 
   let lastSeenSubmissionId: string | undefined
   let submitResetTimer: number | undefined
+  let sessionNonce: string | undefined
   const terminalStatusCodes = new Set([10, 11, 14, 15, 20])
   const maxCapturedCodeChars = 250_000
   const originalFetch = window.fetch.bind(window)
   ;(window as any).__ALGOVAULT_IS_SUBMITTING__ = false
+
+  window.addEventListener("__ALGOVAULT_HANDSHAKE__", ((e: CustomEvent) => {
+    if (e.detail?.nonce) {
+      sessionNonce = e.detail.nonce
+    }
+  }) as EventListener)
+
+  window.dispatchEvent(new CustomEvent("__ALGOVAULT_INTERCEPTOR_READY__"))
 
   function normalizeUrl(input: any): string {
     if (typeof input === "string") return input
@@ -74,6 +83,7 @@ export const config: PlasmoCSConfig = {
       {
         type: "AV_SUBMISSION_RESULT",
         detail: {
+          nonce: sessionNonce,
           submissionId,
           statusCode,
           statusDisplay,
@@ -104,6 +114,7 @@ export const config: PlasmoCSConfig = {
 
     if (isSubmit) {
       ;(window as any).__ALGOVAULT_IS_SUBMITTING__ = true
+      window.dispatchEvent(new CustomEvent("__ALGOVAULT_SUBMIT_DETECTED__", { detail: { timestamp: Date.now() } }))
       if (submitResetTimer) window.clearTimeout(submitResetTimer)
       submitResetTimer = window.setTimeout(() => {
         ;(window as any).__ALGOVAULT_IS_SUBMITTING__ = false

@@ -99,7 +99,7 @@ public class ZerotracService {
         }
 
         Map<String, ZerotracInfo> ratings = new HashMap<>();
-        if (body == null || body.isBlank()) {
+        if (body == null || body.isBlank() || body.length() > 10_000_000) {
             return ratings;
         }
 
@@ -116,13 +116,19 @@ public class ZerotracService {
 
             try {
                 Double rating = Double.parseDouble(parts[0]);
+                if (rating.isNaN() || rating.isInfinite() || rating < 500.0 || rating > 4500.0) {
+                    continue;
+                }
                 Integer id = null;
                 if (parts.length > 1) {
                     try {
                         id = Integer.parseInt(parts[1]);
                     } catch (NumberFormatException ignored) {}
                 }
-                String titleSlug = parts[4];
+                String titleSlug = parts[4].trim().toLowerCase();
+                if (titleSlug.isBlank() || titleSlug.length() > 200 || !titleSlug.matches("^[a-z0-9-]+$")) {
+                    continue;
+                }
                 String title = parts.length > 2 ? parts[2] : titleSlug;
                 String contestId = parts.length > 5 ? parts[5] : "";
                 String problemIndex = parts.length > 6 ? parts[6] : "?";

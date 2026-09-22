@@ -25,7 +25,15 @@ public class EntrantHubService {
     private final RestTemplate restTemplate;
     private static final String ENTRANTHUB_BASE_URL = "https://api.entranthub.com/api/v1";
 
-    private final Map<String, CacheEntry> predictionCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final int MAX_CACHE_ENTRIES = 1000;
+    private final Map<String, CacheEntry> predictionCache = Collections.synchronizedMap(
+        new LinkedHashMap<String, CacheEntry>(MAX_CACHE_ENTRIES, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, CacheEntry> eldest) {
+                return size() > MAX_CACHE_ENTRIES;
+            }
+        }
+    );
 
     private static class CacheEntry {
         final ContestPredictionResponse response;
@@ -47,6 +55,26 @@ public class EntrantHubService {
         }
     }
 
+    private void putCache(String key, CacheEntry entry) {
+        synchronized (predictionCache) {
+            if (predictionCache.size() >= MAX_CACHE_ENTRIES / 2) {
+                predictionCache.entrySet().removeIf(e -> e.getValue().isExpired());
+            }
+            predictionCache.put(key, entry);
+        }
+    }
+
+    private CacheEntry getCache(String key) {
+        synchronized (predictionCache) {
+            CacheEntry entry = predictionCache.get(key);
+            if (entry != null && entry.isExpired()) {
+                predictionCache.remove(key);
+                return null;
+            }
+            return entry;
+        }
+    }
+
     public void clearCache() {
         predictionCache.clear();
     }
@@ -60,16 +88,18 @@ public class EntrantHubService {
         String contestSlug = req.getContestSlug();
         String username = req.getUsername();
 
-        if (contestSlug == null || contestSlug.isBlank() || username == null || username.isBlank()) {
-            return fallbackPrediction(req, "Missing contest slug or username");
+        if (contestSlug == null || contestSlug.isBlank() || username == null || username.isBlank()
+                || !contestSlug.matches("^[a-zA-Z0-9_-]{1,60}$")
+                || !username.matches("^[a-zA-Z0-9_-]{1,60}$")) {
+            return fallbackPrediction(req, "Invalid contest slug or username format");
         }
 
         String normalizedSlug = contestSlug.trim().toLowerCase();
         String normalizedUsername = username.trim();
         String cacheKey = normalizedSlug + ":" + normalizedUsername.toLowerCase();
 
-        CacheEntry cached = predictionCache.get(cacheKey);
-        if (cached != null && !cached.isExpired()) {
+        CacheEntry cached = getCache(cacheKey);
+        if (cached != null) {
             log.debug("Returning cached contest prediction for {}", cacheKey);
             return cached.response;
         }
@@ -125,7 +155,7 @@ public class EntrantHubService {
                                     .source("ENTRANTHUB")
                                     .build();
 
-                            predictionCache.put(cacheKey, new CacheEntry(res, System.currentTimeMillis()));
+                            putCache(cacheKey, new CacheEntry(res, System.currentTimeMillis()));
                             return res;
                         }
                     }
@@ -138,7 +168,7 @@ public class EntrantHubService {
         // When EntrantHub is still calculating or temporarily unavailable, use mathematical Elo fallback
         ContestPredictionResponse fallback = fallbackPrediction(req, "Pending EntrantHub calculation");
         if (!"UNRATED".equals(fallback.getStatus())) {
-            predictionCache.put(cacheKey, new CacheEntry(fallback, System.currentTimeMillis()));
+            putCache(cacheKey, new CacheEntry(fallback, System.currentTimeMillis()));
         }
         return fallback;
     }

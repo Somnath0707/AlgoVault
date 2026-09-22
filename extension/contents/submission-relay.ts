@@ -222,12 +222,40 @@ function handleAcceptedVerdict(detail?: any) {
   }
 }
 
+// ─── Ephemeral Nonce & Submit Tracking ────────────────────────────────
+let lastSubmitClickTime = 0
+const sessionNonce = "av_" + Math.random().toString(36).slice(2) + Date.now().toString(36)
+
+function sendNonceHandshake() {
+  window.dispatchEvent(new CustomEvent("__ALGOVAULT_HANDSHAKE__", { detail: { nonce: sessionNonce } }))
+}
+
+sendNonceHandshake()
+window.addEventListener("__ALGOVAULT_INTERCEPTOR_READY__", () => {
+  sendNonceHandshake()
+})
+
+window.addEventListener("__ALGOVAULT_SUBMIT_DETECTED__", () => {
+  lastSubmitClickTime = Date.now()
+})
+
 // ─── Path 1: Listen for postMessage from MAIN world interceptor ───────
 window.addEventListener("message", ((event: MessageEvent) => {
   if (event.origin !== window.location.origin || event.source !== window) return
   if (event.data?.type !== "AV_SUBMISSION_RESULT") return
 
   const detail = event.data.detail || {}
+
+  // 0. Nonce verification against spoofing from untrusted page scripts
+  if (detail.nonce !== sessionNonce) {
+    return
+  }
+
+  // Guard against unprompted postMessage forge: must have active submit within 90s
+  const timeSinceSubmit = Date.now() - lastSubmitClickTime
+  if (lastSubmitClickTime === 0 || timeSinceSubmit > 90000) {
+    return
+  }
 
   // 1. submission id is numeric string when present
   if (detail.submissionId && !/^\d+$/.test(String(detail.submissionId))) {
@@ -280,8 +308,6 @@ window.addEventListener("message", ((event: MessageEvent) => {
   chrome.runtime.sendMessage({ action: "trigger_celebration", verdict: statusDisplay, detail: payload })
   window.postMessage({ type: "AV_SUBMISSION_RESULT_CONFIRMED", detail: payload }, window.location.origin || "*")
 }))
-
-let lastSubmitClickTime = 0
 
 // Track user clicks to strictly differentiate "Submit" from "Run Code"
 document.addEventListener("click", (e) => {
@@ -367,6 +393,13 @@ function setupDomAcObserver() {
   }
 
   const observer = new MutationObserver((mutations) => {
+    // HARD GUARD: Only inspect DOM if a submission was actually made within the last 45s.
+    // Completely eliminates any lag/overhead while typing or scrolling in Monaco editor!
+    const timeSinceSubmit = Date.now() - lastSubmitClickTime
+    if (lastSubmitClickTime === 0 || timeSinceSubmit > 45000) {
+      return
+    }
+
     if (debounceTimeout) return
     const hasRelevantMutation = mutations.some((m) => {
       const target = m.target instanceof Element ? m.target : m.target.parentElement

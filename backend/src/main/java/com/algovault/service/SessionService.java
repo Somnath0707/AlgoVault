@@ -288,7 +288,9 @@ public class SessionService {
         if (request.getTitleSlug() == null) return;
         Problem problem = problemRepository.findByTitleSlug(request.getTitleSlug()).orElse(null);
         if (problem == null) return;
-        ProblemOpenEvent event = openEvent(user, problem, null);
+        ProblemOpenEvent event = problemOpenEventRepository
+            .findFirstByUserIdAndProblemIdOrderByOpenedAtDesc(user.getId(), problem.getId())
+            .orElseGet(() -> openEvent(user, problem, null));
         event.setSelfReportedHelp(Optional.ofNullable(request.getHelpType()).orElse("NONE"));
         problemOpenEventRepository.save(event);
         analyticsService.updateIncremental(user.getId(), event);
@@ -371,18 +373,20 @@ public class SessionService {
     }
 
     private String normalizeVerdict(String statusDisplay, Integer statusCode) {
+        if (statusCode != null) {
+            return switch (statusCode) {
+                case 10 -> "Accepted";
+                case 11 -> "Wrong Answer";
+                case 14 -> "Time Limit Exceeded";
+                case 15 -> "Runtime Error";
+                case 20 -> "Compile Error";
+                default -> (statusDisplay != null && !statusDisplay.isBlank()) ? statusDisplay : "Unknown";
+            };
+        }
         if (statusDisplay != null && !statusDisplay.isBlank()) {
             return statusDisplay;
         }
-        if (statusCode == null) return "Unknown";
-        return switch (statusCode) {
-            case 10 -> "Accepted";
-            case 11 -> "Wrong Answer";
-            case 14 -> "Time Limit Exceeded";
-            case 15 -> "Runtime Error";
-            case 20 -> "Compile Error";
-            default -> "Unknown";
-        };
+        return "Unknown";
     }
 
     private String normalizeMode(String mode) {
@@ -427,9 +431,11 @@ public class SessionService {
         for (Session s : openSessions) {
             if (s.getStartedAt() != null && java.time.temporal.ChronoUnit.HOURS.between(s.getStartedAt(), now) >= 12) {
                 try {
-                    s.setEndedAt(s.getStartedAt().plusHours(1));
+                    int focusSecs = s.getFocusSeconds() != null && s.getFocusSeconds() > 0 ? s.getFocusSeconds() : 3600;
+                    focusSecs = Math.max(300, Math.min(focusSecs, 10800)); // Clamp between 5m and 3h
+                    s.setEndedAt(s.getStartedAt().plusSeconds(focusSecs));
                     sessionRepository.save(s);
-                    log.info("Auto-closed stale session id: {} for user: {}", s.getId(), s.getUser().getId());
+                    log.info("Auto-closed stale session id: {} for user: {} with derived duration {}s", s.getId(), s.getUser().getId(), focusSecs);
                 } catch (Exception e) {
                     log.warn("Failed to auto-close stale session {}", s.getId(), e);
                 }

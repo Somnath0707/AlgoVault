@@ -62,8 +62,8 @@ export default function SidePanel() {
         {/* ─── LEETCODE-NATIVE HEADER ────────────────────────── */}
         <header className="flex items-center justify-between mb-3 pb-3 border-b border-white/[0.08]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 overflow-hidden rounded-lg border border-emerald-400/20 bg-[#202020] shadow-sm">
-              <img src={chrome.runtime.getURL("assets/logo.png")} alt="AlgoVault" className="h-full w-full object-cover" />
+            <div className="w-8 h-8 overflow-hidden rounded-lg border border-white/10 bg-[#202020] shadow-sm flex items-center justify-center p-0.5">
+              <img src={chrome.runtime.getURL("assets/logo.png")} alt="AlgoVault" className="h-full w-full object-contain" />
             </div>
             <div>
               <h1 className="text-sm font-semibold leading-none text-white font-sans">AlgoVault</h1>

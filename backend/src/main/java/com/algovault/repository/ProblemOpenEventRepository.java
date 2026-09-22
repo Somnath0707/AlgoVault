@@ -6,5 +6,6 @@ import java.util.Optional;
 @Repository
 public interface ProblemOpenEventRepository extends JpaRepository<ProblemOpenEvent, Long> {
     Optional<ProblemOpenEvent> findFirstByUserIdAndProblemIdAndClosedAtIsNullOrderByOpenedAtDesc(Long userId, Long problemId);
+    Optional<ProblemOpenEvent> findFirstByUserIdAndProblemIdOrderByOpenedAtDesc(Long userId, Long problemId);
     java.util.List<ProblemOpenEvent> findByUserId(Long userId);
 }

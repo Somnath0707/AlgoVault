@@ -9,8 +9,8 @@ public class AppBeans {
     @Bean
     RestTemplate restTemplate(org.springframework.boot.web.client.RestTemplateBuilder builder) {
         return builder
-            .setConnectTimeout(java.time.Duration.ofSeconds(10))
-            .setReadTimeout(java.time.Duration.ofSeconds(30))
+            .setConnectTimeout(java.time.Duration.ofSeconds(5))
+            .setReadTimeout(java.time.Duration.ofSeconds(10))
             .build();
     }
 }
