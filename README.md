@@ -1,6 +1,9 @@
 # AlgoVault
 
-A Chrome extension (Manifest V3) with a local Spring Boot backend that tracks LeetCode practice, injects contest difficulty ratings, schedules spaced repetition, and automatically pushes accepted solutions to GitHub.
+A Chrome extension (Manifest V3) with a Spring Boot backend that tracks LeetCode practice, injects contest difficulty ratings, schedules spaced repetition, and automatically pushes accepted solutions to GitHub.
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Somnath0707/AlgoVault)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new)
 
 ---
 
