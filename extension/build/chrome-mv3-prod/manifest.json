@@ -110,21 +110,21 @@
     },
     {
       "matches": [
-        "https://leetcode.com/problemset/*",
-        "https://leetcode.com/tag/*"
-      ],
-      "js": [
-        "problemset-overlay.f4b9334b.js"
-      ],
-      "css": []
-    },
-    {
-      "matches": [
         "https://leetcode.com/problems/*",
         "https://leetcode.com/contest/*/problems/*"
       ],
       "js": [
         "solve-celebration.e2d6314d.js"
+      ],
+      "css": []
+    },
+    {
+      "matches": [
+        "https://leetcode.com/problemset/*",
+        "https://leetcode.com/tag/*"
+      ],
+      "js": [
+        "problemset-overlay.f4b9334b.js"
       ],
       "css": []
     },
@@ -146,7 +146,7 @@
     "https://api.github.com/*",
     "https://api.entranthub.com/*",
     "https://zerotrac.github.io/*",
-    "http://localhost:8080/*"
+    "https://algovault-production-9795.up.railway.app/*"
   ],
   "web_accessible_resources": [
     {

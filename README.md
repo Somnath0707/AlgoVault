@@ -2,8 +2,12 @@
 
 A Chrome extension (Manifest V3) with a Spring Boot backend that tracks LeetCode practice, injects contest difficulty ratings, schedules spaced repetition, and automatically pushes accepted solutions to GitHub.
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Somnath0707/AlgoVault)
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new)
+[![GitHub Release](https://img.shields.io/github/v/release/Somnath0707/AlgoVault?color=00e699&label=version)](https://github.com/Somnath0707/AlgoVault/releases)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
+[![Chrome MV3](https://img.shields.io/badge/Chrome%20Extension-MV3-4285F4?logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/mv3/intro/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
 
@@ -319,14 +323,7 @@ You can run AlgoVault either using **Docker** (recommended) or **natively** on y
 
 3. **Start the backend, PostgreSQL, and Redis**:
    ```bash
-   # On macOS / Linux:
-   ./start-algovault.sh
-   # Or directly with Docker:
    docker compose up -d --build
-   ```
-   ```bat
-   # On Windows:
-   start-algovault.bat
    ```
    The backend will start on `http://localhost:8080`. Flyway automatically runs database migrations on startup.
 
