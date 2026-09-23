@@ -76,11 +76,12 @@ class AuthControllerTest {
         User existing = User.builder()
                 .id(202L)
                 .githubId(guestId)
+                .deviceId(deviceId)
                 .username("guest_12345678")
                 .virtualRating(1500)
                 .build();
 
-        when(userRepository.findByGithubId(guestId)).thenReturn(Optional.of(existing));
+        when(userRepository.findByDeviceId(deviceId)).thenReturn(Optional.of(existing));
         when(jwtService.generateToken(202L, "guest_12345678")).thenReturn("existing-jwt");
 
         var response = authController.authenticateGuest(new AuthController.GuestAuthRequest(deviceId));
@@ -208,5 +209,29 @@ class AuthControllerTest {
         var response = authController.logout("Bearer test-token-xyz");
         assertEquals(204, response.getStatusCode().value());
         verify(jwtService).revokeToken("test-token-xyz");
+    }
+
+    @Test
+    void authenticateGuest_recoversUserByDeviceIdEvenIfGithubIdChanged() {
+        String deviceId = "12345678-abcd-ef01-2345-6789abcdef01";
+        // User was previously upgraded to GitHub:
+        User upgradedUser = User.builder()
+                .id(777L)
+                .githubId("github:998877")
+                .deviceId(deviceId)
+                .username("octocat_coder")
+                .virtualRating(1850)
+                .build();
+
+        when(userRepository.findByDeviceId(deviceId)).thenReturn(Optional.of(upgradedUser));
+        when(jwtService.generateToken(777L, "octocat_coder")).thenReturn("recovered-jwt");
+
+        var response = authController.authenticateGuest(new AuthController.GuestAuthRequest(deviceId));
+
+        assertEquals(200, response.getStatusCode().value());
+        assertNotNull(response.getBody());
+        assertEquals("recovered-jwt", response.getBody().token());
+        assertEquals("octocat_coder", response.getBody().username());
+        verify(userRepository, never()).save(any(User.class));
     }
 }

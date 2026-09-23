@@ -338,7 +338,6 @@ export const Settings = () => {
   };
 
   const handleDisconnectGithub = async () => {
-    await logout().catch(() => undefined);
     await clearGithubAuth();
     setGithubPat('');
     setGithubUser(null);

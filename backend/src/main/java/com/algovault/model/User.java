@@ -21,6 +21,9 @@ public class User {
     @Column(name = "github_id", unique = true, nullable = false)
     private String githubId;
 
+    @Column(name = "device_id", unique = true)
+    private String deviceId;
+
     @Column(nullable = false)
     private String username;
 

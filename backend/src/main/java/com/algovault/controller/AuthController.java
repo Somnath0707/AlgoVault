@@ -68,16 +68,25 @@ public class AuthController {
         String guestId = "guest:" + request.deviceId();
         User user;
         try {
-            user = userRepository.findByGithubId(guestId).orElseGet(() -> {
-                String shortId = request.deviceId().length() > 8 ? request.deviceId().substring(0, 8) : request.deviceId();
-                return userRepository.save(User.builder()
-                    .githubId(guestId)
-                    .username("guest_" + shortId)
-                    .virtualRating(1500)
-                    .build());
-            });
+            user = userRepository.findByDeviceId(request.deviceId())
+                .or(() -> userRepository.findByGithubId(guestId))
+                .orElseGet(() -> {
+                    String shortId = request.deviceId().length() > 8 ? request.deviceId().substring(0, 8) : request.deviceId();
+                    return userRepository.save(User.builder()
+                        .githubId(guestId)
+                        .deviceId(request.deviceId())
+                        .username("guest_" + shortId)
+                        .virtualRating(1500)
+                        .build());
+                });
+            if (user.getDeviceId() == null) {
+                user.setDeviceId(request.deviceId());
+                user = userRepository.save(user);
+            }
         } catch (org.springframework.dao.DataIntegrityViolationException ex) {
-            user = userRepository.findByGithubId(guestId).orElseThrow(() -> ex);
+            user = userRepository.findByDeviceId(request.deviceId())
+                .or(() -> userRepository.findByGithubId(guestId))
+                .orElseThrow(() -> ex);
         }
         String jwt = jwtService.generateToken(user.getId(), user.getUsername());
         return ResponseEntity.ok(new GuestAuthResponse(jwt, user.getUsername()));
@@ -179,20 +188,27 @@ public class AuthController {
             user = existingGithubUser.get();
             user.setUsername(login);
             if (avatarUrl != null) user.setAvatarUrl(avatarUrl);
+            if (user.getDeviceId() == null && deviceId != null && !deviceId.isBlank()) {
+                user.setDeviceId(deviceId);
+            }
             user = userRepository.save(user);
         } else {
             java.util.Optional<User> guestUserOpt = java.util.Optional.empty();
             if (guestUserId != null) {
                 guestUserOpt = userRepository.findById(guestUserId);
             } else if (deviceId != null && !deviceId.isBlank()) {
-                guestUserOpt = userRepository.findByGithubId("guest:" + deviceId);
+                guestUserOpt = userRepository.findByDeviceId(deviceId)
+                    .or(() -> userRepository.findByGithubId("guest:" + deviceId));
             }
 
-            if (guestUserOpt.isPresent() && guestUserOpt.get().getGithubId().startsWith("guest:")) {
+            if (guestUserOpt.isPresent() && (guestUserOpt.get().getGithubId().startsWith("guest:") || (guestUserOpt.get().getDeviceId() != null && guestUserOpt.get().getDeviceId().equals(deviceId)))) {
                 User guestUser = guestUserOpt.get();
                 guestUser.setGithubId(githubId);
                 guestUser.setUsername(login);
                 if (avatarUrl != null) guestUser.setAvatarUrl(avatarUrl);
+                if (deviceId != null && !deviceId.isBlank()) {
+                    guestUser.setDeviceId(deviceId);
+                }
                 try {
                     user = userRepository.save(guestUser);
                 } catch (org.springframework.dao.DataIntegrityViolationException ex) {
@@ -202,6 +218,7 @@ public class AuthController {
                 try {
                     user = userRepository.save(User.builder()
                         .githubId(githubId)
+                        .deviceId(deviceId != null && !deviceId.isBlank() ? deviceId : null)
                         .username(login)
                         .avatarUrl(avatarUrl)
                         .virtualRating(1500)
