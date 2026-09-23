@@ -355,6 +355,21 @@ export async function clearGithubAuth(): Promise<void> {
   await storage.remove("algovault.gitSyncStatus")
 }
 
+// ─── Device Authentication ────────────────────────────────────────
+
+export async function getOrCreateDeviceId(): Promise<string> {
+  let deviceId = await getTyped<string>("algovault.deviceId")
+  if (!deviceId) {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      deviceId = crypto.randomUUID()
+    } else {
+      deviceId = "dev_" + Math.random().toString(36).substring(2, 15) + Date.now().toString(36)
+    }
+    await setTyped("algovault.deviceId", deviceId)
+  }
+  return deviceId
+}
+
 // ─── Export the raw storage instance ──────────────────────────────
 
 export { storage }

@@ -16,7 +16,7 @@
       "128": "icon128.plasmo.3c1ed2d2.png"
     }
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "name": "AlgoVault",
   "description": "Your competitive programming operating system",
   "background": {
@@ -101,6 +101,16 @@
     },
     {
       "matches": [
+        "https://leetcode.com/problemset/*",
+        "https://leetcode.com/tag/*"
+      ],
+      "js": [
+        "problemset-overlay.f4b9334b.js"
+      ],
+      "css": []
+    },
+    {
+      "matches": [
         "https://leetcode.com/u/*"
       ],
       "js": [
@@ -114,17 +124,7 @@
         "https://leetcode.com/contest/*/problems/*"
       ],
       "js": [
-        "solve-celebration.e2d6314d.js"
-      ],
-      "css": []
-    },
-    {
-      "matches": [
-        "https://leetcode.com/problemset/*",
-        "https://leetcode.com/tag/*"
-      ],
-      "js": [
-        "problemset-overlay.f4b9334b.js"
+        "floating-button.124de113.js"
       ],
       "css": []
     },
@@ -134,7 +134,7 @@
         "https://leetcode.com/contest/*/problems/*"
       ],
       "js": [
-        "floating-button.124de113.js"
+        "solve-celebration.e2d6314d.js"
       ],
       "css": []
     }

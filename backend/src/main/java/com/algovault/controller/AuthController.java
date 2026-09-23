@@ -48,14 +48,35 @@ public class AuthController {
     }
 
     public record OAuthStateResponse(String state) {}
+    public record GuestAuthRequest(@NotBlank @Size(min = 8, max = 128) String deviceId) {}
+    public record GuestAuthResponse(String token, String username) {}
     public record GithubExchangeRequest(
         @NotBlank @Size(max = 300) String code,
         @NotBlank @Pattern(regexp = "^[A-Za-z0-9_-]{43}$") String state,
         @NotBlank @Pattern(regexp = "^[A-Za-z0-9._~-]{43,128}$") String codeVerifier,
-        @NotBlank @Pattern(regexp = "^https://[a-p]{32}\\.chromiumapp\\.org/$") String redirectUri
+        @NotBlank @Pattern(regexp = "^https://[a-p]{32}\\.chromiumapp\\.org/$") String redirectUri,
+        @Size(max = 128) String deviceId
     ) {}
-    public record GithubTokenRequest(@NotBlank @Size(max = 500) String token) {}
+    public record GithubTokenRequest(
+        @NotBlank @Size(max = 500) String token,
+        @Size(max = 128) String deviceId
+    ) {}
     public record GithubExchangeResponse(String token, String githubToken, String username) {}
+
+    @PostMapping("/guest")
+    public ResponseEntity<GuestAuthResponse> authenticateGuest(@Valid @RequestBody GuestAuthRequest request) {
+        String guestId = "guest:" + request.deviceId();
+        User user = userRepository.findByGithubId(guestId).orElseGet(() -> {
+            String shortId = request.deviceId().length() > 8 ? request.deviceId().substring(0, 8) : request.deviceId();
+            return userRepository.save(User.builder()
+                .githubId(guestId)
+                .username("guest_" + shortId)
+                .virtualRating(1500)
+                .build());
+        });
+        String jwt = jwtService.generateToken(user.getId(), user.getUsername());
+        return ResponseEntity.ok(new GuestAuthResponse(jwt, user.getUsername()));
+    }
 
     @GetMapping("/github-state")
     public ResponseEntity<OAuthStateResponse> githubState() {
@@ -63,7 +84,10 @@ public class AuthController {
     }
 
     @PostMapping("/github-exchange")
-    public ResponseEntity<?> exchangeGithubCode(@Valid @RequestBody GithubExchangeRequest request) {
+    public ResponseEntity<?> exchangeGithubCode(
+        @Valid @RequestBody GithubExchangeRequest request,
+        @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader
+    ) {
         if (!oauthStateService.consume(request.state())) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid or expired OAuth state"));
         }
@@ -87,7 +111,7 @@ public class AuthController {
                 return ResponseEntity.status(401).body(Map.of("error", "GitHub did not grant an access token"));
             }
 
-            return ResponseEntity.ok(authenticateGithubToken(githubToken));
+            return ResponseEntity.ok(authenticateGithubToken(githubToken, request.deviceId(), extractUserIdFromHeader(authHeader)));
         } catch (HttpClientErrorException.Unauthorized exception) {
             return ResponseEntity.status(401).body(Map.of("error", "GitHub authorization was rejected"));
         } catch (HttpClientErrorException.Forbidden exception) {
@@ -104,9 +128,12 @@ public class AuthController {
      * once to verify the GitHub identity and is never written to our database.
      */
     @PostMapping("/github-token")
-    public ResponseEntity<?> authenticateGithubToken(@Valid @RequestBody GithubTokenRequest request) {
+    public ResponseEntity<?> authenticateGithubToken(
+        @Valid @RequestBody GithubTokenRequest request,
+        @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader
+    ) {
         try {
-            return ResponseEntity.ok(authenticateGithubToken(request.token()));
+            return ResponseEntity.ok(authenticateGithubToken(request.token(), request.deviceId(), extractUserIdFromHeader(authHeader)));
         } catch (HttpClientErrorException.Unauthorized exception) {
             // Only GitHub's 401 proves the credential is invalid. A 403 is
             // commonly a rate limit or a missing fine-grained-token scope.
@@ -121,6 +148,10 @@ public class AuthController {
     }
 
     private GithubExchangeResponse authenticateGithubToken(String githubToken) {
+        return authenticateGithubToken(githubToken, null, null);
+    }
+
+    private GithubExchangeResponse authenticateGithubToken(String githubToken, String deviceId, Long guestUserId) {
         HttpHeaders githubHeaders = new HttpHeaders();
         githubHeaders.setBearerAuth(githubToken);
         githubHeaders.setAccept(List.of(MediaType.valueOf("application/vnd.github+json")));
@@ -136,9 +167,52 @@ public class AuthController {
         }
         String githubId = "github:" + rawId;
         String avatarUrl = profile.get("avatar_url") instanceof String avatar ? avatar : null;
-        User user = userRepository.findByGithubId(githubId).orElseGet(() -> userRepository.save(User.builder()
-            .githubId(githubId).username(login).avatarUrl(avatarUrl).virtualRating(1500).build()));
+
+        java.util.Optional<User> existingGithubUser = userRepository.findByGithubId(githubId);
+        User user;
+        if (existingGithubUser.isPresent()) {
+            user = existingGithubUser.get();
+            user.setUsername(login);
+            if (avatarUrl != null) user.setAvatarUrl(avatarUrl);
+            user = userRepository.save(user);
+        } else {
+            java.util.Optional<User> guestUserOpt = java.util.Optional.empty();
+            if (guestUserId != null) {
+                guestUserOpt = userRepository.findById(guestUserId);
+            } else if (deviceId != null && !deviceId.isBlank()) {
+                guestUserOpt = userRepository.findByGithubId("guest:" + deviceId);
+            }
+
+            if (guestUserOpt.isPresent() && guestUserOpt.get().getGithubId().startsWith("guest:")) {
+                User guestUser = guestUserOpt.get();
+                guestUser.setGithubId(githubId);
+                guestUser.setUsername(login);
+                if (avatarUrl != null) guestUser.setAvatarUrl(avatarUrl);
+                user = userRepository.save(guestUser);
+            } else {
+                user = userRepository.save(User.builder()
+                    .githubId(githubId)
+                    .username(login)
+                    .avatarUrl(avatarUrl)
+                    .virtualRating(1500)
+                    .build());
+            }
+        }
+
         return new GithubExchangeResponse(jwtService.generateToken(user.getId(), user.getUsername()), githubToken, user.getUsername());
+    }
+
+    private Long extractUserIdFromHeader(String authHeader) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            try {
+                if (jwtService.validateToken(token) && !jwtService.isTokenRevoked(token)) {
+                    return jwtService.extractUserId(token);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
     }
 
     @GetMapping("/me")
