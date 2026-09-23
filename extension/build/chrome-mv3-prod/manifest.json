@@ -35,6 +35,18 @@
   "content_scripts": [
     {
       "matches": [
+        "https://leetcode.com/problems/*",
+        "https://leetcode.com/contest/*/problems/*"
+      ],
+      "js": [
+        "main-world-interceptor.40ff4bf7.js"
+      ],
+      "run_at": "document_start",
+      "css": [],
+      "world": "MAIN"
+    },
+    {
+      "matches": [
         "https://leetcode.com/problems/*"
       ],
       "js": [
@@ -60,11 +72,10 @@
         "https://leetcode.com/contest/*/problems/*"
       ],
       "js": [
-        "main-world-interceptor.40ff4bf7.js"
+        "submission-interceptor.c929cee3.js"
       ],
       "run_at": "document_start",
-      "css": [],
-      "world": "MAIN"
+      "css": []
     },
     {
       "matches": [
@@ -83,17 +94,6 @@
         "https://leetcode.com/contest/*/problems/*"
       ],
       "js": [
-        "submission-interceptor.c929cee3.js"
-      ],
-      "run_at": "document_start",
-      "css": []
-    },
-    {
-      "matches": [
-        "https://leetcode.com/problems/*",
-        "https://leetcode.com/contest/*/problems/*"
-      ],
-      "js": [
         "submission-relay.f3ab66a7.js"
       ],
       "run_at": "document_idle",
@@ -101,20 +101,11 @@
     },
     {
       "matches": [
-        "https://leetcode.com/u/*"
+        "https://leetcode.com/problemset/*",
+        "https://leetcode.com/tag/*"
       ],
       "js": [
-        "profile-overlay.2f269a27.js"
-      ],
-      "css": []
-    },
-    {
-      "matches": [
-        "https://leetcode.com/problems/*",
-        "https://leetcode.com/contest/*/problems/*"
-      ],
-      "js": [
-        "solve-celebration.e2d6314d.js"
+        "problemset-overlay.f4b9334b.js"
       ],
       "css": []
     },
@@ -130,11 +121,20 @@
     },
     {
       "matches": [
-        "https://leetcode.com/problemset/*",
-        "https://leetcode.com/tag/*"
+        "https://leetcode.com/problems/*",
+        "https://leetcode.com/contest/*/problems/*"
       ],
       "js": [
-        "problemset-overlay.f4b9334b.js"
+        "solve-celebration.e2d6314d.js"
+      ],
+      "css": []
+    },
+    {
+      "matches": [
+        "https://leetcode.com/u/*"
+      ],
+      "js": [
+        "profile-overlay.2f269a27.js"
       ],
       "css": []
     }
@@ -159,19 +159,19 @@
     },
     {
       "matches": [
-        "https://leetcode.com/*"
-      ],
-      "resources": [
-        "profile-overlay.95bad065.css"
-      ]
-    },
-    {
-      "matches": [
         "https://leetcode.com/*",
         "https://leetcode.com/*"
       ],
       "resources": [
-        "profile-overlay.95bad065.css"
+        "floating-button.95bad065.css"
+      ]
+    },
+    {
+      "matches": [
+        "https://leetcode.com/*"
+      ],
+      "resources": [
+        "floating-button.95bad065.css"
       ]
     }
   ]

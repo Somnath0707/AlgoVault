@@ -92,6 +92,31 @@ class AuthControllerTest {
     }
 
     @Test
+    void authenticateGuest_handlesDataIntegrityViolationRaceCondition() {
+        String deviceId = "12345678-abcd-ef01-2345-6789abcdef01";
+        String guestId = "guest:" + deviceId;
+        User winnerUser = User.builder()
+                .id(505L)
+                .githubId(guestId)
+                .username("guest_12345678")
+                .virtualRating(1500)
+                .build();
+
+        when(userRepository.findByGithubId(guestId))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(winnerUser));
+        when(userRepository.save(any(User.class)))
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate key"));
+        when(jwtService.generateToken(505L, "guest_12345678")).thenReturn("winner-jwt");
+
+        var response = authController.authenticateGuest(new AuthController.GuestAuthRequest(deviceId));
+
+        assertEquals(200, response.getStatusCode().value());
+        assertNotNull(response.getBody());
+        assertEquals("winner-jwt", response.getBody().token());
+    }
+
+    @Test
     void authenticateGithubToken_upgradesGuestUser() {
         String deviceId = "test-device-uuid-1234";
         String guestId = "guest:" + deviceId;

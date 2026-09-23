@@ -254,26 +254,35 @@ export const Settings = () => {
   };
 
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setUsername(val);
-    persistUsername(val.trim());
+    setUsername(e.target.value);
+  };
+
+  const handleUsernameBlur = () => {
+    const trimmed = username.trim();
+    if (trimmed) {
+      persistUsername(trimmed);
+    }
   };
 
   const handleSync = () => {
-    if (!username) {
+    const trimmed = username.trim();
+    if (!trimmed) {
         alert("Please enter a username first.");
         return;
     }
-    chrome.runtime.sendMessage({ action: "sync_history", username });
+    persistUsername(trimmed);
+    chrome.runtime.sendMessage({ action: "sync_history", username: trimmed });
     setSyncStatus({ status: 'RUNNING', message: 'Starting sync...', count: 0, subCount: 0 });
   };
 
   const handleForceFullSync = () => {
-    if (!username) {
+    const trimmed = username.trim();
+    if (!trimmed) {
         alert("Please enter a username first.");
         return;
     }
-    chrome.runtime.sendMessage({ action: "sync_history", username, forceFullSync: true });
+    persistUsername(trimmed);
+    chrome.runtime.sendMessage({ action: "sync_history", username: trimmed, forceFullSync: true });
     setSyncStatus({ status: 'RUNNING', message: 'Starting clean full sync (fetching all history from scratch)...', count: 0, subCount: 0 });
   };
 
@@ -568,6 +577,7 @@ export const Settings = () => {
                 type="text"
                 value={username}
                 onChange={handleUsernameChange}
+                onBlur={handleUsernameBlur}
                 placeholder="Enter username"
                 className="w-full bg-[#1a1a1a] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-[#ffa116] focus:ring-1 focus:ring-[#ffa116]/20 transition-all"
             />

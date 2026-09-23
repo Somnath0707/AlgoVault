@@ -66,14 +66,19 @@ public class AuthController {
     @PostMapping("/guest")
     public ResponseEntity<GuestAuthResponse> authenticateGuest(@Valid @RequestBody GuestAuthRequest request) {
         String guestId = "guest:" + request.deviceId();
-        User user = userRepository.findByGithubId(guestId).orElseGet(() -> {
-            String shortId = request.deviceId().length() > 8 ? request.deviceId().substring(0, 8) : request.deviceId();
-            return userRepository.save(User.builder()
-                .githubId(guestId)
-                .username("guest_" + shortId)
-                .virtualRating(1500)
-                .build());
-        });
+        User user;
+        try {
+            user = userRepository.findByGithubId(guestId).orElseGet(() -> {
+                String shortId = request.deviceId().length() > 8 ? request.deviceId().substring(0, 8) : request.deviceId();
+                return userRepository.save(User.builder()
+                    .githubId(guestId)
+                    .username("guest_" + shortId)
+                    .virtualRating(1500)
+                    .build());
+            });
+        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+            user = userRepository.findByGithubId(guestId).orElseThrow(() -> ex);
+        }
         String jwt = jwtService.generateToken(user.getId(), user.getUsername());
         return ResponseEntity.ok(new GuestAuthResponse(jwt, user.getUsername()));
     }
@@ -188,14 +193,22 @@ public class AuthController {
                 guestUser.setGithubId(githubId);
                 guestUser.setUsername(login);
                 if (avatarUrl != null) guestUser.setAvatarUrl(avatarUrl);
-                user = userRepository.save(guestUser);
+                try {
+                    user = userRepository.save(guestUser);
+                } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+                    user = userRepository.findByGithubId(githubId).orElseThrow(() -> ex);
+                }
             } else {
-                user = userRepository.save(User.builder()
-                    .githubId(githubId)
-                    .username(login)
-                    .avatarUrl(avatarUrl)
-                    .virtualRating(1500)
-                    .build());
+                try {
+                    user = userRepository.save(User.builder()
+                        .githubId(githubId)
+                        .username(login)
+                        .avatarUrl(avatarUrl)
+                        .virtualRating(1500)
+                        .build());
+                } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+                    user = userRepository.findByGithubId(githubId).orElseThrow(() -> ex);
+                }
             }
         }
 
