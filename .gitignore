@@ -44,4 +44,9 @@ poke-arena/
 pl-backend/
 *.tex
 !extension/build/chrome-mv3-prod/**
+readme-images/raw/
+__pycache__/
+*.pyc
+
+
 
