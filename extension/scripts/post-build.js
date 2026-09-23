@@ -6,8 +6,23 @@ const dirs = [
   path.join(__dirname, '../build/chrome-mv3-prod')
 ];
 
+function readEnvFile(filePath) {
+  if (!fs.existsSync(filePath)) return {}
+  return Object.fromEntries(
+    fs.readFileSync(filePath, "utf8")
+      .split(/\r?\n/)
+      .filter((line) => line && !line.trimStart().startsWith("#"))
+      .map((line) => {
+        const index = line.indexOf("=")
+        return index < 0 ? [line, ""] : [line.slice(0, index).trim(), line.slice(index + 1).trim()]
+      })
+  )
+}
+
+const envValues = { ...readEnvFile(path.join(__dirname, '..', '.env')), ...process.env };
+
 function backendHostPermission() {
-  const rawUrl = process.env.PLASMO_PUBLIC_BACKEND_URL;
+  const rawUrl = envValues.PLASMO_PUBLIC_BACKEND_URL;
   if (!rawUrl) return null;
   try {
     const url = new URL(rawUrl);
