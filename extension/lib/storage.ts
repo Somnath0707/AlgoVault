@@ -38,7 +38,7 @@ export async function getUsername(): Promise<string | null> {
 
 export async function setUsername(username: string): Promise<void> {
   const current = await getUsername()
-  if (current && current.toLowerCase() !== username.toLowerCase()) {
+  if (current && !current.startsWith("guest_") && current !== "Set username" && current.toLowerCase() !== username.toLowerCase()) {
     // Purge ALL user-scoped caches to prevent cross-account data bleed
     await Promise.all([
       storage.remove("algovault.latestSyncedSubmissionTimestamp"),
@@ -357,17 +357,32 @@ export async function clearGithubAuth(): Promise<void> {
 
 // ─── Device Authentication ────────────────────────────────────────
 
+let inMemoryDeviceId: string | null = null
+let activeDeviceIdPromise: Promise<string> | null = null
+
 export async function getOrCreateDeviceId(): Promise<string> {
-  let deviceId = await getTyped<string>("algovault.deviceId")
-  if (!deviceId) {
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-      deviceId = crypto.randomUUID()
-    } else {
-      deviceId = "dev_" + Math.random().toString(36).substring(2, 15) + Date.now().toString(36)
+  if (inMemoryDeviceId) return inMemoryDeviceId
+  if (activeDeviceIdPromise) return activeDeviceIdPromise
+
+  activeDeviceIdPromise = (async () => {
+    try {
+      let deviceId = await getTyped<string>("algovault.deviceId")
+      if (!deviceId) {
+        if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+          deviceId = crypto.randomUUID()
+        } else {
+          deviceId = "dev_" + Math.random().toString(36).substring(2, 15) + Date.now().toString(36)
+        }
+        await setTyped("algovault.deviceId", deviceId)
+      }
+      inMemoryDeviceId = deviceId
+      return deviceId
+    } finally {
+      activeDeviceIdPromise = null
     }
-    await setTyped("algovault.deviceId", deviceId)
-  }
-  return deviceId
+  })()
+
+  return activeDeviceIdPromise
 }
 
 // ─── Export the raw storage instance ──────────────────────────────

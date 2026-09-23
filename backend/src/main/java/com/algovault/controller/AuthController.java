@@ -48,18 +48,18 @@ public class AuthController {
     }
 
     public record OAuthStateResponse(String state) {}
-    public record GuestAuthRequest(@NotBlank @Size(min = 8, max = 128) String deviceId) {}
+    public record GuestAuthRequest(@NotBlank @Pattern(regexp = "^[a-zA-Z0-9_-]{8,128}$") String deviceId) {}
     public record GuestAuthResponse(String token, String username) {}
     public record GithubExchangeRequest(
         @NotBlank @Size(max = 300) String code,
         @NotBlank @Pattern(regexp = "^[A-Za-z0-9_-]{43}$") String state,
         @NotBlank @Pattern(regexp = "^[A-Za-z0-9._~-]{43,128}$") String codeVerifier,
         @NotBlank @Pattern(regexp = "^https://[a-p]{32}\\.chromiumapp\\.org/$") String redirectUri,
-        @Size(max = 128) String deviceId
+        @Pattern(regexp = "^[a-zA-Z0-9_-]{8,128}$") String deviceId
     ) {}
     public record GithubTokenRequest(
         @NotBlank @Size(max = 500) String token,
-        @Size(max = 128) String deviceId
+        @Pattern(regexp = "^[a-zA-Z0-9_-]{8,128}$") String deviceId
     ) {}
     public record GithubExchangeResponse(String token, String githubToken, String username) {}
 

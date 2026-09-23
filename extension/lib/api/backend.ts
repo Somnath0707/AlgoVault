@@ -39,13 +39,12 @@ let activeRefreshPromise: Promise<RefreshResult> | null = null;
 let inMemoryJwt: string | null = null;
 
 export async function getValidJwt(): Promise<string | null> {
-  if (inMemoryJwt) return inMemoryJwt;
   const stored = await getJwtToken();
   if (stored) {
     inMemoryJwt = stored;
     return stored;
   }
-  return null;
+  return inMemoryJwt;
 }
 
 export const authenticateGithubToken = async (token: string) => {
@@ -194,10 +193,14 @@ async function backendFetch<T = any>(path: string, init: RequestInit = {}): Prom
     // credential unless GitHub explicitly rejected it.
     inMemoryJwt = null;
     await clearJwtToken();
-    if (refresh.credentialsRejected) {
-      throw new Error("Your GitHub authorization was rejected. Reconnect GitHub in Settings.");
+    const hasGithub = Boolean(await getGithubPat());
+    if (hasGithub) {
+      if (refresh.credentialsRejected) {
+        throw new Error("Your GitHub authorization was rejected. Reconnect GitHub in Settings.");
+      }
+      throw new Error("Could not refresh your session right now. Your GitHub login was kept; please retry shortly.");
     }
-    throw new Error("Could not refresh your session right now. Your GitHub login was kept; please retry shortly.");
+    throw new Error("Could not refresh your session right now. Please retry shortly.");
   }
 
   if (res.status === 429) {

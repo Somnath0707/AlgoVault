@@ -167,6 +167,18 @@ class AuthControllerTest {
     }
 
     @Test
+    void guestAuthRequest_validationFailsOnInvalidDeviceId() {
+        var validator = jakarta.validation.Validation.buildDefaultValidatorFactory().getValidator();
+        var invalidShort = new AuthController.GuestAuthRequest("short");
+        var invalidChars = new AuthController.GuestAuthRequest("bad device id with spaces!");
+        var valid = new AuthController.GuestAuthRequest("12345678-abcd-ef01-2345-6789abcdef01");
+
+        assertFalse(validator.validate(invalidShort).isEmpty());
+        assertFalse(validator.validate(invalidChars).isEmpty());
+        assertTrue(validator.validate(valid).isEmpty());
+    }
+
+    @Test
     void logout_revokesBearerToken() {
         var response = authController.logout("Bearer test-token-xyz");
         assertEquals(204, response.getStatusCode().value());

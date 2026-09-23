@@ -734,8 +734,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // GitHub work is optional and must not compete with LeetCode's own
         // accepted-result rendering or the timer/overlay messages.
         setTimeout(() => {
-          getGithubAutoSync().then((isAutoSync) => {
-            if (isAutoSync) {
+          Promise.all([getGithubAutoSync(), getGithubPat(), getGithubRepo()]).then(([isAutoSync, pat, repo]) => {
+            if (isAutoSync && pat && repo) {
               syncAcceptedSubmissionToGithub(payload, helpType).catch((gitErr) => {
                 console.error("Error during GitHub sync operation:", gitErr);
               });
@@ -911,6 +911,22 @@ async function syncAcceptedSubmissionToGithub(payload: any, helpType = "PENDING_
   const isAutoSyncEnabled = await getGithubAutoSync()
   if (!isAutoSyncEnabled) return
 
+  let pat = await getGithubPat()
+  let repo = await getGithubRepo()
+  if (!pat && !repo) {
+    // User is practicing without GitHub integration; exit cleanly
+    return
+  }
+  if (!pat || !repo) {
+    await storage.set("algovault.gitSyncStatus", {
+      success: false,
+      message: !pat ? "GitHub PAT token is missing in Settings" : "GitHub repository is not selected in Settings",
+      timestamp: Date.now(),
+      problem: payload.title || payload.titleSlug
+    })
+    return
+  }
+
   const artifact = await buildGithubArtifact(payload, helpType, sessionData)
   // Keep only what is needed to rebuild after the optional self-report. The
   // full artifact includes code and problem HTML, which causes large storage
@@ -921,18 +937,6 @@ async function syncAcceptedSubmissionToGithub(payload: any, helpType = "PENDING_
     focusSeconds: artifact.metadata.focusSeconds,
     savedAt: Date.now()
   })
-
-  let pat = await getGithubPat()
-  let repo = await getGithubRepo()
-  if (!pat || !repo) {
-    await storage.set("algovault.gitSyncStatus", {
-      success: false,
-      message: "GitHub credentials are not configured",
-      timestamp: Date.now(),
-      problem: payload.title || payload.titleSlug
-    })
-    return
-  }
 
   pat = stripWrappingQuotes(pat)
   repo = stripWrappingQuotes(repo)
