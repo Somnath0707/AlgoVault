@@ -1,7 +1,7 @@
 {
   "name": "algovault",
   "displayName": "AlgoVault",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Your competitive programming operating system",
   "scripts": {
     "dev": "plasmo dev",

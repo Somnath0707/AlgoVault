@@ -63,6 +63,8 @@ export const Settings = () => {
   const [loadingRepos, setLoadingRepos] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [manualPatMode, setManualPatMode] = useState<boolean>(false);
+  const [manualPatInput, setManualPatInput] = useState<string>('');
+  const [manualRepoInput, setManualRepoInput] = useState<string>('');
   const [githubSaved, setGithubSaved] = useState<boolean>(false);
   const [gitSyncStatus, setGitSyncStatus] = useState<SyncStatus | null>(null);
   const [githubAutoSync, setGithubAutoSyncState] = useState<boolean>(true);
@@ -335,6 +337,9 @@ export const Settings = () => {
     setGithubBranch('main');
     setGithubRepos([]);
     setGitSyncStatus(null);
+    setManualPatInput('');
+    setManualRepoInput('');
+    setAuthError(null);
   };
 
   const handleRepoChange = async (selected: string) => {
@@ -356,19 +361,30 @@ export const Settings = () => {
   };
 
   const handleGithubSaveManual = async () => {
-    const manualToken = githubPat.trim();
+    const manualToken = manualPatInput.trim();
     if (!manualToken) {
       setAuthError("Enter a fine-grained GitHub token first.");
       return;
     }
+    const repo = (manualRepoInput || githubRepo).trim();
+    if (repo && !repo.includes('/')) {
+      setAuthError("Repository path must be in 'owner/repo' format (e.g. your-username/problems).");
+      return;
+    }
+    setAuthenticating(true);
     setAuthError(null);
-    const auth = await authenticateGithubToken(manualToken);
-    await setJwtToken(auth.token);
-    persistGithubPat(manualToken);
-    persistGithubRepo(githubRepo.trim());
-    persistGithubBranch(githubBranch.trim());
-    
-    if (manualToken) {
+    try {
+      const auth = await authenticateGithubToken(manualToken);
+      await setJwtToken(auth.token);
+      await persistGithubPat(manualToken);
+      setGithubPat(manualToken);
+
+      if (repo) {
+        await persistGithubRepo(repo);
+        setGithubRepo(repo);
+      }
+      await persistGithubBranch(githubBranch.trim());
+      
       const profileRes = await fetchUserGithubProfile(manualToken);
       if (profileRes.ok && profileRes.user) {
         setGithubUser(profileRes.user);
@@ -381,10 +397,17 @@ export const Settings = () => {
       if (reposRes.ok) {
         setGithubRepos(reposRes.repos);
       }
-    }
 
-    setGithubSaved(true);
-    setTimeout(() => setGithubSaved(false), 2000);
+      setGithubSaved(true);
+      setManualPatMode(false);
+      setManualPatInput('');
+      setManualRepoInput('');
+      setTimeout(() => setGithubSaved(false), 2000);
+    } catch (err: any) {
+      setAuthError(err?.message || "Failed to verify GitHub token.");
+    } finally {
+      setAuthenticating(false);
+    }
   };
 
   const handleSyncSettings = async () => {
@@ -684,7 +707,9 @@ export const Settings = () => {
                       </a>
                     )}
                   </div>
-                  <div className="text-[9px] text-zinc-500 font-mono">OAuth 2.0 Authorization Active</div>
+                  <div className="text-[9px] text-zinc-500 font-mono">
+                    {githubUser?.login ? `Connected as @${githubUser.login}` : "GitHub Synchronization Active"}
+                  </div>
                 </div>
               </div>
               <button
@@ -720,9 +745,14 @@ export const Settings = () => {
                   type="text"
                   value={githubRepo}
                   onChange={(e) => handleRepoChange(e.target.value)}
-                  placeholder="owner/repo (e.g. Somnath0707/AlgoVault)"
+                  placeholder="owner/repo (e.g. username/problems)"
                   className="w-full bg-[#1a1a1a] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-[#ffa116] transition-all font-mono"
                 />
+              )}
+              {githubRepo && !githubRepo.includes('/') && (
+                <p className="mt-1 text-[9px] text-amber-400 font-mono">
+                  ⚠️ Must include your username: e.g. <span className="underline font-bold">your-username/{githubRepo}</span>
+                </p>
               )}
             </div>
 
@@ -788,7 +818,7 @@ export const Settings = () => {
                 </p>
                 <div className="mt-2.5 text-center">
                   <button
-                    onClick={() => setManualPatMode(true)}
+                    onClick={() => { setManualPatMode(true); setAuthError(null); }}
                     className="text-[9px] font-mono text-zinc-500 hover:text-zinc-300 underline underline-offset-2"
                   >
                     Or use manual Personal Access Token (PAT)
@@ -799,34 +829,36 @@ export const Settings = () => {
               <div className="space-y-3 p-3 rounded-lg border border-white/[0.08] bg-[#1a1a1a]">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-mono font-bold text-zinc-400">Fine-grained PAT (private repo)</span>
-                  <button onClick={() => setManualPatMode(false)} className="text-[9px] font-mono text-[#ffa116] hover:underline">Use 1-Click OAuth</button>
+                  <button onClick={() => { setManualPatMode(false); setAuthError(null); }} className="text-[9px] font-mono text-[#ffa116] hover:underline">Use 1-Click OAuth</button>
                 </div>
                 <div>
                   <label className="text-[10px] text-zinc-400 block mb-1 font-mono">Personal Access Token (PAT)</label>
                   <input
                     type="password"
-                    value={githubPat}
-                    onChange={(e) => setGithubPat(e.target.value)}
+                    value={manualPatInput}
+                    onChange={(e) => setManualPatInput(e.target.value)}
                     placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
                     className="w-full bg-[#282828] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-[#ffa116] transition-all font-mono"
                   />
-                  <p className="mt-1 text-[9px] text-zinc-500 font-mono">Restrict it to one repository with Contents: Read and write. It stays only in this extension.</p>
+                  <p className="mt-1 text-[9px] text-zinc-500 font-mono">Generate a token with repo (Contents: Read and write) permissions.</p>
                 </div>
                 <div>
                   <label className="text-[10px] text-zinc-400 block mb-1 font-mono">Repository Path</label>
                   <input
                     type="text"
-                    value={githubRepo}
-                    onChange={(e) => setGithubRepo(e.target.value)}
-                    placeholder="owner/repo (e.g. Somnath0707/AlgoVault)"
+                    value={manualRepoInput}
+                    onChange={(e) => setManualRepoInput(e.target.value)}
+                    placeholder="owner/repo (e.g. username/problems)"
                     className="w-full bg-[#282828] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-[#ffa116] transition-all font-mono"
                   />
+                  <p className="mt-1 text-[9px] text-zinc-500 font-mono">Must be in owner/repo format (e.g. your-github-username/problems).</p>
                 </div>
                 <button
                   onClick={handleGithubSaveManual}
-                  className="w-full bg-[#333333] hover:bg-[#3a3a3a] text-zinc-200 font-semibold text-xs py-2 px-4 rounded-lg transition-colors border border-white/[0.08] font-mono tracking-wider uppercase"
+                  disabled={authenticating}
+                  className="w-full bg-[#333333] hover:bg-[#3a3a3a] text-zinc-200 font-semibold text-xs py-2 px-4 rounded-lg transition-colors border border-white/[0.08] font-mono tracking-wider uppercase disabled:opacity-50"
                 >
-                  <span className="flex items-center justify-center gap-1.5">{githubSaved && <CheckCircle2 size={13} />} {githubSaved ? "Saved" : "Save Credentials"}</span>
+                  <span className="flex items-center justify-center gap-1.5">{authenticating ? "Validating Token..." : (githubSaved ? <> <CheckCircle2 size={13} /> Saved </> : "Save Credentials")}</span>
                 </button>
               </div>
             )}
@@ -835,7 +867,7 @@ export const Settings = () => {
 
         {authError && (
           <div className="mt-3 text-[10px] text-red-400 font-mono bg-red-950/20 border border-red-900/30 p-2.5 rounded-lg">
-            <span className="flex items-start gap-1.5"><AlertTriangle size={13} className="mt-0.5 shrink-0" /> Authorization Error: {authError}</span>
+            <span className="flex items-start gap-1.5"><AlertTriangle size={13} className="mt-0.5 shrink-0" /> {authError}</span>
           </div>
         )}
 

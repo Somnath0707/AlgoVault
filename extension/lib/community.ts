@@ -6,7 +6,7 @@ export const COMMUNITY_CONFIG = {
   AUTHOR_URL: "https://github.com/Somnath0707",
   AUTHOR_NAME: "Som_07",
   AUTHOR_HANDLE: "@Som_07",
-  VERSION: "v0.1.0",
+  VERSION: "v0.1.1",
   TAGLINES: [
     "Made with joy by @Som_07",
     "Made with joy for competitive programmers",
