@@ -1,0 +1,28 @@
+          }
+        }
+        return -1; 
+    }
+    public long minimumCost(String source, String target, char[] og, char[] notOg, int[] cost) {
+        map = new HashMap<>(); 
+        int n = og.length; 
+        for(int i = 0 ; i < n ; i++){
+            char curr = og[i];
+            int change = (int)notOg[i];
+
+            map.putIfAbsent(curr , new ArrayList<>());
+            map.get(curr).add(new int[]{change , cost[i]});
+        }
+
+        Map<Character,Map<Character, Integer>> temp = new HashMap<>(); 
+        long ans = 0 ; 
+        for(int i = 0 ; i < source.length() ; i++){
+            char curr = source.charAt(i); 
+            char find = target.charAt(i); 
+            if(curr == find) continue; 
+            if(temp.containsKey(curr) && temp.get(curr).containsKey(find)){
+                ans += temp.get(curr).get(find); 
+            }else{
+                int val = bfs(curr , find);
+                if(val == -1 ) return -1; 
+                ans += val; 
+                temp.put
