@@ -1,13 +1,22 @@
-# AlgoVault
+<p align="center">
+  <img src="readme-images/logo.png" alt="AlgoVault Logo" width="150" />
+</p>
 
-A Chrome extension (Manifest V3) with a Spring Boot backend that tracks LeetCode practice, injects contest difficulty ratings, schedules spaced repetition, and automatically pushes accepted solutions to GitHub.
+<h1 align="center">AlgoVault</h1>
 
-[![GitHub Release](https://img.shields.io/github/v/release/Somnath0707/AlgoVault?color=00e699&label=version)](https://github.com/Somnath0707/AlgoVault/releases)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
-[![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
-[![Chrome MV3](https://img.shields.io/badge/Chrome%20Extension-MV3-4285F4?logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/mv3/intro/)
-[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<p align="center">
+  <strong>Your competitive programming operating system</strong><br>
+  <em>Deep focus telemetry, ZeroTrac contest ratings, Glicko-2 topic mastery, and automated GitHub solution backups.</em>
+</p>
+
+<p align="center">
+  <a href="https://github.com/Somnath0707/AlgoVault/releases"><img src="https://img.shields.io/github/v/release/Somnath0707/AlgoVault?color=00e699&label=version" alt="GitHub Release"></a>
+  <a href="https://spring.io/projects/spring-boot"><img src="https://img.shields.io/badge/Spring%20Boot-3.3-6DB33F?logo=springboot&logoColor=white" alt="Spring Boot"></a>
+  <a href="https://openjdk.org/"><img src="https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white" alt="Java 21"></a>
+  <a href="https://developer.chrome.com/docs/extensions/mv3/intro/"><img src="https://img.shields.io/badge/Chrome%20Extension-MV3-4285F4?logo=googlechrome&logoColor=white" alt="Chrome MV3"></a>
+  <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React 18"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+</p>
 
 ---
 
