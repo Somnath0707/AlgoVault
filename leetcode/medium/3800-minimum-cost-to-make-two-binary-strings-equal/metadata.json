@@ -1,0 +1,23 @@
+{
+  "title": "Minimum Cost to Make Two Binary Strings Equal",
+  "titleSlug": "minimum-cost-to-make-two-binary-strings-equal",
+  "frontendQuestionId": "3800",
+  "leetcodeUrl": "https://leetcode.com/problems/minimum-cost-to-make-two-binary-strings-equal/",
+  "difficulty": "Medium",
+  "topics": [
+    "String",
+    "Greedy"
+  ],
+  "language": "Unknown",
+  "verdict": "Accepted",
+  "submissionId": null,
+  "submittedAt": "2026-09-24T13:52:44.427Z",
+  "runtimeMs": null,
+  "memoryKb": null,
+  "totalCorrect": null,
+  "totalTestcases": null,
+  "helpType": "PENDING_SELF_REPORT",
+  "helpLabel": "Pending self report",
+  "focusSeconds": null,
+  "syncedAt": "2026-09-24T13:52:46.693Z"
+}
