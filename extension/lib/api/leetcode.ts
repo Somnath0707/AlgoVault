@@ -437,7 +437,7 @@ export interface LatestAttendedContest {
   totalQuestions: number
 }
 
-export const fetchLatestAttendedContest = async (): Promise<LatestAttendedContest | null> => {
+export const fetchRecentAttendedContests = async (): Promise<LatestAttendedContest[]> => {
   const query = `
     query contestV2MyContests($skip: Int!, $limit: Int!, $isVirtual: Boolean) {
       contestV2MyContests(skip: $skip, limit: $limit, isVirtual: $isVirtual) {
@@ -454,14 +454,17 @@ export const fetchLatestAttendedContest = async (): Promise<LatestAttendedContes
     }
   `;
   try {
-    const res = await fetchGraphQL(query, { skip: 0, limit: 1, isVirtual: false });
+    const res = await fetchGraphQL(query, { skip: 0, limit: 5, isVirtual: false });
     const list = res.data?.contestV2MyContests?.contests || [];
-    if (list.length > 0 && list[0]?.titleSlug) {
-      return list[0] as LatestAttendedContest;
-    }
+    return (list as any[]).filter((c) => c && c.titleSlug) as LatestAttendedContest[];
   } catch (err) {
-    console.warn("Failed to fetch latest attended contest from LeetCode GraphQL:", err);
+    console.warn("Failed to fetch recent attended contests from LeetCode GraphQL:", err);
+    return [];
   }
-  return null;
+};
+
+export const fetchLatestAttendedContest = async (): Promise<LatestAttendedContest | null> => {
+  const list = await fetchRecentAttendedContests();
+  return list.length > 0 ? list[0] : null;
 };
 

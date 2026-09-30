@@ -19,4 +19,5 @@ public class ContestPredictionRequest {
     private Double finishTimeMinutes;
     private Double currentRating;
     private Integer attendedContestsCount;
+    private Boolean forceRefresh;
 }

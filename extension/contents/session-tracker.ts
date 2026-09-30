@@ -1,6 +1,5 @@
 import type { PlasmoCSConfig } from "plasmo"
 import { getLeetCodeProblemSlug } from "../lib/leetcode-url"
-import { showZenithAlarmModal, showZenithToast } from "./ZenithSystemOverlay"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://leetcode.com/problems/*", "https://leetcode.com/contest/*/problems/*"],

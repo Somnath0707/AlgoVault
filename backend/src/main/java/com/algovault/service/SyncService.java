@@ -110,7 +110,7 @@ public class SyncService {
     private void updateUserProfile(User user, SyncLeetcodeRequest request) {
         if (request.getUsername() != null && !request.getUsername().isBlank()) {
             user.setLcUsername(request.getUsername().trim());
-            if (user.getUsername() == null || user.getUsername().isBlank()) {
+            if (user.getUsername() == null || user.getUsername().isBlank() || user.getUsername().startsWith("guest_")) {
                 user.setUsername(request.getUsername().trim());
             }
         }

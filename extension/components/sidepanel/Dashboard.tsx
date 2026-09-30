@@ -748,6 +748,7 @@ export const Dashboard = () => {
 
   const primaryActionHref = primaryAction.titleSlug ? `https://leetcode.com/problems/${primaryAction.titleSlug}/` : undefined
   const maxFocus = Math.max(1, ...activity.days.map((day) => day.focusSeconds))
+  const effectiveTodaySolves = Math.max(activity.todayActivity?.solves ?? 0, data?.todaySolves ?? 0)
 
   const openTrackPicker = () => {
     chrome.storage.local.set({ "algovault.requestedTab": "Lists" })
@@ -849,7 +850,7 @@ export const Dashboard = () => {
           </div>
 
           <div className="mt-5 grid grid-cols-3 divide-x divide-white/[0.08] border-t border-white/[0.08] pt-3">
-            <div className="pr-3"><span className="block text-[18px] font-bold font-mono tabular-nums text-[#2bb673]">{data.todaySolves}</span><span className="text-[8px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-500">solved today</span></div>
+            <div className="pr-3"><span className="block text-[18px] font-bold font-mono tabular-nums text-[#2bb673]">{effectiveTodaySolves}</span><span className="text-[8px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-500">solved today</span></div>
             <div className="px-3"><span className="block text-[18px] font-bold font-mono tabular-nums text-[#60a5fa]">{formatCompactDuration(activity.todayActivity?.focusSeconds ?? 0)}</span><span className="text-[8px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-500">active time</span></div>
             <div className="pl-3"><span className="block text-[18px] font-bold font-mono tabular-nums text-[#f0b429]">{data.currentStreak}d</span><span className="text-[8px] font-bold font-mono uppercase tracking-[0.14em] text-zinc-500">solve streak</span></div>
           </div>
@@ -1003,7 +1004,7 @@ export const Dashboard = () => {
         <div className="rounded-2xl border border-white/[0.08] bg-[#282828] p-4 sm:p-5">
           <p className="text-[9px] font-bold font-mono uppercase tracking-[0.18em] text-zinc-400">What you did</p>
           <div className="mt-4 space-y-3">
-            <div className="flex items-center gap-2.5"><div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#00b8a3]/10 text-[#00b8a3]"><Check size={13} /></div><div><p className="text-[11px] font-medium text-zinc-200">{data.todaySolves} problem{data.todaySolves === 1 ? "" : "s"} solved today</p><p className="text-[9px] text-zinc-500">{data.todaySubmissions} submission{data.todaySubmissions === 1 ? "" : "s"} recorded</p></div></div>
+            <div className="flex items-center gap-2.5"><div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#00b8a3]/10 text-[#00b8a3]"><Check size={13} /></div><div><p className="text-[11px] font-medium text-zinc-200">{effectiveTodaySolves} problem{effectiveTodaySolves === 1 ? "" : "s"} solved today</p><p className="text-[9px] text-zinc-500">{data.todaySubmissions} submission{data.todaySubmissions === 1 ? "" : "s"} recorded</p></div></div>
             <div className="flex items-center gap-2.5"><div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#ffa116]/10 text-[#ffa116]"><Clock3 size={13} /></div><div><p className="text-[11px] font-medium text-zinc-200">{formatDuration(activity.todayActivity?.focusSeconds ?? 0)} active practice</p><p className="text-[9px] text-zinc-500">Only explicit focus sessions are counted</p></div></div>
             <div className="flex items-center gap-2.5"><div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#00b8a3]/10 text-[#00b8a3]"><Flame size={13} /></div><div><p className="text-[11px] font-medium text-zinc-200">{data.currentStreak}-day solve streak</p><p className="text-[9px] text-zinc-500">Progress is a record, not a requirement</p></div></div>
           </div>

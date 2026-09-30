@@ -254,26 +254,35 @@ export const Settings = () => {
   };
 
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setUsername(val);
-    persistUsername(val.trim());
+    setUsername(e.target.value);
+  };
+
+  const handleUsernameBlur = () => {
+    const trimmed = username.trim();
+    if (trimmed) {
+      persistUsername(trimmed);
+    }
   };
 
   const handleSync = () => {
-    if (!username) {
+    const trimmed = username.trim();
+    if (!trimmed) {
         alert("Please enter a username first.");
         return;
     }
-    chrome.runtime.sendMessage({ action: "sync_history", username });
+    persistUsername(trimmed);
+    chrome.runtime.sendMessage({ action: "sync_history", username: trimmed });
     setSyncStatus({ status: 'RUNNING', message: 'Starting sync...', count: 0, subCount: 0 });
   };
 
   const handleForceFullSync = () => {
-    if (!username) {
+    const trimmed = username.trim();
+    if (!trimmed) {
         alert("Please enter a username first.");
         return;
     }
-    chrome.runtime.sendMessage({ action: "sync_history", username, forceFullSync: true });
+    persistUsername(trimmed);
+    chrome.runtime.sendMessage({ action: "sync_history", username: trimmed, forceFullSync: true });
     setSyncStatus({ status: 'RUNNING', message: 'Starting clean full sync (fetching all history from scratch)...', count: 0, subCount: 0 });
   };
 
@@ -329,7 +338,6 @@ export const Settings = () => {
   };
 
   const handleDisconnectGithub = async () => {
-    await logout().catch(() => undefined);
     await clearGithubAuth();
     setGithubPat('');
     setGithubUser(null);
@@ -568,6 +576,7 @@ export const Settings = () => {
                 type="text"
                 value={username}
                 onChange={handleUsernameChange}
+                onBlur={handleUsernameBlur}
                 placeholder="Enter username"
                 className="w-full bg-[#1a1a1a] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-[#ffa116] focus:ring-1 focus:ring-[#ffa116]/20 transition-all"
             />
@@ -673,7 +682,10 @@ export const Settings = () => {
       {/* GitHub Integration Section */}
       <Card className="p-3.5">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-xs font-semibold uppercase tracking-widest text-zinc-400">GitHub Synchronization</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-widest text-zinc-400">GitHub Code Sync</h3>
+            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-white/[0.06]">OPTIONAL</span>
+          </div>
           {isConnected && (
             <span className="inline-flex items-center gap-1 text-[9px] font-mono font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-900/50 px-2 py-0.5 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -681,8 +693,8 @@ export const Settings = () => {
             </span>
           )}
         </div>
-        <p className="text-[11px] text-zinc-500 font-mono leading-relaxed mb-3.5">
-          Automatically sync your accepted LeetCode solutions to your personal GitHub repository.
+        <p className="text-[11px] text-zinc-400 font-mono leading-relaxed mb-3.5">
+          Only required if you want your accepted LeetCode solutions automatically committed to your personal GitHub repository. All practice tracking, timers, ZeroTrac calibrations, and topic mastery work automatically without GitHub.
         </p>
 
         {/* Connected View */}

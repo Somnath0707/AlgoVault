@@ -50,10 +50,10 @@ public class DataSourceConfig {
 
         HikariConfig hikariConfig = new HikariConfig();
         hikariConfig.setPoolName("AlgoVault-HikariPool");
-        hikariConfig.setMaximumPoolSize(Math.max(2, maxPoolSize));
-        hikariConfig.setMinimumIdle(Math.max(1, minIdle));
-        hikariConfig.setConnectionTimeout(15000);
-        hikariConfig.setIdleTimeout(30000);
+        hikariConfig.setMaximumPoolSize(15);
+        hikariConfig.setMinimumIdle(3);
+        hikariConfig.setConnectionTimeout(30000);
+        hikariConfig.setIdleTimeout(600000);
         hikariConfig.setMaxLifetime(1800000);
         hikariConfig.setLeakDetectionThreshold(60000);
 

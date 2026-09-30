@@ -29,7 +29,8 @@ public class CorsConfig {
                 }
             }
         }
-        origins.add("chrome-extension://nglebofiomebgndkkdecnmolafjdphhf");
+        origins.add("chrome-extension://*");
+        origins.add("chrome-extension://nglebofiomebgndkdecnmolafjdphhf");
         return origins;
     }
 

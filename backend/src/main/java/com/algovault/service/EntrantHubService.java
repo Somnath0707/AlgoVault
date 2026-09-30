@@ -46,11 +46,11 @@ public class EntrantHubService {
 
         boolean isExpired() {
             long now = System.currentTimeMillis();
-            // EntrantHub predictions are static once calculated -> 12 hour TTL
-            // Fallback predictions check back periodically -> 15 minute TTL
+            // During live contest updates, ranks and ratings recalculate continuously -> 3 min TTL
+            // Fallback predictions check back periodically -> 5 minute TTL
             long ttl = "ENTRANTHUB".equalsIgnoreCase(response.getSource())
-                    ? 12 * 3600 * 1000L
-                    : 15 * 60 * 1000L;
+                    ? 3 * 60 * 1000L
+                    : 5 * 60 * 1000L;
             return (now - cachedAt) > ttl;
         }
     }
@@ -97,8 +97,9 @@ public class EntrantHubService {
         String normalizedSlug = contestSlug.trim().toLowerCase();
         String normalizedUsername = username.trim();
         String cacheKey = normalizedSlug + ":" + normalizedUsername.toLowerCase();
+        boolean shouldBypassCache = Boolean.TRUE.equals(req.getForceRefresh());
 
-        CacheEntry cached = getCache(cacheKey);
+        CacheEntry cached = shouldBypassCache ? null : getCache(cacheKey);
         if (cached != null) {
             log.debug("Returning cached contest prediction for {}", cacheKey);
             return cached.response;

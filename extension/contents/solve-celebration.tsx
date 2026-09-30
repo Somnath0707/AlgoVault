@@ -369,21 +369,26 @@ export default function SolveCelebration() {
             </button>
           </>
         ) : (
-          <div className="bg-[#282828] border border-white/[0.08] p-7 rounded-xl w-[440px] shadow-2xl">
-            <h1 className="text-2xl text-[#ffa116] font-serif font-bold mb-3 tracking-widest uppercase">Zenith Quest Complete</h1>
-            <p className="text-zinc-300 text-xs mb-5 font-mono leading-relaxed">What was the key insight that unlocked this problem? Formulate it clearly to encode it into your long-term memory.</p>
+          <div className="bg-[#18181b] border border-white/[0.08] p-6 rounded-xl w-[440px] shadow-2xl">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xl">🏆</span>
+              <h1 className="text-lg text-[#f4f4f5] font-sans font-bold tracking-tight">Zenith Session Complete</h1>
+            </div>
+            <p className="text-zinc-400 text-xs mb-4 font-sans leading-relaxed">
+              Distraction shield completed. Problem solved independently. What was the key insight that unlocked this solution?
+            </p>
             <textarea 
               autoFocus
               value={insightText}
               onChange={(e) => setInsightText(e.target.value)}
-              className="w-full h-24 bg-[#1a1a1a] border border-white/[0.08] rounded-lg p-3 text-zinc-200 focus:outline-none focus:border-[#ffa116] transition-all mb-4 text-xs font-mono resize-none"
-              placeholder="The key trick was realizing that..."
+              className="w-full h-24 bg-[#121214] border border-[#27272a] rounded-lg p-3 text-zinc-200 focus:outline-none focus:border-[#ffa116] transition-all mb-4 text-xs font-mono resize-none placeholder:text-zinc-600"
+              placeholder="e.g. Realized two-pointer approach works because the array is sorted..."
             />
             <button 
               onClick={() => {
                 chrome.storage.local.set({
                   "algovault.isZenith": false,
-                  "algovault.zenithGrade": "S_PLUS"
+                  "algovault.zenithRevealed": false
                 }, () => {
                   if (document.fullscreenElement) {
                     document.exitFullscreen().catch(() => {});
@@ -392,13 +397,12 @@ export default function SolveCelebration() {
                   setTimeout(() => {
                     setMounted(false);
                     isShowingRef.current = false;
-                    location.reload();
                   }, 300);
                 });
               }}
-              className="w-full bg-[#ffa116] hover:bg-[#ffa116]/90 text-zinc-950 py-2.5 rounded-lg font-bold tracking-widest text-xs uppercase transition-all shadow-md cursor-pointer"
+              className="w-full bg-[#ffa116] hover:bg-[#ffb03a] text-zinc-950 py-2.5 rounded-lg font-bold tracking-wider text-xs uppercase transition-all shadow-md cursor-pointer"
             >
-              Commit Insight & Exit Zenith
+              Save Insight & Exit Zenith
             </button>
           </div>
         )}

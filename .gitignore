@@ -42,6 +42,11 @@ leetStats_ref/
 ref-leetStats/
 poke-arena/
 pl-backend/
+ecosystem-sim/
+algovault-simplified/
+discuss-images/
+Solution.java
+longest_valid_subarray.py
 *.tex
 !extension/build/chrome-mv3-prod/**
 readme-images/raw/
