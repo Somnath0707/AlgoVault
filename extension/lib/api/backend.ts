@@ -1,6 +1,7 @@
 import { BACKEND_URL } from "../constants"
 import { getJwtToken, setJwtToken, clearJwtToken, getGithubPat, getOrCreateDeviceId } from "../storage"
 import type { ActiveSession, DashboardData, PredictionResult, RevisionQueueItem, SessionData, WeaknessSnapshot } from "../types"
+import { fetchEntrantHubPrediction } from "./entranthub"
 
 export const getGithubOAuthState = async (): Promise<string> => {
   const res = await fetch(`${BACKEND_URL}/api/auth/github-state`)
@@ -148,8 +149,11 @@ async function backendFetch<T = any>(path: string, init: RequestInit = {}): Prom
   }
   headers.set("Authorization", `Bearer ${jwt}`);
 
+  const timeoutMs = (init as any)?.timeoutMs ?? (path.includes("/api/sync") ? 180000 : 35000);
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(() => {
+    controller.abort(new Error(`AlgoVault server took longer than ${Math.round(timeoutMs / 1000)}s to respond. Please retry.`));
+  }, timeoutMs);
 
   let res: Response;
   try {
@@ -158,6 +162,11 @@ async function backendFetch<T = any>(path: string, init: RequestInit = {}): Prom
       headers,
       signal: controller.signal
     });
+  } catch (fetchErr: any) {
+    if (controller.signal.aborted) {
+      throw new Error(controller.signal.reason?.message || `Request timed out after ${Math.round(timeoutMs / 1000)}s.`);
+    }
+    throw fetchErr;
   } finally {
     clearTimeout(timeoutId);
   }
@@ -171,7 +180,9 @@ async function backendFetch<T = any>(path: string, init: RequestInit = {}): Prom
       retryHeaders.set("Authorization", `Bearer ${refresh.token}`);
       
       const retryController = new AbortController();
-      const retryTimeoutId = setTimeout(() => retryController.abort(), 15000);
+      const retryTimeoutId = setTimeout(() => {
+        retryController.abort(new Error(`AlgoVault server took longer than ${Math.round(timeoutMs / 1000)}s to respond on retry.`));
+      }, timeoutMs);
       try {
         const retryRes = await fetch(`${BACKEND_URL}${path}`, {
           ...init,
@@ -184,6 +195,11 @@ async function backendFetch<T = any>(path: string, init: RequestInit = {}): Prom
           if (!text.trim()) return null as T;
           return JSON.parse(text) as T;
         }
+      } catch (retryErr: any) {
+        if (retryController.signal.aborted) {
+          throw new Error(retryController.signal.reason?.message || `Request timed out after ${Math.round(timeoutMs / 1000)}s on retry.`);
+        }
+        throw retryErr;
       } finally {
         clearTimeout(retryTimeoutId);
       }
@@ -290,13 +306,77 @@ export interface ContestPredictionPayload {
   finishTimeMinutes?: number | null
   currentRating?: number | null
   attendedContestsCount?: number | null
+  forceRefresh?: boolean
 }
 
 export const predictContestBackend = async (payload: ContestPredictionPayload): Promise<any> => {
-  return backendFetch("/api/contests/predict", {
-    method: "POST",
-    body: JSON.stringify(payload)
-  })
+  const jwt = await getValidJwt().catch(() => null);
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (jwt) {
+    headers["Authorization"] = `Bearer ${jwt}`;
+  }
+
+  // 1. Try local dev backend first (instant & unblocked locally), then configured BACKEND_URL
+  const candidateUrls = Array.from(new Set([
+    "http://localhost:8080/api/contests/predict",
+    `${BACKEND_URL}/api/contests/predict`
+  ]));
+
+  for (const url of candidateUrls) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.status !== "UNRATED" && data.source === "ENTRANTHUB") {
+          return data;
+        }
+      }
+    } catch (backendErr) {
+      console.warn(`[AlgoVault] Predict request to ${url} failed or unreachable:`, backendErr);
+    }
+  }
+
+  // 2. Direct EntrantHub fallback (works seamlessly even when Spring backend is stopped)
+  if (payload.contestSlug && payload.username) {
+    try {
+      const match = await fetchEntrantHubPrediction(payload.contestSlug, payload.username);
+      if (match) {
+        return {
+          contestSlug: payload.contestSlug,
+          contestTitle: payload.contestTitle,
+          rank: match.rank,
+          problemsSolved: payload.solved,
+          totalProblems: payload.totalQuestions || 4,
+          finishTimeMinutes: payload.finishTimeMinutes,
+          ratingBefore: match.oldRating,
+          predictedRating: Math.round(match.newRating * 10) / 10,
+          predictedDelta: Math.round(match.deltaRating * 10) / 10,
+          status: "PREDICTED",
+          source: "ENTRANTHUB"
+        };
+      }
+    } catch (directErr) {
+      console.warn("[AlgoVault] Direct EntrantHub lookup failed:", directErr);
+    }
+  }
+
+  return {
+    contestSlug: payload.contestSlug,
+    contestTitle: payload.contestTitle,
+    rank: payload.rank,
+    problemsSolved: payload.solved,
+    totalProblems: payload.totalQuestions || 4,
+    finishTimeMinutes: payload.finishTimeMinutes,
+    ratingBefore: payload.currentRating,
+    predictedRating: payload.currentRating,
+    predictedDelta: null,
+    status: "PREDICTION_PENDING",
+    source: "FALLBACK"
+  };
 }
 
 export const fetchEntrantHubUpcomingBackend = async (): Promise<any> => {

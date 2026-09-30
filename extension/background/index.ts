@@ -1,4 +1,4 @@
-import { fetchUserProfile, fetchSolvedProblems, fetchAllSubmissions, fetchContestHistory, fetchProblemMetadata, fetchUserStatus, fetchContestQuestions, fetchReplayEvents, fetchUpcomingContests, fetchPastContests, fetchLatestAttendedContest } from "../lib/api/leetcode"
+import { fetchUserProfile, fetchSolvedProblems, fetchAllSubmissions, fetchContestHistory, fetchProblemMetadata, fetchUserStatus, fetchContestQuestions, fetchReplayEvents, fetchUpcomingContests, fetchPastContests, fetchLatestAttendedContest, fetchRecentAttendedContests } from "../lib/api/leetcode"
 import { getUserSettings, getUsername, setLastSync, setUsername, storage, getGithubPat, getGithubRepo, getGithubBranch, getGithubAutoSync, setGithubAutoSync, getZerotracData, getZerotracLastFetched, setZerotracData, clearGithubAuth } from "../lib/storage"
 import { commitToGithub, batchCommitToGithub, getExtensionForLanguage, fetchUserGithubProfile } from "../lib/api/github"
 import { type LeetCodeRegion } from "../lib/api/entranthub"
@@ -511,10 +511,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
 
-  if (message.action === "get_latest_attended_contest") {
-    fetchLatestAttendedContest()
-      .then((data) => sendResponse({ ok: true, data }))
-      .catch((err) => sendResponse({ ok: false, error: err.message }))
+  if (message.action === "get_latest_attended_contest" || message.action === "get_recent_attended_contests") {
+    const requestedUsername = typeof message.payload?.username === "string" ? message.payload.username.trim().toLowerCase() : null
+    getUsername().then(async (configuredUsername) => {
+      const currentUname = (configuredUsername || "").trim().toLowerCase()
+      if (requestedUsername && currentUname && requestedUsername !== currentUname) {
+        sendResponse({ ok: true, data: [] })
+        return
+      }
+      const data = await fetchRecentAttendedContests()
+      sendResponse({ ok: true, data })
+    }).catch((err) => sendResponse({ ok: false, error: err.message }))
     return true
   }
 
@@ -656,14 +663,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     
     chrome.storage.local.get([
       "algovault.isZenith",
-      "algovault.zenithGrade",
+      "algovault.zenithRevealed",
       "algovault.zenithReason",
-      "algovault.zenithFocusScore",
+      "algovault.zenithIntent",
       "algovault.problemStartTime",
       ACTIVE_SESSION_KEY
     ], async (res) => {
       const isZenith = !!res["algovault.isZenith"];
-      let helpType: "NONE" | "PENDING_SELF_REPORT" = "PENDING_SELF_REPORT";
+      const isZenithRevealed = !!res["algovault.zenithRevealed"];
+      let helpType: "NONE" | "EDITORIAL" | "PENDING_SELF_REPORT" = "PENDING_SELF_REPORT";
 
       // 1. Extract APSE v2 Practice Telemetry
       let activeSession = await getActiveSessionSafe();
@@ -688,19 +696,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // 2. Extract Zenith Focus Mode Telemetry if active
       if (isZenith) {
         payload.isZenith = true;
-        payload.grade = res["algovault.zenithGrade"] || "S_PLUS";
-        payload.reason = res["algovault.zenithReason"] || "Pure Solve";
-        payload.focusScore = res["algovault.zenithFocusScore"] ?? 100.0;
-        
-        const startTime = res["algovault.problemStartTime"];
-        payload.timeSpentSeconds = startTime 
-          ? Math.max(0, Math.floor((Date.now() - new Date(startTime).getTime()) / 1000))
-          : (payload.focusSeconds || 0);
+        payload.zenithIntent = res["algovault.zenithIntent"] || "SOLO_SOLVE";
+        payload.reason = isZenithRevealed ? "Solutions Unlocked" : (res["algovault.zenithReason"] || "Pure Solve");
+        payload.timeSpentSeconds = payload.focusSeconds || 0;
         payload.codeSubmitted = payload.code || "";
 
         // Reset Zenith state since solve is done
-        chrome.storage.local.set({ "algovault.isZenith": false });
-        helpType = "NONE";
+        chrome.storage.local.set({ "algovault.isZenith": false, "algovault.zenithRevealed": false });
+        helpType = isZenithRevealed ? "EDITORIAL" : "NONE";
       }
 
       // 3. Trigger GitHub sync and archive practice log if Accepted

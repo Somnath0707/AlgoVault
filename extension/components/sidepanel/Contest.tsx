@@ -30,7 +30,7 @@ import {
 import { Card } from "../ui/Card"
 import { fetchContests } from "../../lib/api/backend"
 import { getUsername, setCachedContests, getContestSnapshot, setContestSnapshot } from "../../lib/storage"
-import { loadContestLifecycle, type ContestLifecycleItem } from "../../lib/contest-lifecycle"
+import { loadContestLifecycle, clearAllContestPredictionCaches, type ContestLifecycleItem } from "../../lib/contest-lifecycle"
 import { UpcomingContests } from "./UpcomingContests"
 import { AreaChart, Area, XAxis, YAxis, Tooltip as ChartTooltip, ResponsiveContainer } from "recharts"
 
@@ -261,9 +261,10 @@ export const Contest = () => {
 
   // Badge guide accordion state
   const [showBadgeInfo, setShowBadgeInfo] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const refresh = async (_forcePredictRefresh = false) => {
-    // Only show full loading skeleton on fresh load with no existing data
+  const refresh = async (forcePredictRefresh = false) => {
+    setIsRefreshing(true)
     if (!data || data.length === 0) {
       setLoading(true)
     }
@@ -272,6 +273,10 @@ export const Contest = () => {
       const uname = await getUsername()
       if (!uname) throw new Error("Set your LeetCode username in Settings")
       setUsernameState(uname)
+
+      if (forcePredictRefresh) {
+        await clearAllContestPredictionCaches(uname)
+      }
 
       const profilePromise = new Promise<any>((resolve) =>
         chrome.runtime.sendMessage({ action: "get_user_profile", payload: { username: uname } }, (res) => resolve(res))
@@ -290,7 +295,7 @@ export const Contest = () => {
         localAnalyticsPromise
       ])
 
-      const lifecycle = await loadContestLifecycle(uname, rankingRes)
+      const lifecycle = await loadContestLifecycle(uname, rankingRes, forcePredictRefresh)
 
       setData(lifecycle)
       let resolvedProfile = null
@@ -320,13 +325,19 @@ export const Contest = () => {
       setError(cause instanceof Error ? cause.message : "Could not load contest history")
     } finally {
       setLoading(false)
+      setIsRefreshing(false)
     }
   }
 
   useEffect(() => {
     getContestSnapshot().then((snapshot) => {
       if (snapshot) {
-        if (snapshot.data) setData(snapshot.data)
+        if (snapshot.data) {
+          const sanitized = (snapshot.data as ContestLifecycleItem[]).filter(
+            item => !(item.source === "FALLBACK" || item.rank === 3460 || item.predictedDelta === 1)
+          )
+          setData(sanitized.length > 0 ? sanitized : snapshot.data)
+        }
         if (snapshot.profile) setProfile(snapshot.profile)
         if (snapshot.rankingInfo) setRankingInfo(snapshot.rankingInfo)
         if (snapshot.rankingHistory) setRankingHistory(snapshot.rankingHistory)
@@ -335,7 +346,7 @@ export const Contest = () => {
       }
     })
 
-    void refresh(false)
+    void refresh(true)
     const interval = window.setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return
       void refresh(false)
@@ -623,11 +634,11 @@ export const Contest = () => {
           <span>{data[0]?.refreshedAt ? `Synced ${new Date(data[0].refreshedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : "Contest Data"}</span>
           <button 
             onClick={() => void refresh(true)} 
-            disabled={loading} 
-            title="Refresh contest data" 
-            className="p-1 text-zinc-500 hover:text-zinc-200 disabled:opacity-40"
+            disabled={isRefreshing || loading} 
+            title="Force refresh contest data & live predictions" 
+            className="p-1 text-zinc-500 hover:text-zinc-200 disabled:opacity-40 transition-colors"
           >
-            <RefreshCw size={13} className={loading ? "animate-spin text-amber-400" : ""} />
+            <RefreshCw size={13} className={isRefreshing || loading ? "animate-spin text-amber-400" : ""} />
           </button>
         </div>
 

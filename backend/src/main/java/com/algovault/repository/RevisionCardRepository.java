@@ -27,7 +27,11 @@ public interface RevisionCardRepository extends JpaRepository<RevisionCard, Long
         """)
     List<RevisionCard> findDueByUserIdAndAcceptedSince(Long userId, LocalDateTime now, LocalDateTime since);
 
-    Optional<RevisionCard> findByUserIdAndProblemId(Long userId, Long problemId);
+    Optional<RevisionCard> findFirstByUserIdAndProblemIdOrderByIdDesc(Long userId, Long problemId);
+
+    default Optional<RevisionCard> findByUserIdAndProblemId(Long userId, Long problemId) {
+        return findFirstByUserIdAndProblemIdOrderByIdDesc(userId, problemId);
+    }
     Integer countByUserIdAndNextReviewBefore(Long userId, LocalDateTime date);
     
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"problem"})

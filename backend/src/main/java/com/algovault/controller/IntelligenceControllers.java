@@ -36,9 +36,13 @@ public class IntelligenceControllers {
     public ResponseEntity<ContestPredictionResponse> predictContest(
             @RequestBody ContestPredictionRequest req,
             HttpServletRequest request) {
-        User user = userContextService.resolveUser(request);
-        if (req.getUsername() == null || req.getUsername().isBlank()) {
-            req.setUsername(user.getLcUsername());
+        try {
+            User user = userContextService.resolveUser(request);
+            if ((req.getUsername() == null || req.getUsername().isBlank()) && user != null) {
+                req.setUsername(user.getLcUsername());
+            }
+        } catch (Exception ignored) {
+            // Unauthenticated guest or direct prediction query
         }
         return ResponseEntity.ok(entrantHubService.predictContest(req));
     }

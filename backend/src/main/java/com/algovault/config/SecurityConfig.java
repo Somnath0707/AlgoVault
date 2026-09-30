@@ -28,6 +28,7 @@ public class SecurityConfig {
                 .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/health").permitAll()
                 .requestMatchers("/api/auth/github-state", "/api/auth/github-exchange", "/api/auth/github-token", "/api/auth/guest").permitAll()
+                .requestMatchers("/api/contests/predict", "/api/entranthub/**", "/api/metadata/**").permitAll()
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().authenticated()
             )

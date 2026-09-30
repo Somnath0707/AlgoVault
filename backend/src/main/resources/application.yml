@@ -32,6 +32,10 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/algovault}
     username: ${SPRING_DATASOURCE_USERNAME:algovault}
     password: ${SPRING_DATASOURCE_PASSWORD}
+    hikari:
+      maximum-pool-size: 15
+      minimum-idle: 3
+      connection-timeout: 30000
   jpa:
     hibernate:
       ddl-auto: none
@@ -43,7 +47,6 @@ spring:
     out-of-order: true
   data:
     redis:
-      url: ${REDIS_URL:}
       host: ${SPRING_REDIS_HOST:localhost}
       port: ${SPRING_REDIS_PORT:6379}
       password: ${SPRING_REDIS_PASSWORD:}
