@@ -86,7 +86,12 @@ function verdictFromCode(statusCode?: any, fallback?: string) {
   }
 }
 
+const reportedSlugs = new Set<string>()
+let isCurrentSolveHandled = false
+
 function showPostSolveDialog(titleSlug: string) {
+  if (!titleSlug) return
+  if (reportedSlugs.has(titleSlug)) return
   if (document.getElementById("algovault-post-solve")) return
 
   const wrapper = document.createElement("div")
@@ -111,8 +116,11 @@ function showPostSolveDialog(titleSlug: string) {
   ].join(";")
 
   wrapper.innerHTML = `
-    <div style="font-weight:700;font-size:14px;margin-bottom:12px;color:#f3f4f6;display:flex;align-items:center;gap:6px;">
-      <span style="font-size:16px;">🏆</span> Problem Solved! How clean was it?
+    <div style="position:relative;margin-bottom:12px;padding-right:20px;">
+      <div style="font-weight:700;font-size:14px;color:#f3f4f6;display:flex;align-items:center;gap:6px;">
+        <span style="font-size:16px;">🏆</span> Problem Solved! How clean was it?
+      </div>
+      <button id="algovault-post-solve-close" style="position:absolute;top:-4px;right:-4px;background:none;border:none;color:#9ca3af;font-size:14px;cursor:pointer;padding:4px;line-height:1;transition:color 0.2s;" title="Dismiss">✕</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
       <button data-help="NONE" style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;background:rgba(31, 41, 55, 0.75);color:#e5e7eb;padding:10px 8px;font-weight:600;font-size:12px;cursor:pointer;transition:all 0.2s;outline:none;">Solo</button>
@@ -122,6 +130,18 @@ function showPostSolveDialog(titleSlug: string) {
     </div>
   `
 
+  const closeDialog = () => {
+    reportedSlugs.add(titleSlug)
+    wrapper.style.opacity = "0"
+    wrapper.style.transform = "scale(0.95)"
+    setTimeout(() => wrapper.remove(), 300)
+  }
+
+  const closeBtn = wrapper.querySelector("#algovault-post-solve-close")
+  if (closeBtn) {
+    closeBtn.addEventListener("click", closeDialog)
+  }
+
   const buttonColors: Record<string, string> = {
     NONE: "#10b981",       // emerald green
     HINT: "#f59e0b",       // amber orange
@@ -129,7 +149,7 @@ function showPostSolveDialog(titleSlug: string) {
     EXTERNAL: "#8b5cf6"    // royal purple
   }
 
-  wrapper.querySelectorAll("button").forEach((button) => {
+  wrapper.querySelectorAll("button[data-help]").forEach((button) => {
     const el = button as HTMLButtonElement
     const helpType = el.dataset.help || "NONE"
     const accentColor = buttonColors[helpType] || "#3b82f6"
@@ -151,14 +171,13 @@ function showPostSolveDialog(titleSlug: string) {
     })
 
     el.addEventListener("click", () => {
+      reportedSlugs.add(titleSlug)
       chrome.runtime.sendMessage({
         action: "post_solve_report",
         payload: { titleSlug, helpType }
       })
       chrome.runtime.sendMessage({ action: "session_finish_v2" })
-      wrapper.style.opacity = "0"
-      wrapper.style.transform = "scale(0.95)"
-      setTimeout(() => wrapper.remove(), 300)
+      closeDialog()
     })
   })
 
@@ -174,12 +193,16 @@ function showPostSolveDialog(titleSlug: string) {
 let lastHandledAcTime = 0
 
 function handleAcceptedVerdict(detail?: any) {
-  const now = Date.now()
-  if (now - lastHandledAcTime < 8000) return
-  lastHandledAcTime = now
-
   const slug = currentSlug()
   if (!slug) return
+
+  // Prevent multiple executions for the same solve
+  if (isCurrentSolveHandled) return
+  const now = Date.now()
+  if (now - lastHandledAcTime < 15000) return
+  lastHandledAcTime = now
+  isCurrentSolveHandled = true
+  lastSubmitClickTime = 0 // Disarm both Path 1 and Path 2 immediately!
 
   const code = detail?.code || editorCodeFallback()
   const codeLang = detail?.codeLang || detail?.lang || languageFallback()
@@ -226,6 +249,11 @@ function handleAcceptedVerdict(detail?: any) {
 let lastSubmitClickTime = 0
 const sessionNonce = "av_" + Math.random().toString(36).slice(2) + Date.now().toString(36)
 
+function resetSubmitState() {
+  isCurrentSolveHandled = false
+  lastSubmitClickTime = Date.now()
+}
+
 function sendNonceHandshake() {
   window.dispatchEvent(new CustomEvent("__ALGOVAULT_HANDSHAKE__", { detail: { nonce: sessionNonce } }))
 }
@@ -236,7 +264,7 @@ window.addEventListener("__ALGOVAULT_INTERCEPTOR_READY__", () => {
 })
 
 window.addEventListener("__ALGOVAULT_SUBMIT_DETECTED__", () => {
-  lastSubmitClickTime = Date.now()
+  resetSubmitState()
 })
 
 // ─── Path 1: Listen for postMessage from MAIN world interceptor ───────
@@ -325,10 +353,11 @@ document.addEventListener("click", (e) => {
     btn.textContent?.trim().toLowerCase() === "run code"
 
   if (isSubmitBtn) {
-    lastSubmitClickTime = Date.now()
+    resetSubmitState()
     console.log("[AlgoVault Relay] User clicked Submit button at", lastSubmitClickTime)
   } else if (isRunBtn) {
     lastSubmitClickTime = 0
+    isCurrentSolveHandled = false
     console.log("[AlgoVault Relay] User clicked Run button; disallowing solve trigger")
   }
 }, true)
@@ -336,7 +365,7 @@ document.addEventListener("click", (e) => {
 // Keyboard shortcut (Ctrl+Enter or Cmd+Enter initiates Submit on LeetCode)
 document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !e.shiftKey) {
-    lastSubmitClickTime = Date.now()
+    resetSubmitState()
   }
 }, true)
 
@@ -348,6 +377,11 @@ function setupDomAcObserver() {
   let debounceTimeout: any = null
 
   const checkDomForAc = () => {
+    // 0. HARD GUARD: If already handled, never re-check or re-submit
+    if (isCurrentSolveHandled) {
+      return
+    }
+
     // 1. HARD GUARD: Must have clicked Submit within the last 45 seconds
     const timeSinceSubmit = Date.now() - lastSubmitClickTime
     if (timeSinceSubmit > 45000 || lastSubmitClickTime === 0) {
@@ -396,7 +430,7 @@ function setupDomAcObserver() {
     // HARD GUARD: Only inspect DOM if a submission was actually made within the last 45s.
     // Completely eliminates any lag/overhead while typing or scrolling in Monaco editor!
     const timeSinceSubmit = Date.now() - lastSubmitClickTime
-    if (lastSubmitClickTime === 0 || timeSinceSubmit > 45000) {
+    if (isCurrentSolveHandled || lastSubmitClickTime === 0 || timeSinceSubmit > 45000) {
       return
     }
 

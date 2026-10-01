@@ -78,4 +78,7 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
 
     @Query("select distinct s.submittedAt from Submission s where s.user.id = :userId and s.verdict = 'Accepted' and s.submittedAt >= :since order by s.submittedAt desc")
     List<LocalDateTime> findAcceptedDatesSinceDesc(Long userId, LocalDateTime since);
+
+    @Query("select count(s) > 0 from Submission s where s.user.id = :userId and s.problem.id = :problemId and s.verdict = :verdict and s.submittedAt >= :start and s.submittedAt <= :end")
+    boolean existsRecentDuplicate(Long userId, Long problemId, String verdict, LocalDateTime start, LocalDateTime end);
 }

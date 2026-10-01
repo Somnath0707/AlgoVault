@@ -178,6 +178,10 @@ public class SessionService {
         if (!exists) {
             exists = submissionRepository.existsByTighterTuple(user.getId(), problem.getId(), verdict, submittedAt, request.getRuntimeMs());
         }
+        if (!exists) {
+            // Deduplicate rapid realtime resubmissions within a 90-second window
+            exists = submissionRepository.existsRecentDuplicate(user.getId(), problem.getId(), verdict, submittedAt.minusSeconds(90), submittedAt.plusSeconds(90));
+        }
 
         Submission submission = null;
         if (!exists) {

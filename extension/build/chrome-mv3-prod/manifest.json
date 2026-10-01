@@ -39,6 +39,18 @@
         "https://leetcode.com/contest/*/problems/*"
       ],
       "js": [
+        "main-world-interceptor.40ff4bf7.js"
+      ],
+      "run_at": "document_start",
+      "css": [],
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://leetcode.com/problems/*",
+        "https://leetcode.com/contest/*/problems/*"
+      ],
+      "js": [
         "ZenithSystemOverlay.507c4402.js"
       ],
       "run_at": "document_idle",
@@ -61,11 +73,10 @@
         "https://leetcode.com/contest/*/problems/*"
       ],
       "js": [
-        "main-world-interceptor.40ff4bf7.js"
+        "session-tracker.6f49f5d5.js"
       ],
-      "run_at": "document_start",
-      "css": [],
-      "world": "MAIN"
+      "run_at": "document_idle",
+      "css": []
     },
     {
       "matches": [
@@ -73,7 +84,7 @@
         "https://leetcode.com/contest/*/problems/*"
       ],
       "js": [
-        "session-tracker.6f49f5d5.js"
+        "submission-relay.f3ab66a7.js"
       ],
       "run_at": "document_idle",
       "css": []
@@ -95,9 +106,8 @@
         "https://leetcode.com/contest/*/problems/*"
       ],
       "js": [
-        "submission-relay.f3ab66a7.js"
+        "floating-button.124de113.js"
       ],
-      "run_at": "document_idle",
       "css": []
     },
     {
@@ -116,16 +126,6 @@
       ],
       "js": [
         "solve-celebration.e2d6314d.js"
-      ],
-      "css": []
-    },
-    {
-      "matches": [
-        "https://leetcode.com/problems/*",
-        "https://leetcode.com/contest/*/problems/*"
-      ],
-      "js": [
-        "floating-button.124de113.js"
       ],
       "css": []
     },
@@ -160,19 +160,19 @@
     },
     {
       "matches": [
-        "https://leetcode.com/*"
-      ],
-      "resources": [
-        "profile-overlay.95bad065.css"
-      ]
-    },
-    {
-      "matches": [
         "https://leetcode.com/*",
         "https://leetcode.com/*"
       ],
       "resources": [
-        "profile-overlay.95bad065.css"
+        "floating-button.95bad065.css"
+      ]
+    },
+    {
+      "matches": [
+        "https://leetcode.com/*"
+      ],
+      "resources": [
+        "floating-button.95bad065.css"
       ]
     }
   ]
