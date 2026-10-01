@@ -26,7 +26,7 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/health").permitAll()
+                .requestMatchers("/health", "/error").permitAll()
                 .requestMatchers("/api/auth/github-state", "/api/auth/github-exchange", "/api/auth/github-token", "/api/auth/guest").permitAll()
                 .requestMatchers("/api/contests/predict", "/api/entranthub/**", "/api/metadata/**").permitAll()
                 .requestMatchers("/api/**").authenticated()

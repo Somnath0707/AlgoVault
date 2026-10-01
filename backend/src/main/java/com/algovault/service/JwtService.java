@@ -75,6 +75,8 @@ public class JwtService {
         }
     }
 
+    private final java.util.concurrent.ConcurrentHashMap<String, Long> inMemoryRevokedTokens = new java.util.concurrent.ConcurrentHashMap<>();
+
     /**
      * JWTs are stateless, so logout keeps the token id in Redis until it would
      * naturally expire. This also makes an explicit logout effective if a
@@ -87,21 +89,35 @@ public class JwtService {
         if (tokenId == null || expirationDate == null) return;
         long remainingMs = expirationDate.getTime() - System.currentTimeMillis();
         if (remainingMs > 0) {
-            redisTemplate.opsForValue().set("auth:revoked:" + tokenId, Boolean.TRUE, Duration.ofMillis(remainingMs));
+            inMemoryRevokedTokens.put(tokenId, expirationDate.getTime());
+            try {
+                redisTemplate.opsForValue().set("auth:revoked:" + tokenId, Boolean.TRUE, Duration.ofMillis(remainingMs));
+            } catch (Exception e) {
+                log.warn("Redis unavailable for token revocation; stored in-memory: {}", e.getMessage());
+            }
         }
     }
 
     public boolean isTokenRevoked(String token) {
+        String tokenId;
         try {
-            String tokenId = extractAllClaims(token).getId();
+            tokenId = extractAllClaims(token).getId();
             if (tokenId == null) return false;
+        } catch (Exception e) {
+            return true;
+        }
+
+        Long localRevocation = inMemoryRevokedTokens.get(tokenId);
+        if (localRevocation != null) {
+            if (localRevocation > System.currentTimeMillis()) return true;
+            inMemoryRevokedTokens.remove(tokenId);
+        }
+
+        try {
             return Boolean.TRUE.equals(redisTemplate.opsForValue().get("auth:revoked:" + tokenId));
         } catch (Exception e) {
-            // Logout revocation is a security control. Redis is already a
-            // required dependency for OAuth state, so do not silently accept
-            // a previously revoked token while that dependency is unhealthy.
-            log.error("Redis revocation check unavailable; rejecting token: {}", e.getMessage());
-            return true;
+            log.warn("Redis revocation check unavailable ({}). Using in-memory revocation status.", e.getMessage());
+            return false;
         }
     }
 

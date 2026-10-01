@@ -47,9 +47,10 @@ spring:
     out-of-order: true
   data:
     redis:
-      host: ${SPRING_REDIS_HOST:localhost}
-      port: ${SPRING_REDIS_PORT:6379}
-      password: ${SPRING_REDIS_PASSWORD:}
+      url: ${REDIS_URL:}
+      host: ${SPRING_REDIS_HOST:${REDISHOST:localhost}}
+      port: ${SPRING_REDIS_PORT:${REDISPORT:6379}}
+      password: ${SPRING_REDIS_PASSWORD:${REDISPASSWORD:}}
       ssl:
         enabled: ${SPRING_REDIS_SSL:false}
       timeout: 3000ms
