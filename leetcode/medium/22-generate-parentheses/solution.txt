@@ -1,0 +1,26 @@
+n , int close , StringBuilder str ,  int n){
+        if(close > open) return ; 
+        if(open > n || close > n ) return ; 
+        if(open == n && close == n){
+            list.add(str.toString());
+            return ; 
+        }
+            str.append(')');
+            f(open , close+1 , str , n); 
+            str.setLength(str.length()-1);
+            // int newClose = close-1; 
+
+            str.append('(');
+            f(open+1 , close , str , n); 
+            str.setLength(str.length()-1);
+
+            
+        
+        return ; 
+    }
+    public List<String> generateParenthesis(int n) {
+        list = new ArrayList<>(); 
+         f(0 , 0 , new StringBuilder() ,  n); 
+         return list; 
+    }
+}

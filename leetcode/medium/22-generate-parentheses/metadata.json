@@ -1,0 +1,25 @@
+{
+  "title": "Generate Parentheses",
+  "titleSlug": "generate-parentheses",
+  "frontendQuestionId": "22",
+  "leetcodeUrl": "https://leetcode.com/problems/generate-parentheses/",
+  "difficulty": "Medium",
+  "topics": [
+    "String",
+    "Dynamic Programming",
+    "Backtracking",
+    "Bracket Sequences"
+  ],
+  "language": "Unknown",
+  "verdict": "Accepted",
+  "submissionId": null,
+  "submittedAt": "2026-10-02T03:18:56.834Z",
+  "runtimeMs": null,
+  "memoryKb": null,
+  "totalCorrect": null,
+  "totalTestcases": null,
+  "helpType": "NONE",
+  "helpLabel": "Solved solo",
+  "focusSeconds": null,
+  "syncedAt": "2026-10-02T03:19:38.051Z"
+}
