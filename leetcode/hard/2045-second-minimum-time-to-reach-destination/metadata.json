@@ -1,0 +1,26 @@
+{
+  "title": "Second Minimum Time to Reach Destination",
+  "titleSlug": "second-minimum-time-to-reach-destination",
+  "frontendQuestionId": "2045",
+  "leetcodeUrl": "https://leetcode.com/problems/second-minimum-time-to-reach-destination/",
+  "difficulty": "Hard",
+  "topics": [
+    "Breadth-First Search",
+    "Graph Theory",
+    "Shortest Path",
+    "Dijkstra's Algorithm",
+    "K Shortest Path"
+  ],
+  "language": "Unknown",
+  "verdict": "Accepted",
+  "submissionId": null,
+  "submittedAt": "2026-10-02T03:58:59.265Z",
+  "runtimeMs": null,
+  "memoryKb": null,
+  "totalCorrect": null,
+  "totalTestcases": null,
+  "helpType": "PENDING_SELF_REPORT",
+  "helpLabel": "Pending self report",
+  "focusSeconds": null,
+  "syncedAt": "2026-10-02T03:59:01.399Z"
+}
