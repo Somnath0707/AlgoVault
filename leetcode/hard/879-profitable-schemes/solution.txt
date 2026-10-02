@@ -1,0 +1,18 @@
+    int newTotal = totalPeps + groups[i]; 
+        int newProfit = Math.min(minProfits , profit + profits[i]); 
+
+        take = (take +  f(i+1 , newTotal , newProfit , n)) % mod;
+
+        skip = (skip + f(i+1 , totalPeps , profit , n)) % mod; 
+
+        return dp[i][totalPeps][profit] = (take + skip )% mod ;
+    }
+    public int profitableSchemes(int n, int minProfit, int[] group, int[] profit) {
+        // states : first is i , total peps , profit 
+        dp = new Integer[group.length][n+1][101];
+        groups = group ; 
+        profits = profit; 
+        minProfits = minProfit; 
+        return f(0 , 0 , 0 , n );
+    }
+}
