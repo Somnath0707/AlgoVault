@@ -1,0 +1,25 @@
+{
+  "title": "Shortest Path to Get All Keys",
+  "titleSlug": "shortest-path-to-get-all-keys",
+  "frontendQuestionId": "864",
+  "leetcodeUrl": "https://leetcode.com/problems/shortest-path-to-get-all-keys/",
+  "difficulty": "Hard",
+  "topics": [
+    "Array",
+    "Bit Manipulation",
+    "Breadth-First Search",
+    "Matrix"
+  ],
+  "language": "Unknown",
+  "verdict": "Accepted",
+  "submissionId": null,
+  "submittedAt": "2026-10-03T13:17:13.160Z",
+  "runtimeMs": null,
+  "memoryKb": null,
+  "totalCorrect": null,
+  "totalTestcases": null,
+  "helpType": "NONE",
+  "helpLabel": "Solved solo",
+  "focusSeconds": null,
+  "syncedAt": "2026-10-03T13:17:17.427Z"
+}

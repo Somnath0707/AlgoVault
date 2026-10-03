@@ -1,0 +1,36 @@
+      {-1,0},
+            {0,1},
+            {0,-1}
+        };
+
+        boolean vis[][][] = new boolean[n][m][1 << 6];
+        Queue<int[]> q= new LinkedList<>(); 
+
+        // i , j , newMask , dist
+        q.offer(new int[]{start[0] , start[1] , 0 , 0 });
+        vis[start[0]][start[1]][0] = true; 
+
+        while(!q.isEmpty()){
+            int temp[] = q.poll(); 
+
+            int row = temp[0]; 
+            int col = temp[1]; 
+            int currMask = temp[2]; 
+            int currDist = temp[3]; 
+
+            if(currMask == mask) return currDist; 
+
+            for(int d[] : dir){
+                int nr = row + d[0]; 
+                int nc = col + d[1]; 
+
+                if(nr < 0 || nc < 0 || nr >= n || nc >= m || grid[nr].charAt(nc) == '#') continue;
+
+                char curr = grid[nr].charAt(nc);
+                int newMask = currMask;
+
+                if(curr >= 'a' && curr <= 'f'){
+                    newMask |= (1 << (curr-'a'));
+                }
+
+                else if(c
