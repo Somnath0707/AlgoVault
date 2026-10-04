@@ -1,0 +1,2 @@
+AlgoVault could not capture source code for this accepted event.
+The problem, telemetry, and self-report metadata are still recorded in README.md and metadata.json.
