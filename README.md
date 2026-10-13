@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="readme-images/logo.png" alt="AlgoVault Mascot Logo" width="160" />
+  <img src="readme-images/logo.png" alt="AlgoVault Mascot Logo" width="220" />
 </p>
 
 <h1 align="center">AlgoVault</h1>
